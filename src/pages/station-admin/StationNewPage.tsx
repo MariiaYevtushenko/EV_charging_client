@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useStations } from '../../context/StationsContext';
 import type { StationPort, StationStatus } from '../../types/station';
 import StationPortsEditor, { emptyPort } from '../../components/station-admin/StationPortsEditor';
@@ -20,6 +20,8 @@ const MAP_HEIGHT_CLASS =
 export default function StationNewPage() {
   const { addStation, uniqueCities } = useStations();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const dashBase = pathname.startsWith('/admin-dashboard') ? '/admin-dashboard' : '/station-dashboard';
 
   const [name, setName] = useState('');
   const [city, setCity] = useState('Львів');
@@ -102,14 +104,14 @@ export default function StationNewPage() {
       energyByHour: Array(24).fill(0),
       ports: ports.map((p) => ({ ...p, id: p.id || `p-${Math.random().toString(36).slice(2)}` })),
     });
-    navigate(`/station-dashboard/stations/${station.id}`);
+    navigate(`${dashBase}/stations/${station.id}`);
   };
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <div>
         <Link
-          to="/station-dashboard/stations"
+          to={`${dashBase}/stations`}
           className="text-sm font-medium text-green-600 hover:text-green-700"
         >
           ← До списку станцій
@@ -293,7 +295,7 @@ export default function StationNewPage() {
 
             <div className="flex flex-wrap gap-3 border-t border-gray-100 pt-6">
               <PrimaryButton type="submit">Створити станцію</PrimaryButton>
-              <OutlineButton type="button" onClick={() => navigate('/station-dashboard/stations')}>
+              <OutlineButton type="button" onClick={() => navigate(`${dashBase}/stations`)}>
                 Скасувати
               </OutlineButton>
             </div>

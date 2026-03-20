@@ -8,8 +8,20 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import Login from "./pages/auth/Login"
 import Signup from './pages/auth/SignUp';
 import UserDashboard from './pages/dashboard/UserDashboard';
-import AdminDashboard from './pages/dashboard/AdminDashboard';
 import StationAdminLayout from './layouts/StationAdminLayout';
+import GlobalAdminLayout from './layouts/GlobalAdminLayout';
+import { GlobalAdminProvider } from './context/GlobalAdminContext';
+import GlobalAdminHome from './pages/global-admin/GlobalAdminHome';
+import GlobalStationsListPage from './pages/global-admin/GlobalStationsListPage';
+import GlobalStationDetailPage from './pages/global-admin/GlobalStationDetailPage';
+import GlobalUsersPage from './pages/global-admin/GlobalUsersPage';
+import GlobalUserDetailPage from './pages/global-admin/GlobalUserDetailPage';
+import GlobalUserEditPage from './pages/global-admin/GlobalUserEditPage';
+import GlobalPaymentsPage from './pages/global-admin/GlobalPaymentsPage';
+import GlobalBookingsPage from './pages/global-admin/GlobalBookingsPage';
+import GlobalAnalyticsPage from './pages/global-admin/GlobalAnalyticsPage';
+import GlobalTariffsPage from './pages/global-admin/GlobalTariffsPage';
+import GlobalAdminProfilePage from './pages/global-admin/GlobalAdminProfilePage';
 import StationAdminHome from './pages/station-admin/StationAdminHome';
 import StationsListPage from './pages/station-admin/StationsListPage';
 import StationDetailPage from './pages/station-admin/StationDetailPage';
@@ -65,7 +77,29 @@ function App() {
 
           {/* Маршрути для Глобального Адміна */}
           <Route element={<ProtectedRoute allowedRoles={['GLOBAL_ADMIN']} />}>
-            <Route path="/admin-dashboard" element={<AdminDashboard />} />
+            <Route
+              path="/admin-dashboard"
+              element={
+                <StationsProvider>
+                  <GlobalAdminProvider>
+                    <GlobalAdminLayout />
+                  </GlobalAdminProvider>
+                </StationsProvider>
+              }
+            >
+              <Route index element={<GlobalAdminHome />} />
+              <Route path="stations" element={<GlobalStationsListPage />} />
+              <Route path="stations/new" element={<StationNewPage />} />
+              <Route path="stations/:stationId" element={<GlobalStationDetailPage />} />
+              <Route path="users" element={<GlobalUsersPage />} />
+              <Route path="users/:userId" element={<GlobalUserDetailPage />} />
+              <Route path="users/:userId/edit" element={<GlobalUserEditPage />} />
+              <Route path="payments" element={<GlobalPaymentsPage />} />
+              <Route path="bookings" element={<GlobalBookingsPage />} />
+              <Route path="analytics" element={<GlobalAnalyticsPage />} />
+              <Route path="tariffs" element={<GlobalTariffsPage />} />
+              <Route path="profile" element={<GlobalAdminProfilePage />} />
+            </Route>
           </Route>
 
           {/* Редирект за замовчуванням */}

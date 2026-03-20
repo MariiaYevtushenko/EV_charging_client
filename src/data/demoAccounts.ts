@@ -10,6 +10,7 @@ export const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
     id: 'demo-global-admin',
     name: 'Глобальний адмін',
     role: 'GLOBAL_ADMIN',
+    balance: 32450,
   },
   'station_admin@test.com': {
     id: 'demo-station-admin',
