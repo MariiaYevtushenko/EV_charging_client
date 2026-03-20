@@ -3,10 +3,10 @@ import { useAuth } from '../context/AuthContext';
 import { useUserNotifications } from '../context/UserNotificationsContext';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+  `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
     isActive
       ? 'bg-green-600 text-white shadow-md shadow-green-600/25'
-      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+      : 'text-gray-600 hover:bg-emerald-50/90 hover:text-gray-900 hover:shadow-sm'
   }`;
 
 function BoltIcon({ className }: { className?: string }) {
@@ -150,13 +150,13 @@ export default function UserPortalLayout() {
       : '—';
 
   return (
-    <div className="flex h-dvh max-h-dvh overflow-hidden bg-[#f2f2f7] text-gray-900 antialiased">
-      <aside className="flex h-full w-64 shrink-0 flex-col overflow-y-auto border-r border-gray-200/80 bg-white px-4 py-6 shadow-sm">
+    <div className="flex h-dvh max-h-dvh overflow-hidden bg-transparent text-gray-900 antialiased">
+      <aside className="flex h-full w-64 shrink-0 flex-col overflow-y-auto border-r border-emerald-200/60 bg-white px-4 py-6 shadow-sm">
         <Link
           to="/dashboard"
-          className="mb-10 flex items-center gap-3 rounded-xl px-2 py-1.5 -mx-1 transition hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+          className="mb-10 flex items-center gap-3 rounded-xl px-2 py-1.5 -mx-1 transition hover:bg-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
         >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-green-100 text-green-600">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-green-600 text-white shadow-md shadow-green-600/25">
             <BoltIcon className="h-6 w-6" />
           </div>
           <div className="min-w-0 text-left">
@@ -214,14 +214,14 @@ export default function UserPortalLayout() {
         <button
           type="button"
           onClick={handleLogout}
-          className="mt-4 rounded-xl border border-gray-200 px-3 py-2.5 text-left text-sm font-medium text-gray-600 transition hover:bg-gray-50"
+          className="mt-4 rounded-xl border border-emerald-200/80 bg-white/70 px-3 py-2.5 text-left text-sm font-medium text-gray-600 shadow-sm transition hover:border-emerald-300 hover:bg-white hover:text-gray-900"
         >
           Вийти
         </button>
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="z-10 flex h-16 shrink-0 items-center gap-4 border-b border-gray-200/80 bg-white/95 px-6 backdrop-blur-md">
+        <header className="z-10 flex h-16 shrink-0 items-center gap-4 border-b border-emerald-100/90 bg-white/90 px-6 shadow-sm shadow-emerald-900/5 backdrop-blur-md">
           <div className="relative max-w-xl flex-1">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -236,7 +236,7 @@ export default function UserPortalLayout() {
             <input
               type="search"
               placeholder="Знайти адресу або станцію…"
-              className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-500/20"
+              className="w-full rounded-2xl border border-emerald-100/90 bg-emerald-50/40 py-2.5 pl-10 pr-4 text-sm outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:shadow-[0_0_0_3px_rgba(34,197,94,0.15)] focus:ring-0"
             />
           </div>
           <div className="ml-auto flex items-center gap-2 sm:gap-4">
@@ -246,7 +246,7 @@ export default function UserPortalLayout() {
             </div>
             <Link
               to="/dashboard/notifications"
-              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 text-gray-600 shadow-sm transition hover:border-green-200 hover:bg-emerald-50/60 hover:text-green-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-100/90 bg-white/90 text-gray-600 shadow-sm shadow-emerald-900/5 transition hover:border-emerald-300 hover:bg-emerald-50/80 hover:text-green-800 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
               title="Сповіщення"
             >
               <BellIcon className="h-5 w-5" />
@@ -258,7 +258,7 @@ export default function UserPortalLayout() {
             </Link>
             <Link
               to="/dashboard/profile"
-              className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 text-sm font-bold text-white shadow-md shadow-green-600/30 ring-2 ring-white transition hover:ring-green-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-green-400"
+              className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-green-600 text-sm font-bold text-white shadow-md shadow-green-600/25 ring-2 ring-white transition hover:bg-green-700 hover:ring-green-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-green-400"
             >
               {user?.avatarUrl ? (
                 <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
@@ -269,7 +269,7 @@ export default function UserPortalLayout() {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-6">
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-6 lg:p-8">
           <Outlet />
         </main>
       </div>

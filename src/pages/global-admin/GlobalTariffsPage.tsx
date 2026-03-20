@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useGlobalAdmin } from '../../context/GlobalAdminContext';
 import type { TariffPlan } from '../../types/globalAdmin';
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
+import { appInputCompactClass } from '../../components/station-admin/formStyles';
 
 function TariffEditor({
   plan,
@@ -46,8 +47,7 @@ function TariffEditor({
     window.setTimeout(() => setSaved(false), 2000);
   };
 
-  const inputClass =
-    'mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-500/20';
+  const fieldClass = `mt-1 ${appInputCompactClass}`;
 
   return (
     <AppCard className="space-y-4">
@@ -61,11 +61,11 @@ function TariffEditor({
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="text-sm font-medium text-gray-700">Назва плану</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+          <input value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
         </div>
         <div>
           <label className="text-sm font-medium text-gray-700">Станцій (демо)</label>
-          <input value={stationsCount} onChange={(e) => setStationsCount(e.target.value)} className={inputClass} />
+          <input value={stationsCount} onChange={(e) => setStationsCount(e.target.value)} className={fieldClass} />
         </div>
       </div>
 
@@ -73,15 +73,15 @@ function TariffEditor({
         <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">☀ Денний тариф</p>
           <p className="mt-2 text-sm text-gray-600">грн/кВт·год</p>
-          <input value={dayPrice} onChange={(e) => setDayPrice(e.target.value)} className={inputClass} />
+          <input value={dayPrice} onChange={(e) => setDayPrice(e.target.value)} className={fieldClass} />
           <div className="mt-3 grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-gray-500">Початок</label>
-              <input value={dayStart} onChange={(e) => setDayStart(e.target.value)} className={inputClass} />
+              <input value={dayStart} onChange={(e) => setDayStart(e.target.value)} className={fieldClass} />
             </div>
             <div>
               <label className="text-xs text-gray-500">Кінець</label>
-              <input value={dayEnd} onChange={(e) => setDayEnd(e.target.value)} className={inputClass} />
+              <input value={dayEnd} onChange={(e) => setDayEnd(e.target.value)} className={fieldClass} />
             </div>
           </div>
         </div>
@@ -103,7 +103,7 @@ function TariffEditor({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
-          className={`${inputClass} resize-none`}
+          className={`${fieldClass} resize-none`}
         />
       </div>
 
@@ -111,7 +111,7 @@ function TariffEditor({
         <p className="text-sm text-emerald-700">Збережено локально (демо).</p>
       ) : null}
 
-      <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+      <div className="flex flex-wrap gap-2 border-t border-emerald-100/80 pt-4">
         <PrimaryButton type="button" onClick={handleSave}>
           Зберегти план
         </PrimaryButton>

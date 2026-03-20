@@ -102,7 +102,7 @@ export default function GlobalUserDetailPage() {
         </Link>
         <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 items-start gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 text-xl font-bold text-white shadow-lg">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-green-600 text-xl font-bold text-white shadow-md">
               {user.avatarUrl ? (
                 <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
               ) : (

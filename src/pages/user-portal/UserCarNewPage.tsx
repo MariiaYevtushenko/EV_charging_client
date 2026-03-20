@@ -2,13 +2,10 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUserPortal } from '../../context/UserPortalContext';
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
-import { appSelectClass } from '../../components/station-admin/formStyles';
+import { appFormInputClass, appSelectClass } from '../../components/station-admin/formStyles';
 import { DEFAULT_CAR_IMAGE, suggestCarImageByModel } from '../../utils/carImageSuggest';
 
 const CONNECTORS = ['Type 2', 'CCS2', 'CHAdeMO'] as const;
-
-const inputClass =
-  'mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-500/20';
 
 export default function UserCarNewPage() {
   const { addCar } = useUserPortal();
@@ -66,7 +63,7 @@ export default function UserCarNewPage() {
               value={model}
               onChange={(e) => setModel(e.target.value)}
               placeholder="Наприклад, Tesla Model 3"
-              className={inputClass}
+              className={appFormInputClass}
             />
           </div>
           <div>
@@ -78,7 +75,7 @@ export default function UserCarNewPage() {
               value={plate}
               onChange={(e) => setPlate(e.target.value)}
               placeholder="KA 0000 AA"
-              className={inputClass}
+              className={appFormInputClass}
             />
           </div>
           <div>
@@ -89,7 +86,7 @@ export default function UserCarNewPage() {
               id="new-car-conn"
               value={connector}
               onChange={(e) => setConnector(e.target.value)}
-              className={`${inputClass} ${appSelectClass}`}
+              className={`mt-1 ${appSelectClass}`}
             >
               {CONNECTORS.map((c) => (
                 <option key={c} value={c}>
@@ -108,7 +105,7 @@ export default function UserCarNewPage() {
               onChange={(e) => setImageUrl(e.target.value)}
               placeholder="https://…"
               type="url"
-              className={inputClass}
+              className={appFormInputClass}
             />
             <div className="mt-2">
               <OutlineButton type="button" className="!text-xs" onClick={handleSuggest}>

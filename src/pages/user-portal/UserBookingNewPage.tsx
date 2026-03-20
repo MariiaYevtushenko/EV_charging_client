@@ -5,7 +5,13 @@ import { useStations } from '../../context/StationsContext';
 import { useUserPortal } from '../../context/UserPortalContext';
 import StationMap from '../../components/station-admin/StationMap';
 import { AppCard, PrimaryButton } from '../../components/station-admin/Primitives';
-import { appSelectClass } from '../../components/station-admin/formStyles';
+import {
+  appChipIdleClass,
+  appChipSelectedClass,
+  appChipSlotAvailableClass,
+  appSecondaryCtaClass,
+  appSelectFilterClass,
+} from '../../components/station-admin/formStyles';
 import type { UserBookingPricingModel } from '../../types/userPortal';
 import {
   buildHalfHourStarts,
@@ -47,8 +53,6 @@ function fmtTime(ms: number) {
 function dayLabel(d: Date) {
   return d.toLocaleDateString('uk-UA', { weekday: 'short', day: 'numeric', month: 'short' });
 }
-
-const filterSelectClass = `w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-500/20 ${appSelectClass}`;
 
 export default function UserBookingNewPage() {
   const navigate = useNavigate();
@@ -146,7 +150,7 @@ export default function UserBookingNewPage() {
   return (
     <div className="space-y-6">
       <div>
-        <Link to="/dashboard/bookings" className="text-sm font-medium text-green-600 hover:text-green-700">
+        <Link to="/dashboard/bookings" className="text-sm font-medium text-green-700 transition hover:text-emerald-800">
           ← До бронювань
         </Link>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-gray-900">Нове бронювання</h1>
@@ -158,7 +162,7 @@ export default function UserBookingNewPage() {
       <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
         <aside className="w-full shrink-0 xl:order-2 xl:sticky xl:top-0 xl:w-[420px] xl:self-start">
           <AppCard className="space-y-5 xl:max-h-[calc(100dvh-8rem)] xl:overflow-y-auto">
-            <div className="border-b border-gray-100 pb-3">
+            <div className="border-b border-emerald-100/80 pb-3">
               <h2 className="text-base font-bold text-gray-900">Параметри бронювання</h2>
               <p className="mt-0.5 text-xs text-gray-500">
                 Порт, дата, тривалість, час і тип оплати — в одному блоці
@@ -178,7 +182,7 @@ export default function UserBookingNewPage() {
                   setSelectedId(null);
                   setSlotStartMs(null);
                 }}
-                className={`mt-1.5 ${filterSelectClass}`}
+                className={`mt-1.5 ${appSelectFilterClass}`}
               >
                 {connectorOptions.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -190,7 +194,7 @@ export default function UserBookingNewPage() {
 
             {selected ? (
               <>
-                <div className="rounded-xl border border-gray-100 bg-gray-50/90 p-3">
+                <div className="rounded-xl border border-emerald-100/80 bg-emerald-50/40 p-3 shadow-sm shadow-emerald-900/5">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Станція</p>
                   <p className="mt-1 text-sm font-bold text-gray-900">{selected.name}</p>
                   <p className="text-xs text-gray-600">{selected.address}</p>
@@ -211,9 +215,7 @@ export default function UserBookingNewPage() {
                           setSlotStartMs(null);
                         }}
                         className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition ${
-                          dayOffset === off
-                            ? 'bg-green-600 text-white shadow-sm'
-                            : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                          dayOffset === off ? appChipSelectedClass : appChipIdleClass
                         }`}
                       >
                         {dayLabel(
@@ -241,9 +243,7 @@ export default function UserBookingNewPage() {
                           setSlotStartMs(null);
                         }}
                         className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
-                          durationMin === d.min
-                            ? 'bg-green-600 text-white shadow-md'
-                            : 'border border-gray-200 bg-white text-gray-800 hover:bg-gray-50'
+                          durationMin === d.min ? appChipSelectedClass : appChipIdleClass
                         }`}
                       >
                         {d.label}
@@ -255,7 +255,7 @@ export default function UserBookingNewPage() {
 
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Час початку</p>
-                  <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50/50 p-2">
+                  <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-emerald-100/80 bg-emerald-50/30 p-2">
                     <div className="grid grid-cols-3 gap-1 sm:grid-cols-4">
                       {visibleSlots.map((t) => {
                         const ok = canBookDuration(t, durationMin, occupied, selected.id);
@@ -270,8 +270,8 @@ export default function UserBookingNewPage() {
                               !ok
                                 ? 'cursor-not-allowed bg-gray-100 text-gray-300 line-through'
                                 : active
-                                  ? 'bg-green-600 text-white shadow-sm'
-                                  : 'bg-white text-gray-800 shadow-sm ring-1 ring-gray-200 hover:ring-green-300'
+                                  ? appChipSelectedClass
+                                  : appChipSlotAvailableClass
                             }`}
                           >
                             {fmtTime(t)}
@@ -287,10 +287,10 @@ export default function UserBookingNewPage() {
                   ) : null}
                 </div>
 
-                <div className="space-y-3 border-t border-gray-100 pt-4">
+                <div className="space-y-3 border-t border-emerald-100/80 pt-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Ціноутворення</p>
 
-                  <label className="flex cursor-pointer gap-2.5 rounded-xl border-2 border-gray-200 bg-white p-3 transition has-[:checked]:border-green-500 has-[:checked]:bg-emerald-50/40">
+                  <label className="flex cursor-pointer gap-2.5 rounded-xl border-2 border-emerald-100/90 bg-white/90 p-3 shadow-sm shadow-emerald-900/5 transition has-[:checked]:border-green-500 has-[:checked]:bg-emerald-50/50">
                     <input
                       type="radio"
                       name="pricing"
@@ -306,7 +306,7 @@ export default function UserBookingNewPage() {
                     </div>
                   </label>
 
-                  <label className="flex cursor-pointer gap-2.5 rounded-xl border-2 border-gray-200 bg-white p-3 transition has-[:checked]:border-green-500 has-[:checked]:bg-emerald-50/40">
+                  <label className="flex cursor-pointer gap-2.5 rounded-xl border-2 border-emerald-100/90 bg-white/90 p-3 shadow-sm shadow-emerald-900/5 transition has-[:checked]:border-green-500 has-[:checked]:bg-emerald-50/50">
                     <input
                       type="radio"
                       name="pricing"
@@ -322,7 +322,7 @@ export default function UserBookingNewPage() {
                     </div>
                   </label>
 
-                  <div className="rounded-xl bg-gray-900 px-3 py-2.5 text-white">
+                  <div className="rounded-xl bg-gray-900 px-3 py-2.5 text-white shadow-md">
                     <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
                       До сплати зараз (демо)
                     </p>
@@ -333,14 +333,11 @@ export default function UserBookingNewPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-2 border-t border-gray-100 pt-2 sm:flex-row">
+                <div className="flex flex-col gap-2 border-t border-emerald-100/80 pt-2 sm:flex-row">
                   <PrimaryButton type="button" className="flex-1" disabled={!canConfirm} onClick={handleConfirm}>
                     Підтвердити
                   </PrimaryButton>
-                  <Link
-                    to="/dashboard/bookings"
-                    className="inline-flex flex-1 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-center text-sm font-semibold text-gray-800 shadow-sm transition hover:bg-gray-50"
-                  >
+                  <Link to="/dashboard/bookings" className={`flex-1 text-center ${appSecondaryCtaClass}`}>
                     Скасувати
                   </Link>
                 </div>
@@ -353,7 +350,7 @@ export default function UserBookingNewPage() {
 
         <div className="min-w-0 flex-1 xl:order-1">
           <AppCard className="min-h-[min(520px,70dvh)]" padding={false}>
-            <div className="border-b border-gray-100 px-5 py-3">
+            <div className="border-b border-emerald-100/80 px-5 py-3">
               <p className="text-sm font-semibold text-gray-900">Карта станцій</p>
               <p className="text-xs text-gray-500">Клік по маркеру — вибір станції</p>
             </div>

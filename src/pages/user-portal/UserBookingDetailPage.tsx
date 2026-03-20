@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useStations } from '../../context/StationsContext';
 import { useUserPortal } from '../../context/UserPortalContext';
 import { AppCard, OutlineButton, StatusPill } from '../../components/station-admin/Primitives';
+import { appPrimaryCtaClass } from '../../components/station-admin/formStyles';
 import type { UserBookingPricingModel, UserBookingStatus } from '../../types/userPortal';
 
 function statusTone(s: UserBookingStatus): 'success' | 'warn' | 'muted' | 'danger' | 'info' {
@@ -160,10 +161,7 @@ export default function UserBookingDetailPage() {
         </dl>
 
         <div className="mt-8 border-t border-gray-100 pt-6">
-          <Link
-            to={`/dashboard/stations/${booking.stationId}`}
-            className="inline-flex items-center justify-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
-          >
+          <Link to={`/dashboard/stations/${booking.stationId}`} className={appPrimaryCtaClass}>
             Сторінка станції
           </Link>
         </div>

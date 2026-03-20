@@ -2,6 +2,7 @@ import { Link, Navigate, useParams } from 'react-router-dom';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useGlobalAdmin } from '../../context/GlobalAdminContext';
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
+import { appFormInputClass } from '../../components/station-admin/formStyles';
 
 export default function GlobalUserEditPage() {
   const { userId } = useParams<{ userId: string }>();
@@ -67,7 +68,7 @@ export default function GlobalUserEditPage() {
               id="gu-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-500/20"
+              className={appFormInputClass}
             />
           </div>
           <div>
@@ -79,7 +80,7 @@ export default function GlobalUserEditPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-500/20"
+              className={appFormInputClass}
             />
           </div>
           <div>
@@ -90,7 +91,7 @@ export default function GlobalUserEditPage() {
               id="gu-phone"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-500/20"
+              className={appFormInputClass}
             />
           </div>
           <div>
@@ -101,7 +102,7 @@ export default function GlobalUserEditPage() {
               id="gu-balance"
               value={balance}
               onChange={(e) => setBalance(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-500/20"
+              className={appFormInputClass}
             />
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">

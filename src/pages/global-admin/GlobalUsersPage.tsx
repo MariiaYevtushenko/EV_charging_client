@@ -2,6 +2,11 @@ import { Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { useGlobalAdmin } from '../../context/GlobalAdminContext';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
+import {
+  appInputClass,
+  appPrimaryCtaSmClass,
+  appSecondaryCtaSmClass,
+} from '../../components/station-admin/formStyles';
 
 export default function GlobalUsersPage() {
   const { endUsers } = useGlobalAdmin();
@@ -33,7 +38,7 @@ export default function GlobalUsersPage() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Імʼя, email або телефон…"
-          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-500/20"
+          className={`${appInputClass} bg-white/90`}
         />
       </AppCard>
 
@@ -42,7 +47,7 @@ export default function GlobalUsersPage() {
           <AppCard key={u.id} className="!p-4 transition hover:border-green-200/60">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 flex-1 items-center gap-4">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 text-lg font-bold text-white shadow-md">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-green-600 text-lg font-bold text-white shadow-md">
                   {u.avatarUrl ? (
                     <img src={u.avatarUrl} alt="" className="h-full w-full object-cover" />
                   ) : (
@@ -77,16 +82,10 @@ export default function GlobalUsersPage() {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <Link
-                    to={`/admin-dashboard/users/${u.id}`}
-                    className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 shadow-sm transition hover:bg-gray-50"
-                  >
+                  <Link to={`/admin-dashboard/users/${u.id}`} className={appSecondaryCtaSmClass}>
                     Картка
                   </Link>
-                  <Link
-                    to={`/admin-dashboard/users/${u.id}/edit`}
-                    className="inline-flex items-center justify-center rounded-xl bg-green-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-green-700"
-                  >
+                  <Link to={`/admin-dashboard/users/${u.id}/edit`} className={appPrimaryCtaSmClass}>
                     Редагувати
                   </Link>
                 </div>

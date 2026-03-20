@@ -10,6 +10,7 @@ import {
   PrimaryButton,
   StatusPill,
 } from '../../components/station-admin/Primitives';
+import { appPrimaryCtaClass } from '../../components/station-admin/formStyles';
 import { stationStatusLabel, stationStatusTone } from '../../utils/stationLabels';
 
 function SessionRing({ pct }: { pct: number }) {
@@ -69,10 +70,7 @@ export default function UserHomePage() {
             Оберіть маркер — деталі станції. Поточна зарядка — праворуч.
           </p>
         </div>
-        <Link
-          to="/dashboard/session"
-          className="inline-flex shrink-0 items-center justify-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
-        >
+        <Link to="/dashboard/session" className={`${appPrimaryCtaClass} shrink-0`}>
           Почати зарядку
         </Link>
       </div>

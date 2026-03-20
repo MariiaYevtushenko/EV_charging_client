@@ -76,7 +76,7 @@ export default function StationPortsEditor({
         {ports.map((p, index) => (
           <div
             key={p.id}
-            className="rounded-xl border border-gray-200 bg-gray-50/50 p-3"
+            className="rounded-xl border border-emerald-100/80 bg-emerald-50/25 p-3 shadow-sm shadow-emerald-900/5"
           >
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-gray-700">Порт {index + 1}</span>

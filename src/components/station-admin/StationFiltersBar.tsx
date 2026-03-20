@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import type { StationSortKey } from '../../context/StationsContext';
 import { useStations } from '../../context/StationsContext';
 import { OutlineButton } from './Primitives';
-import { appSelectClass } from './formStyles';
+import { appPrimaryCtaClass, appPrimaryCtaMdClass, appSelectClass } from './formStyles';
 
 const sortLabels: Record<StationSortKey, string> = {
   name: 'Назва',
@@ -83,7 +83,7 @@ export default function StationFiltersBar({
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200/90 bg-white px-3 py-2.5 shadow-sm sm:px-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-100/90 bg-white/95 px-3 py-2.5 shadow-sm shadow-emerald-900/5 sm:px-4">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <span className="font-medium text-gray-500">Поточний вигляд:</span>
           <span className="truncate text-gray-800">
@@ -107,7 +107,7 @@ export default function StationFiltersBar({
           {showAddButton ? (
             <Link
               to="/station-dashboard/stations/new"
-              className="hidden items-center justify-center whitespace-nowrap rounded-xl bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 sm:inline-flex"
+              className={`hidden whitespace-nowrap sm:inline-flex ${appPrimaryCtaMdClass}`}
             >
               + Нова станція
             </Link>
@@ -115,7 +115,7 @@ export default function StationFiltersBar({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-700 shadow-sm transition hover:border-green-200 hover:bg-emerald-50/50 hover:text-green-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-100/90 bg-white/90 text-gray-700 shadow-sm shadow-emerald-900/5 transition hover:border-emerald-300 hover:bg-emerald-50/80 hover:text-green-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
             title="Фільтр і сортування"
             aria-expanded={open}
             aria-haspopup="dialog"
@@ -134,13 +134,13 @@ export default function StationFiltersBar({
             aria-label="Закрити"
             onClick={() => setOpen(false)}
           />
-          <div className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-gray-200 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+          <div className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-emerald-200/80 bg-white shadow-2xl shadow-emerald-900/10">
+            <div className="flex items-center justify-between border-b border-emerald-100/80 px-5 py-4">
               <h2 className="text-lg font-bold text-gray-900">Фільтр і сортування</h2>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-xl p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
+                className="rounded-xl p-2 text-gray-500 transition hover:bg-emerald-50 hover:text-gray-800"
                 aria-label="Закрити"
               >
                 <XIcon className="h-5 w-5" />
@@ -201,17 +201,17 @@ export default function StationFiltersBar({
                   </OutlineButton>
                 ) : null}
                 {drawerExtra ? (
-                  <div className="border-t border-gray-100 pt-6">{drawerExtra}</div>
+                  <div className="border-t border-emerald-100/80 pt-6">{drawerExtra}</div>
                 ) : null}
               </div>
             </div>
-            <div className="border-t border-gray-100 p-4">
+            <div className="border-t border-emerald-100/80 p-4">
               <div className="flex flex-col gap-2 sm:flex-row">
                 {showAddButton ? (
                   <Link
                     to="/station-dashboard/stations/new"
                     onClick={() => setOpen(false)}
-                    className="inline-flex flex-1 items-center justify-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
+                    className={`inline-flex flex-1 ${appPrimaryCtaClass}`}
                   >
                     + Нова станція
                   </Link>

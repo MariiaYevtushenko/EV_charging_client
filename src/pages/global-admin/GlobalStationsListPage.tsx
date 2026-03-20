@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { useStations } from '../../context/StationsContext';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
+import { appInputClass, appPrimaryCtaClass } from '../../components/station-admin/formStyles';
 import { stationStatusLabel, stationStatusTone } from '../../utils/stationLabels';
 
 export default function GlobalStationsListPage() {
@@ -29,10 +30,7 @@ export default function GlobalStationsListPage() {
             Усі станції в системі, включно з архівними. Деталі — у картці станції.
           </p>
         </div>
-        <Link
-          to="/admin-dashboard/stations/new"
-          className="inline-flex items-center justify-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
-        >
+        <Link to="/admin-dashboard/stations/new" className={appPrimaryCtaClass}>
           Додати станцію
         </Link>
       </div>
@@ -46,7 +44,7 @@ export default function GlobalStationsListPage() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Назва, місто або адреса…"
-          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-500/20"
+          className={`${appInputClass} bg-white/90`}
         />
       </AppCard>
 

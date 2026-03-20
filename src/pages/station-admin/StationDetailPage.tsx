@@ -253,7 +253,7 @@ export default function StationDetailPage() {
           <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Статус</p>
           <div className="flex flex-wrap items-center gap-2">
             <div
-              className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-0.5"
+              className="inline-flex rounded-xl border border-emerald-100/90 bg-emerald-50/40 p-0.5 shadow-sm"
               role="group"
               aria-label="Зміна статусу станції"
             >

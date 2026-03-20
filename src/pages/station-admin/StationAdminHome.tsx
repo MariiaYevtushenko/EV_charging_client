@@ -50,7 +50,7 @@ export default function StationAdminHome() {
           </div>
           <div className="min-h-[400px] flex-1 p-3">
             {mapStations.length === 0 ? (
-              <div className="flex min-h-[400px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 text-center text-sm text-gray-500">
+              <div className="flex min-h-[400px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-emerald-200/70 bg-emerald-50/30 px-6 text-center text-sm text-gray-500">
                 <p>Немає активних станцій (усі в архіві або фільтр міста порожній).</p>
                 <p className="text-xs">Оберіть «Усі міста», відкрийте список або додайте станцію.</p>
               </div>

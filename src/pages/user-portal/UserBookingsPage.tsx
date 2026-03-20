@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useUserPortal } from '../../context/UserPortalContext';
 import { AppCard, OutlineButton, StatusPill } from '../../components/station-admin/Primitives';
+import { appPrimaryCtaClass } from '../../components/station-admin/formStyles';
 import type { UserBookingPricingModel, UserBookingStatus } from '../../types/userPortal';
 
 function statusTone(s: UserBookingStatus): 'success' | 'warn' | 'muted' | 'danger' | 'info' {
@@ -83,10 +84,7 @@ export default function UserBookingsPage() {
             Поточні та минулі слоти. Нове бронювання — окрема сторінка з картою та вибором часу.
           </p>
         </div>
-        <Link
-          to="/dashboard/bookings/new"
-          className="inline-flex items-center justify-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
-        >
+        <Link to="/dashboard/bookings/new" className={appPrimaryCtaClass}>
           Нове бронювання
         </Link>
       </div>

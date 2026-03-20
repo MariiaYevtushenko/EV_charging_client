@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { useGlobalAdmin } from '../../context/GlobalAdminContext';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
+import { appInputCompactClass } from '../../components/station-admin/formStyles';
 
 function paymentTone(s: string): 'success' | 'warn' | 'danger' | 'muted' {
   switch (s) {
@@ -92,7 +93,7 @@ export default function GlobalPaymentsPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Користувач, опис…"
-            className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-green-500 focus:bg-white"
+            className={`mt-2 ${appInputCompactClass}`}
           />
         </AppCard>
       </div>

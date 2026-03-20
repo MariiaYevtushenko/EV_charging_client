@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
+import { appFormInputClass } from '../../components/station-admin/formStyles';
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
@@ -86,7 +87,7 @@ export default function UserProfilePage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_280px] lg:items-start">
         <AppCard>
           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 text-2xl font-bold text-white shadow-lg">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-green-600 text-2xl font-bold text-white shadow-md">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
               ) : (
@@ -127,7 +128,7 @@ export default function UserProfilePage() {
                 id="up-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-500/20"
+                className={appFormInputClass}
               />
             </div>
             <div>
@@ -139,7 +140,7 @@ export default function UserProfilePage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-500/20"
+                className={appFormInputClass}
               />
             </div>
             <div>
@@ -150,7 +151,7 @@ export default function UserProfilePage() {
                 id="up-phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-500/20"
+                className={appFormInputClass}
               />
             </div>
 

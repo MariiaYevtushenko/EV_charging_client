@@ -4,6 +4,7 @@ import { useStations } from '../../context/StationsContext';
 import StationFiltersBar from '../../components/station-admin/StationFiltersBar';
 import { AppCard, OutlineButton, PrimaryButton, StatusPill } from '../../components/station-admin/Primitives';
 import { stationStatusLabel, stationStatusTone } from '../../utils/stationLabels';
+import { appChipSelectedClass, appTabIdleClass } from '../../components/station-admin/formStyles';
 
 type ListTab = 'all' | 'working' | 'not_working' | 'archived';
 
@@ -16,9 +17,7 @@ const tabLabels: Record<ListTab, string> = {
 
 const tabClass = (active: boolean) =>
   `relative shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${
-    active
-      ? 'bg-green-600 text-white shadow-md shadow-green-600/25'
-      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+    active ? appChipSelectedClass : appTabIdleClass
   }`;
 
 export default function StationsListPage() {

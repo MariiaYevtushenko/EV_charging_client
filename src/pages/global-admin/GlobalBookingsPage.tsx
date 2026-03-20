@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { useGlobalAdmin } from '../../context/GlobalAdminContext';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
+import { appInputClass } from '../../components/station-admin/formStyles';
 
 function bookingTone(s: string): 'success' | 'warn' | 'muted' | 'danger' | 'info' {
   switch (s) {
@@ -77,7 +78,7 @@ export default function GlobalBookingsPage() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Користувач, станція…"
-          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-green-500 focus:bg-white focus:ring-2 focus:ring-green-500/20"
+          className={`${appInputClass} bg-white/90`}
         />
       </AppCard>
 

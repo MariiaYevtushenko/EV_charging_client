@@ -3,9 +3,7 @@ import { Link } from 'react-router-dom';
 import { useUserPortal } from '../../context/UserPortalContext';
 import { AppCard, DangerButton } from '../../components/station-admin/Primitives';
 import { DEFAULT_CAR_IMAGE } from '../../utils/carImageSuggest';
-
-const editLinkClass =
-  'inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 shadow-sm transition hover:bg-gray-50';
+import { appInputClass, appPrimaryCtaClass, appSecondaryCtaSmClass } from '../../components/station-admin/formStyles';
 
 export default function UserCarsPage() {
   const { cars, removeCar } = useUserPortal();
@@ -31,10 +29,7 @@ export default function UserCarsPage() {
             Картки з фото, пошук за моделлю або номером. Додавання — на окремій сторінці.
           </p>
         </div>
-        <Link
-          to="/dashboard/cars/new"
-          className="inline-flex items-center justify-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
-        >
+        <Link to="/dashboard/cars/new" className={appPrimaryCtaClass}>
           Додати авто
         </Link>
       </div>
@@ -48,7 +43,7 @@ export default function UserCarsPage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Пошук за моделлю, номером або конектором…"
-          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+          className={`${appInputClass} bg-white/90 shadow-sm shadow-emerald-900/5`}
         />
       </div>
 
@@ -62,7 +57,7 @@ export default function UserCarsPage() {
             >
               <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
                 <img src={src} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 h-[42%] min-h-[5.5rem] bg-black/65" aria-hidden />
                 <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
                   <p className="text-lg font-bold leading-tight drop-shadow-sm">{c.model}</p>
                   <p className="mt-0.5 text-sm font-medium text-white/90">{c.plate}</p>
@@ -73,7 +68,7 @@ export default function UserCarsPage() {
                   {c.connector}
                 </span>
                 <div className="flex flex-wrap gap-2">
-                  <Link to={`/dashboard/cars/${c.id}/edit`} className={editLinkClass}>
+                  <Link to={`/dashboard/cars/${c.id}/edit`} className={appSecondaryCtaSmClass}>
                     Редагувати
                   </Link>
                   <DangerButton type="button" className="!text-xs !py-2" onClick={() => removeCar(c.id)}>
