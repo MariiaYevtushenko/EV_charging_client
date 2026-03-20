@@ -22,6 +22,7 @@ export const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
     id: 'demo-user',
     name: 'Тестовий користувач',
     role: 'USER',
+    balance: 450,
   },
 };
 

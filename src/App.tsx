@@ -7,7 +7,26 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute';
 // Імпорт сторінок
 import Login from "./pages/auth/Login"
 import Signup from './pages/auth/SignUp';
-import UserDashboard from './pages/dashboard/UserDashboard';
+import UserPortalLayout from './layouts/UserPortalLayout';
+import { UserPortalProvider } from './context/UserPortalContext';
+import { UserNotificationsProvider } from './context/UserNotificationsContext';
+import UserHomePage from './pages/user-portal/UserHomePage';
+import UserCarsPage from './pages/user-portal/UserCarsPage';
+import UserSessionsPage from './pages/user-portal/UserSessionsPage';
+import UserSessionDetailPage from './pages/user-portal/UserSessionDetailPage';
+import UserBookingsPage from './pages/user-portal/UserBookingsPage';
+import UserBookingNewPage from './pages/user-portal/UserBookingNewPage';
+import UserBookingDetailPage from './pages/user-portal/UserBookingDetailPage';
+import UserPaymentsPage from './pages/user-portal/UserPaymentsPage';
+import UserPaymentDetailPage from './pages/user-portal/UserPaymentDetailPage';
+import UserCarNewPage from './pages/user-portal/UserCarNewPage';
+import UserCarEditPage from './pages/user-portal/UserCarEditPage';
+import UserAnalyticsPage from './pages/user-portal/UserAnalyticsPage';
+import UserNotificationsPage from './pages/user-portal/UserNotificationsPage';
+import UserNotificationDetailPage from './pages/user-portal/UserNotificationDetailPage';
+import UserProfilePage from './pages/user-portal/UserProfilePage';
+import UserStationDetailPage from './pages/user-portal/UserStationDetailPage';
+import UserSessionStartPage from './pages/user-portal/UserSessionStartPage';
 import StationAdminLayout from './layouts/StationAdminLayout';
 import GlobalAdminLayout from './layouts/GlobalAdminLayout';
 import { GlobalAdminProvider } from './context/GlobalAdminContext';
@@ -44,7 +63,36 @@ function App() {
 
           {/* Маршрути для звичайного Користувача */}
           <Route element={<ProtectedRoute allowedRoles={['USER']} />}>
-            <Route path="/dashboard" element={<UserDashboard />} />
+            <Route
+              path="/dashboard"
+              element={
+                <StationsProvider>
+                  <UserPortalProvider>
+                    <UserNotificationsProvider>
+                      <UserPortalLayout />
+                    </UserNotificationsProvider>
+                  </UserPortalProvider>
+                </StationsProvider>
+              }
+            >
+              <Route index element={<UserHomePage />} />
+              <Route path="session" element={<UserSessionStartPage />} />
+              <Route path="cars/new" element={<UserCarNewPage />} />
+              <Route path="cars/:carId/edit" element={<UserCarEditPage />} />
+              <Route path="cars" element={<UserCarsPage />} />
+              <Route path="sessions/:sessionId" element={<UserSessionDetailPage />} />
+              <Route path="sessions" element={<UserSessionsPage />} />
+              <Route path="bookings" element={<UserBookingsPage />} />
+              <Route path="bookings/new" element={<UserBookingNewPage />} />
+              <Route path="bookings/:bookingId" element={<UserBookingDetailPage />} />
+              <Route path="payments" element={<UserPaymentsPage />} />
+              <Route path="payments/:paymentId" element={<UserPaymentDetailPage />} />
+              <Route path="notifications" element={<UserNotificationsPage />} />
+              <Route path="notifications/:notificationId" element={<UserNotificationDetailPage />} />
+              <Route path="analytics" element={<UserAnalyticsPage />} />
+              <Route path="profile" element={<UserProfilePage />} />
+              <Route path="stations/:stationId" element={<UserStationDetailPage />} />
+            </Route>
           </Route>
 
           {/* Маршрути для Адміна Станцій */}
