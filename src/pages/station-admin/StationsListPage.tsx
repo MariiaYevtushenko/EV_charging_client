@@ -1,19 +1,27 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useStations } from '../../context/StationsContext';
-import StationFiltersBar from '../../components/station-admin/StationFiltersBar';
-import { AppCard, OutlineButton, PrimaryButton, StatusPill } from '../../components/station-admin/Primitives';
-import { stationStatusLabel, stationStatusTone } from '../../utils/stationLabels';
-import { appChipSelectedClass, appTabIdleClass } from '../../components/station-admin/formStyles';
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import type { StationSortDir, StationSortKey } from "../../context/StationsContext";
+import StationFiltersBarCore from "../../components/station-admin/StationFiltersBarCore";
+import { AppCard, OutlineButton, PrimaryButton, StatusPill } from "../../components/station-admin/Primitives";
+import { stationApiStatusLabel, stationApiStatusTone } from "../../utils/stationApiStatus";
+import { appChipSelectedClass, appTabIdleClass } from "../../components/station-admin/formStyles";
+import { useStationsFromApi } from "../../features/station-list/useStationsFromApi";
+import { sortApiStations } from "../../features/station-list/sortApiStations";
 
-type ListTab = 'all' | 'working' | 'not_working' | 'archived';
+type ListTab = "all" | "working" | "not_working" | "archived";
 
 const tabLabels: Record<ListTab, string> = {
-  all: 'Усі',
-  working: 'Працюють',
-  not_working: 'Не працюють',
-  archived: 'Архів',
+  all: "Усі",
+  working: "Працюють",
+  not_working: "Не працюють",
+  archived: "Архів",
 };
+
+const listSortOptions: { key: StationSortKey; label: string }[] = [
+  { key: "name", label: "Назва" },
+  { key: "city", label: "Місто" },
+  { key: "status", label: "Статус" },
+];
 
 const tabClass = (active: boolean) =>
   `relative shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${
@@ -22,85 +30,129 @@ const tabClass = (active: boolean) =>
 
 export default function StationsListPage() {
   const navigate = useNavigate();
-  const { stations, filteredStations } = useStations();
-  const [listTab, setListTab] = useState<ListTab>('all');
+  const { stations, loading, error, reload } = useStationsFromApi();
+
+  const [listTab, setListTab] = useState<ListTab>("all");
+  const [cityFilter, setCityFilter] = useState("");
+  const [sortKey, setSortKey] = useState<StationSortKey>("name");
+  const [sortDir, setSortDir] = useState<StationSortDir>("asc");
+
+  const toggleSortDir = () => {
+    setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+  };
+
+  const uniqueCities = useMemo(() => {
+    const set = new Set(stations.map((s) => s.city));
+    return [...set].sort((a, b) => a.localeCompare(b, "uk"));
+  }, [stations]);
+
+  const filteredSorted = useMemo(() => {
+    const base = cityFilter ? stations.filter((s) => s.city === cityFilter) : [...stations];
+    return sortApiStations(base, sortKey, sortDir);
+  }, [stations, cityFilter, sortKey, sortDir]);
 
   const rows = useMemo(() => {
-    if (listTab === 'archived') {
-      return filteredStations.filter((s) => s.archived);
+    if (listTab === "archived") {
+      return [];
     }
-    const active = filteredStations.filter((s) => !s.archived);
-    if (listTab === 'all') return active;
-    if (listTab === 'working') return active.filter((s) => s.status === 'working');
-    return active.filter((s) => s.status === 'maintenance' || s.status === 'offline');
-  }, [filteredStations, listTab]);
+    if (listTab === "all") return filteredSorted;
+    if (listTab === "working") {
+      return filteredSorted.filter((s) => s.status === "WORK");
+    }
+    return filteredSorted.filter((s) => s.status === "NO_CONNECTION" || s.status === "FIX");
+  }, [filteredSorted, listTab]);
 
   const totals = useMemo(() => {
-    const active = stations.filter((s) => !s.archived);
-    const revenue = active.reduce((s, x) => s + x.todayRevenue, 0);
-    const sessions = active.reduce((s, x) => s + x.todaySessions, 0);
-    const energy = active.reduce((s, x) => s + x.energyByHour.reduce((a, b) => a + b, 0), 0);
-    return { revenue, sessions, energy };
-  }, [stations]);
+    const active = filteredSorted;
+    const portCount = active.reduce((acc, s) => acc + s.ports.length, 0);
+    return {
+      stationCount: active.length,
+      portCount,
+      cityCount: new Set(active.map((s) => s.city)).size,
+    };
+  }, [filteredSorted]);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Список станцій</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Оберіть вкладку нижче. Місто та сортування — у панелі (іконка налаштувань).
+          Дані з БД (<span className="font-mono text-xs">GET /api/stations</span>). Фільтр міста та сортування — у
+          панелі (іконка налаштувань).
         </p>
       </div>
 
-      <StationFiltersBar showAddButton />
+      {error ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <p className="font-medium">Не вдалося завантажити станції</p>
+          <p className="mt-1 text-red-800/90">{error}</p>
+          <OutlineButton type="button" className="mt-3 !text-xs" onClick={() => void reload()}>
+            Спробувати знову
+          </OutlineButton>
+        </div>
+      ) : null}
 
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Фільтр списку за станом">
-        {(Object.keys(tabLabels) as ListTab[]).map((key) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={listTab === key}
-            className={tabClass(listTab === key)}
-            onClick={() => setListTab(key)}
-          >
-            {tabLabels[key]}
-          </button>
-        ))}
+      <StationFiltersBarCore
+        uniqueCities={uniqueCities}
+        cityFilter={cityFilter}
+        setCityFilter={setCityFilter}
+        sortKeyOptions={listSortOptions}
+        sortKey={sortKey}
+        setSortKey={setSortKey}
+        sortDir={sortDir}
+        setSortDir={setSortDir}
+        toggleSortDir={toggleSortDir}
+        showAddButton
+      />
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Фільтр списку за станом">
+          {(Object.keys(tabLabels) as ListTab[]).map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={listTab === key}
+              className={tabClass(listTab === key)}
+              onClick={() => setListTab(key)}
+            >
+              {tabLabels[key]}
+            </button>
+          ))}
+        </div>
+        <OutlineButton type="button" className="!text-xs" onClick={() => void reload()} disabled={loading}>
+          Оновити з сервера
+        </OutlineButton>
       </div>
 
       <p className="text-xs text-gray-500">
-        Показано <span className="font-semibold tabular-nums text-gray-800">{rows.length}</span> станцій
-        {listTab === 'archived'
-          ? ` · у архіві всього ${stations.filter((s) => s.archived).length}`
-          : listTab === 'all'
-            ? ` · активних за містом: ${filteredStations.filter((s) => !s.archived).length}`
-            : null}
-        .
+        {loading ? (
+          <span>Завантаження…</span>
+        ) : (
+          <>
+            Показано <span className="font-semibold tabular-nums text-gray-800">{rows.length}</span> станцій
+            {listTab === "archived"
+              ? " · архів у цій версії API не підтримується"
+              : listTab === "all"
+                ? ` · після фільтра міста: ${filteredSorted.length}`
+                : null}
+            .
+          </>
+        )}
       </p>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <AppCard className="!p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-            Дохід сьогодні (активні)
-          </p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">
-            {totals.revenue.toLocaleString('uk-UA')} грн
-          </p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Станцій (за фільтром)</p>
+          <p className="mt-1 text-2xl font-bold text-gray-900">{totals.stationCount}</p>
         </AppCard>
         <AppCard className="!p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-            Сесії сьогодні (активні)
-          </p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">{totals.sessions}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Портів загалом</p>
+          <p className="mt-1 text-2xl font-bold text-gray-900">{totals.portCount}</p>
         </AppCard>
         <AppCard className="!p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-            Енергія за добу (активні)
-          </p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">
-            {totals.energy.toLocaleString('uk-UA')} кВт·год
-          </p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Міст (у вибірці)</p>
+          <p className="mt-1 text-2xl font-bold text-gray-900">{totals.cityCount}</p>
         </AppCard>
       </div>
 
@@ -111,24 +163,34 @@ export default function StationsListPage() {
           </h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-sm">
+          <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="bg-gray-50/80 text-xs font-semibold uppercase tracking-wide text-gray-500">
               <tr>
                 <th className="px-6 py-3">Станція</th>
                 <th className="px-6 py-3">Місто</th>
                 <th className="px-6 py-3">Статус</th>
-                <th className="px-6 py-3">Сесії</th>
-                <th className="px-6 py-3">Дохід</th>
+                <th className="px-6 py-3">Порти</th>
                 <th className="px-6 py-3 text-right">Дії</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {rows.length === 0 ? (
+              {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
-                    {listTab === 'archived'
-                      ? 'Архів порожній.'
-                      : 'Нічого не знайдено. Змініть фільтр міста або вкладку.'}
+                  <td colSpan={5} className="px-6 py-10 text-center text-gray-500">
+                    Завантаження списку…
+                  </td>
+                </tr>
+              ) : listTab === "archived" ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-10 text-center text-gray-500">
+                    Архів станцій у поточному API не реалізований. Використовуйте вкладки «Усі» / «Працюють» / «Не
+                    працюють».
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-10 text-center text-gray-500">
+                    Нічого не знайдено. Змініть фільтр міста або вкладку.
                   </td>
                 </tr>
               ) : (
@@ -136,23 +198,15 @@ export default function StationsListPage() {
                   <tr key={row.id} className="bg-white hover:bg-gray-50/50">
                     <td className="px-6 py-4">
                       <p className="font-semibold text-gray-900">{row.name}</p>
-                      <p className="text-xs text-gray-500">{row.address}</p>
+                      <p className="text-xs text-gray-500">{row.addressLine}</p>
                     </td>
                     <td className="px-6 py-4 text-gray-700">{row.city}</td>
                     <td className="px-6 py-4">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {row.archived ? (
-                          <StatusPill tone="warn">Архів</StatusPill>
-                        ) : null}
-                        <StatusPill tone={stationStatusTone(row.status)}>
-                          {stationStatusLabel(row.status)}
-                        </StatusPill>
-                      </div>
+                      <StatusPill tone={stationApiStatusTone(row.status)}>
+                        {stationApiStatusLabel(row.status)}
+                      </StatusPill>
                     </td>
-                    <td className="px-6 py-4 text-gray-700">{row.todaySessions}</td>
-                    <td className="px-6 py-4 font-medium text-gray-900">
-                      {row.todayRevenue.toLocaleString('uk-UA')} грн
-                    </td>
+                    <td className="px-6 py-4 tabular-nums text-gray-700">{row.ports.length}</td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
                         <OutlineButton
