@@ -1,6 +1,24 @@
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationsContext';
+
+/** Вузький режим: ширина вікна менша за 2/3 ширини екрана — панель ховається, відкривається кнопкою меню. */
+function useNarrowSidebar() {
+  const [narrow, setNarrow] = useState(false);
+
+  useEffect(() => {
+    const update = () => {
+      const screenW = window.screen?.width ?? window.innerWidth;
+      setNarrow(window.innerWidth < screenW * (2 / 3));
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  return narrow;
+}
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
@@ -87,10 +105,29 @@ function BellIcon({ className }: { className?: string }) {
   );
 }
 
+function MenuIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}
+
 export default function StationAdminLayout() {
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
+  const location = useLocation();
+  const narrowSidebar = useNarrowSidebar();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!narrowSidebar) setMobileNavOpen(false);
+  }, [narrowSidebar]);
 
   const handleLogout = () => {
     logout();
@@ -110,9 +147,27 @@ export default function StationAdminLayout() {
       ? `${user.balance.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} грн`
       : '—';
 
+  const asideClassName = [
+    'flex h-full w-64 shrink-0 flex-col overflow-y-auto border-r border-emerald-200/60 bg-white px-4 py-6 shadow-sm',
+    narrowSidebar
+      ? `fixed left-0 top-0 z-40 h-dvh max-h-dvh transition-transform duration-200 ease-out ${
+          mobileNavOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full'
+        }`
+      : 'relative',
+  ].join(' ');
+
   return (
     <div className="flex h-dvh max-h-dvh overflow-hidden bg-transparent text-gray-900 antialiased">
-      <aside className="flex h-full w-64 shrink-0 flex-col overflow-y-auto border-r border-emerald-200/60 bg-white px-4 py-6 shadow-sm">
+      {narrowSidebar && mobileNavOpen ? (
+        <button
+          type="button"
+          aria-label="Закрити меню"
+          className="fixed inset-0 z-30 bg-gray-900/40 backdrop-blur-[1px]"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      ) : null}
+
+      <aside className={asideClassName}>
         <Link
           to="/station-dashboard"
           className="mb-10 flex items-center gap-3 rounded-xl px-2 py-1.5 -mx-1 transition hover:bg-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
@@ -127,7 +182,7 @@ export default function StationAdminLayout() {
           </div>
         </Link>
 
-        <nav className="flex flex-1 flex-col gap-1">
+        <nav id="station-admin-nav" className="flex flex-1 flex-col gap-1" aria-label="Основна навігація">
           <NavLink to="/station-dashboard" end className={navLinkClass}>
             <MapIcon className="h-5 w-5 shrink-0 opacity-90" />
             Карта та огляд
@@ -167,8 +222,21 @@ export default function StationAdminLayout() {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="z-10 flex h-16 shrink-0 items-center gap-4 border-b border-emerald-100/90 bg-white/90 px-6 shadow-sm shadow-emerald-900/5 backdrop-blur-md">
-          <div className="relative max-w-xl flex-1">
+        <header className="z-10 flex h-16 shrink-0 items-center gap-4 border-b border-emerald-100/90 bg-white/90 px-4 shadow-sm shadow-emerald-900/5 backdrop-blur-md sm:px-6">
+          {narrowSidebar ? (
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen((o) => !o)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-100/90 bg-white/90 text-gray-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50/80 hover:text-green-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+              aria-expanded={mobileNavOpen}
+              aria-controls="station-admin-nav"
+              title="Меню"
+            >
+              <MenuIcon className="h-5 w-5" />
+              <span className="sr-only">Відкрити або закрити меню навігації</span>
+            </button>
+          ) : null}
+          <div className="relative min-w-0 max-w-xl flex-1">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path
@@ -181,7 +249,7 @@ export default function StationAdminLayout() {
             </span>
             <input
               type="search"
-              placeholder="Пошук станцій, сесій, користувачів…"
+              placeholder="Пошук..."
               className="w-full rounded-2xl border border-emerald-100/90 bg-emerald-50/40 py-2.5 pl-10 pr-4 text-sm outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:shadow-[0_0_0_3px_rgba(34,197,94,0.15)] focus:ring-0"
             />
           </div>

@@ -89,9 +89,6 @@ export default function StationAnalyticsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Аналітика</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Огляд мережі завжди зверху; детальні графіки — у вкладках нижче.
-        </p>
       </div>
 
       <section aria-labelledby="analytics-overview-heading">
@@ -108,7 +105,7 @@ export default function StationAnalyticsPage() {
             <p className="mt-1 text-3xl font-bold text-green-700">
               {todayRev.toLocaleString('uk-UA')} грн
             </p>
-            <p className="mt-1 text-xs font-medium text-emerald-600">+22% до вчора (демо)</p>
+            <p className="mt-1 text-xs font-medium text-emerald-600">+22% до вчора  </p>
           </AppCard>
           <AppCard className="!p-5">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сесії сьогодні</p>
@@ -136,7 +133,7 @@ export default function StationAnalyticsPage() {
         aria-label="Детальна аналітика"
       >
         <button type="button" className={tabClass(tab === 'trends')} onClick={() => setTab('trends')}>
-          Тиждень (демо)
+          Тиждень  
         </button>
         <button type="button" className={tabClass(tab === 'stations')} onClick={() => setTab('stations')}>
           По станціях
@@ -172,7 +169,7 @@ export default function StationAnalyticsPage() {
 
           <AppCard>
             <h2 className="text-sm font-semibold text-gray-900">Кількість сесій</h2>
-            <p className="mt-1 text-xs text-gray-500">по днях тижня (демо)</p>
+            <p className="mt-1 text-xs text-gray-500">по днях тижня  </p>
             <div className="mt-4 h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={WEEK} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -194,10 +191,8 @@ export default function StationAnalyticsPage() {
       {tab === 'stations' ? (
       <AppCard padding={false} className="overflow-hidden">
         <div className="border-b border-gray-100 px-6 py-4">
-          <h2 className="text-sm font-semibold text-gray-900">По кожній станції (сьогодні)</h2>
-          <p className="mt-1 text-xs text-gray-500">
-            Дохід, сесії та енергія за добу з мок-даних; натисніть «Деталі» для картки станції.
-          </p>
+          <h2 className="text-sm font-semibold text-gray-900">По кожній станції сьогодні</h2>
+         
         </div>
         <div className="grid gap-6 p-4 lg:grid-cols-2 lg:p-6">
           <div className="min-h-[280px]">

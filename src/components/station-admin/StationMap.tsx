@@ -41,6 +41,14 @@ const STATUS_UI: Record<
     badgeText: '#374151',
     short: 'Вимк',
   },
+  archived: {
+    fill: '#9ca3af',
+    stroke: '#4b5563',
+    dot: '#f9fafb',
+    badgeBg: '#f3f4f6',
+    badgeText: '#374151',
+    short: 'Архівовано',
+  },
 };
 
 /** Маркер: шпилька за статусом + мітка зверху; кінчик шпильки = координати станції. */
@@ -52,8 +60,8 @@ function stationDivIcon(status: StationStatus, selected: boolean) {
     : 'filter:drop-shadow(0 3px 10px rgb(0 0 0 / .22));';
 
   const html = `
-<div style="width:48px;height:54px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;transform:scale(${scale});transform-origin:50% 100%;${ring}">
-  <div style="margin-bottom:2px;padding:2px 6px;border-radius:9999px;font-size:9px;font-weight:800;line-height:1;letter-spacing:0.02em;background:${u.badgeBg};color:${u.badgeText};border:1px solid rgba(0,0,0,.06);white-space:nowrap;max-width:52px;overflow:hidden;text-overflow:ellipsis;">
+<div style="width:56px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;transform:scale(${scale});transform-origin:50% 100%;${ring}">
+  <div style="margin-bottom:4px;padding:2px 4px;border-radius:9999px;font-size:6px;font-weight:800;line-height:1;letter-spacing:0.02em;background:${u.badgeBg};color:${u.badgeText};border:1px solid rgba(0,0,0,.06);white-space:nowrap;max-width:56px;overflow:hidden;text-overflow:ellipsis;">
     ${u.short}
   </div>
   <div style="display:flex;align-items:flex-start;justify-content:center;height:40px;">
@@ -84,7 +92,7 @@ function getIcon(status: StationStatus, selected: boolean) {
   return icon;
 }
 
-/** Після зміни набору станцій (фільтр міста тощо) — збільшує масштаб під видимі точки. */
+
 function FitStationsBounds({ stations }: { stations: Station[] }) {
   const map = useMap();
   const skipFirst = useRef(true);
@@ -126,7 +134,8 @@ export default function StationMap({
   onSelect: (id: string) => void;
 }) {
   const initialBounds = useMemo(() => {
-    if (stations.length === 0) return LVIV_FALLBACK;
+    if (stations.length === 0) 
+      return LVIV_FALLBACK;
     return L.latLngBounds(stations.map((s) => [s.lat, s.lng] as L.LatLngTuple));
   }, [stations]);
 

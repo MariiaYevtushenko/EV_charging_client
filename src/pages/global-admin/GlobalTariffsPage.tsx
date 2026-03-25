@@ -54,7 +54,7 @@ function TariffEditor({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-bold text-gray-900">{plan.name}</h2>
-          <p className="text-xs text-gray-500">ID: {plan.id}</p>
+         
         </div>
       </div>
 
@@ -64,7 +64,7 @@ function TariffEditor({
           <input value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
         </div>
         <div>
-          <label className="text-sm font-medium text-gray-700">Станцій (демо)</label>
+          <label className="text-sm font-medium text-gray-700">Станцій  </label>
           <input value={stationsCount} onChange={(e) => setStationsCount(e.target.value)} className={fieldClass} />
         </div>
       </div>
@@ -108,7 +108,7 @@ function TariffEditor({
       </div>
 
       {saved ? (
-        <p className="text-sm text-emerald-700">Збережено локально (демо).</p>
+        <p className="text-sm text-emerald-700">Збережено локально  .</p>
       ) : null}
 
       <div className="flex flex-wrap gap-2 border-t border-emerald-100/80 pt-4">
@@ -141,9 +141,7 @@ export default function GlobalTariffsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Тарифні плани</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Редагування умов нарахування (демо в пам&apos;яті). Візуально — як блоки денний/нічний з макетів.
-        </p>
+        
       </div>
 
       <div className="space-y-6">

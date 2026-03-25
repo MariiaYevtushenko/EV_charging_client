@@ -84,14 +84,12 @@ export default function GlobalAnalyticsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Аналітика та статистика</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Зведені діаграми по мережі (станції) та демо-користувачах. Дані частково синтетичні.
-        </p>
+       
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <AppCard className="!p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Дохід сьогодні (мережа)</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Дохід сьогодні</p>
           <p className="mt-1 text-2xl font-bold text-green-700">{todayRev.toLocaleString('uk-UA')} грн</p>
         </AppCard>
         <AppCard className="!p-5">
@@ -99,7 +97,7 @@ export default function GlobalAnalyticsPage() {
           <p className="mt-1 text-2xl font-bold text-gray-900">{active.length}</p>
         </AppCard>
         <AppCard className="!p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Користувачів (демо)</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Користувачів</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">{endUsers.length}</p>
         </AppCard>
         <AppCard className="!p-5">
@@ -126,7 +124,7 @@ export default function GlobalAnalyticsPage() {
       {tab === 'revenue' ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <AppCard>
-            <h2 className="text-sm font-semibold text-gray-900">Дохід по місяцях (демо)</h2>
+            <h2 className="text-sm font-semibold text-gray-900">Дохід по місяцях  </h2>
             <p className="mt-1 text-xs text-gray-500">Лінійний тренд як у макеті «Статистика заряджень».</p>
             <div className="mt-4 h-72">
               <ResponsiveContainer width="100%" height="100%">
@@ -264,7 +262,7 @@ export default function GlobalAnalyticsPage() {
       {tab === 'users' ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <AppCard>
-            <h2 className="text-sm font-semibold text-gray-900">Активність користувачів (демо)</h2>
+            <h2 className="text-sm font-semibold text-gray-900">Активність користувачів  </h2>
             <p className="mt-1 text-xs text-gray-500">Кількість зарядок і платежів у мок-даних.</p>
             <div className="mt-4 h-72">
               <ResponsiveContainer width="100%" height="100%">

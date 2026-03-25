@@ -329,7 +329,7 @@ export default function StationDetailPage() {
         <AppCard>
           <h2 className="text-sm font-semibold text-gray-900">Споживання енергії за добу</h2>
           <p className="mt-1 text-xs text-gray-500">
-            кВт·год по годинах (демо). Суму за добу дивіться у рядку статистики під заголовком сторінки.
+            кВт·год по годинах  . Суму за добу дивіться у рядку статистики під заголовком сторінки.
           </p>
           <div className="mt-4 h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">

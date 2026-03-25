@@ -1,4 +1,4 @@
-export type StationStatus = 'working' | 'offline' | 'maintenance';
+export type StationStatus = 'working' | 'offline' | 'maintenance' | 'archived';
 
 export type PortStatus = 'available' | 'busy' | 'offline';
 

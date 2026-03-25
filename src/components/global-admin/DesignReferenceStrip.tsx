@@ -46,12 +46,9 @@ export default function DesignReferenceStrip() {
     <section aria-labelledby="design-ref-heading" className="space-y-3">
       <div>
         <h2 id="design-ref-heading" className="text-sm font-semibold text-gray-900">
-          Референс дизайну
+          Інформація 
         </h2>
-        <p className="mt-0.5 text-xs text-gray-500">
-          Локальні макети з <code className="rounded bg-gray-100 px-1">public/design-mockups/</code> або
-          приклади-фото, близькі до стилю EcoCharge.
-        </p>
+        
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <RefCard

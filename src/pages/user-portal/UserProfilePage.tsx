@@ -79,9 +79,7 @@ export default function UserProfilePage() {
     <div className="mx-auto max-w-5xl">
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Профіль</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Особисті дані та фото. Зміни зберігаються в сесії браузера (демо).
-        </p>
+        
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_280px] lg:items-start">
@@ -157,7 +155,7 @@ export default function UserProfilePage() {
 
             {saved ? (
               <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800 ring-1 ring-emerald-100">
-                Зміни збережено локально (демо).
+                Зміни збережено локально
               </p>
             ) : null}
 

@@ -59,9 +59,9 @@ function pricingCaption(model: UserBookingPricingModel | undefined, amount: numb
     return `Попереднє бронювання: сплачено зараз ${amount ?? 50} грн; енергія — після сесії за тарифом.`;
   }
   if (model === 'dynamic_prepay') {
-    return `Динамічна оплата: оцінка списана зараз — ${amount?.toLocaleString('uk-UA') ?? '—'} грн (демо).`;
+    return `Динамічна оплата: оцінка списана зараз — ${amount?.toLocaleString('uk-UA') ?? '—'} грн  .`;
   }
-  return 'Модель оплати не вказана (демо).';
+  return 'Модель оплати не вказана  .';
 }
 
 export default function UserBookingDetailPage() {
@@ -150,7 +150,7 @@ export default function UserBookingDetailPage() {
             <dd className="mt-1 text-sm font-semibold text-gray-900">{durationText}</dd>
           </div>
           <div className="sm:col-span-2">
-            <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Оплата (демо)</dt>
+            <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Оплата  </dt>
             <dd className="mt-1 text-sm text-gray-800">{pricingCaption(booking.pricingModel, booking.payNowAmount)}</dd>
             {booking.payNowAmount != null ? (
               <p className="mt-2 text-lg font-bold tabular-nums text-green-700">

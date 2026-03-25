@@ -102,13 +102,11 @@ export default function UserSessionStartPage() {
           ← На головну
         </Link>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-gray-900">Почати зарядку</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Оберіть станцію на карті та порт. Зарядка стартує в демо-режимі (стан поточної сесії на головній).
-        </p>
+        
       </div>
 
       {currentSession ? (
-        <AppCard className="border-amber-200 bg-amber-50 !p-4 text-sm text-amber-950">
+        <AppCard className="!p-4 text-sm text-amber-950">
           Зараз активна сесія на «{currentSession.stationName}». Перейдіть на{' '}
           <Link to="/dashboard" className="font-semibold underline">
             головну

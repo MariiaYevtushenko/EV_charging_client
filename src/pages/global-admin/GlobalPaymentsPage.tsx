@@ -71,14 +71,12 @@ export default function GlobalPaymentsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Платежі</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Усі платежі з демо-профілів користувачів, відсортовані за датою.
-        </p>
+     
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <AppCard className="!p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Успішні (сума)</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Успішні</p>
           <p className="mt-1 text-xl font-bold tabular-nums text-green-700">
             {totalSuccess.toLocaleString('uk-UA', { minimumFractionDigits: 2 })} грн
           </p>

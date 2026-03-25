@@ -66,9 +66,7 @@ export default function UserHomePage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Карта станцій</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Оберіть маркер — деталі станції. Поточна зарядка — праворуч.
-          </p>
+         
         </div>
         <Link to="/dashboard/session" className={`${appPrimaryCtaClass} shrink-0`}>
           Почати зарядку
@@ -126,7 +124,7 @@ export default function UserHomePage() {
                 </div>
               </div>
               <DangerButton type="button" className="w-full" onClick={endCurrentSession}>
-                Зупинити зарядку (демо)
+                Зупинити зарядку  
               </DangerButton>
             </AppCard>
           ) : (

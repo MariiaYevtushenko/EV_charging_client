@@ -74,9 +74,6 @@ export default function GlobalAdminProfilePage() {
     <div className="mx-auto max-w-xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Профіль</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Особисті дані глобального адміністратора. Фото зберігається в сесії браузера (демо).
-        </p>
       </div>
 
       <AppCard>
@@ -151,7 +148,7 @@ export default function GlobalAdminProfilePage() {
 
           {saved ? (
             <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800 ring-1 ring-emerald-100">
-              Зміни збережено локально (демо).
+              Зміни збережено локально  .
             </p>
           ) : null}
 

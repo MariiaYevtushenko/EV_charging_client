@@ -60,7 +60,6 @@ export default function UserPaymentsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Платежі</h1>
-        <p className="mt-1 text-sm text-gray-500">Історія оплат і поповнень (демо).</p>
       </div>
 
       <AppCard className="!p-5">

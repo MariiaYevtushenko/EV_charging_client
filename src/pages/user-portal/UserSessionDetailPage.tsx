@@ -104,7 +104,7 @@ export default function UserSessionDetailPage() {
           </div>
           {avgPerKwh != null ? (
             <div className="sm:col-span-2">
-              <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Середня ціна (демо)</dt>
+              <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Середня ціна</dt>
               <dd className="mt-1 text-sm font-semibold text-gray-800">
                 {avgPerKwh.toLocaleString('uk-UA', { maximumFractionDigits: 2 })} грн / кВт·год
               </dd>

@@ -97,7 +97,7 @@ export default function UserPaymentDetailPage() {
             <dd className="mt-1 text-sm font-semibold text-gray-900">{payment.method}</dd>
           </div>
           <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Тип операції (демо)</dt>
+            <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Тип операції  </dt>
             <dd className="mt-1 text-sm font-semibold text-gray-900">
               {isCharging ? 'Зарядка / сесія' : 'Поповнення або інше'}
             </dd>
@@ -110,7 +110,7 @@ export default function UserPaymentDetailPage() {
           ) : null}
           {payment.energyKwh != null ? (
             <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Енергія (демо)</dt>
+              <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Енергія  </dt>
               <dd className="mt-1 text-sm font-semibold text-gray-900">
                 {payment.energyKwh.toLocaleString('uk-UA')} кВт·год
               </dd>
@@ -118,7 +118,7 @@ export default function UserPaymentDetailPage() {
           ) : null}
           {payment.energyKwh != null && payment.amount > 0 ? (
             <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Середня ціна (демо)</dt>
+              <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Середня ціна</dt>
               <dd className="mt-1 text-sm font-semibold text-gray-900">
                 {(payment.amount / payment.energyKwh).toLocaleString('uk-UA', { maximumFractionDigits: 2 })} грн / кВт·год
               </dd>

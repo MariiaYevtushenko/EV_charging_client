@@ -80,9 +80,7 @@ export default function UserBookingsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Бронювання</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Поточні та минулі слоти. Нове бронювання — окрема сторінка з картою та вибором часу.
-          </p>
+         
         </div>
         <Link to="/dashboard/bookings/new" className={appPrimaryCtaClass}>
           Нове бронювання

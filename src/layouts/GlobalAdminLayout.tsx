@@ -230,7 +230,7 @@ export default function GlobalAdminLayout() {
           <div className="ml-auto flex items-center gap-2 sm:gap-4">
             <div className="hidden text-right sm:block">
               <p className="text-sm font-semibold text-gray-900">{user?.name ?? 'Адміністратор'}</p>
-              <p className="text-xs text-gray-500">Оборот (демо): {balanceText}</p>
+              <p className="text-xs text-gray-500">Оборот  : {balanceText}</p>
             </div>
             <Link
               to="/admin-dashboard/profile"

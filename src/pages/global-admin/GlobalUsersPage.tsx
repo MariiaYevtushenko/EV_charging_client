@@ -28,9 +28,7 @@ export default function GlobalUsersPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Користувачі</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Демо-дані в пам&apos;яті браузера. Картка користувача — бронювання, авто, платежі та зарядки.
-        </p>
+        
       </div>
 
       <AppCard className="!p-4">

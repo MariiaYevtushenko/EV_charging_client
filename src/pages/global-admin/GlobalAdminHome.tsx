@@ -22,9 +22,6 @@ export default function GlobalAdminHome() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Головна панель</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Огляд мережі зарядки, користувачів і платежів — у стилі адмінки станцій.
-        </p>
       </div>
 
       <AppCard className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -34,7 +31,7 @@ export default function GlobalAdminHome() {
             {totalStations} <span className="text-lg font-semibold text-gray-600">станцій у базі</span>
           </p>
           <p className="mt-1 text-sm text-gray-500">
-            Активних на карті: {active.length} · Користувачів (демо): {endUsers.length}
+            Активних на карті: {active.length} · Користувачів  : {endUsers.length}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -93,8 +90,7 @@ export default function GlobalAdminHome() {
         <AppCard className="!p-5">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Дохід сьогодні</p>
           <p className="mt-1 text-2xl font-bold text-green-700">{todayRev.toLocaleString('uk-UA')} грн</p>
-          <p className="mt-1 text-xs font-medium text-emerald-600">+22% до вчора (демо)</p>
-        </AppCard>
+            </AppCard>
         <AppCard className="!p-5">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сесії сьогодні</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">{todaySess}</p>
@@ -102,8 +98,7 @@ export default function GlobalAdminHome() {
         <AppCard className="!p-5">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Успішні платежі</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">{paymentsOk}</p>
-          <p className="mt-1 text-xs text-gray-500">З демо-історії користувачів</p>
-        </AppCard>
+          </AppCard>
         <AppCard className="!p-5">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Швидкі посилання</p>
           <ul className="mt-2 space-y-1.5 text-sm font-medium text-green-700">

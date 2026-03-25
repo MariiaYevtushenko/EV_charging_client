@@ -76,10 +76,6 @@ export default function StationsListPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Список станцій</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Дані з БД (<span className="font-mono text-xs">GET /api/stations</span>). Фільтр міста та сортування — у
-          панелі (іконка налаштувань).
-        </p>
       </div>
 
       {error ? (
@@ -120,39 +116,18 @@ export default function StationsListPage() {
             </button>
           ))}
         </div>
-        <OutlineButton type="button" className="!text-xs" onClick={() => void reload()} disabled={loading}>
-          Оновити з сервера
-        </OutlineButton>
+       
       </div>
 
-      <p className="text-xs text-gray-500">
-        {loading ? (
-          <span>Завантаження…</span>
-        ) : (
-          <>
-            Показано <span className="font-semibold tabular-nums text-gray-800">{rows.length}</span> станцій
-            {listTab === "archived"
-              ? " · архів у цій версії API не підтримується"
-              : listTab === "all"
-                ? ` · після фільтра міста: ${filteredSorted.length}`
-                : null}
-            .
-          </>
-        )}
-      </p>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <AppCard className="!p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Станцій (за фільтром)</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Станцій</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">{totals.stationCount}</p>
         </AppCard>
         <AppCard className="!p-5">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Портів загалом</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">{totals.portCount}</p>
-        </AppCard>
-        <AppCard className="!p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Міст (у вибірці)</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">{totals.cityCount}</p>
         </AppCard>
       </div>
 
@@ -183,8 +158,7 @@ export default function StationsListPage() {
               ) : listTab === "archived" ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-10 text-center text-gray-500">
-                    Архів станцій у поточному API не реалізований. Використовуйте вкладки «Усі» / «Працюють» / «Не
-                    працюють».
+                    Архів станцій порожній
                   </td>
                 </tr>
               ) : rows.length === 0 ? (

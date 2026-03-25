@@ -30,8 +30,7 @@ export default function UserSessionsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Історія сесій</h1>
-        <p className="mt-1 text-sm text-gray-500">Завершені зарядки, енергія та вартість (демо).</p>
-      </div>
+        </div>
 
       <AppCard className="overflow-x-auto !p-0" padding={false}>
         <table className="min-w-full text-left text-sm">

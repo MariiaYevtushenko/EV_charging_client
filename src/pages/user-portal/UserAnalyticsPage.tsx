@@ -52,9 +52,7 @@ export default function UserAnalyticsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Аналітика</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Ваші сесії та витрати. Частина графіків — ілюстративні (демо).
-        </p>
+      
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -63,7 +61,7 @@ export default function UserAnalyticsPage() {
           <p className="mt-1 text-2xl font-bold text-gray-900">{totalKwh.toFixed(1)} кВт·год</p>
         </AppCard>
         <AppCard className="!p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сплачено (успіх)</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сплачено</p>
           <p className="mt-1 text-2xl font-bold text-green-700">
             {totalPaid.toLocaleString('uk-UA', { minimumFractionDigits: 2 })} грн
           </p>
@@ -76,7 +74,7 @@ export default function UserAnalyticsPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <AppCard>
-          <h2 className="text-sm font-semibold text-gray-900">Витрати по місяцях (демо)</h2>
+          <h2 className="text-sm font-semibold text-gray-900">Витрати по місяцях  </h2>
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={trend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
@@ -93,7 +91,7 @@ export default function UserAnalyticsPage() {
           </div>
         </AppCard>
         <AppCard>
-          <h2 className="text-sm font-semibold text-gray-900">Енергія по місяцях (демо)</h2>
+          <h2 className="text-sm font-semibold text-gray-900">Енергія по місяцях  </h2>
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={trend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>

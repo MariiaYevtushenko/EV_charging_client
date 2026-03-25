@@ -324,7 +324,7 @@ export default function UserBookingNewPage() {
 
                   <div className="rounded-xl bg-gray-900 px-3 py-2.5 text-white shadow-md">
                     <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                      До сплати зараз (демо)
+                      До сплати зараз  
                     </p>
                     <p className="mt-0.5 text-xl font-bold tabular-nums">
                       {payNow.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
