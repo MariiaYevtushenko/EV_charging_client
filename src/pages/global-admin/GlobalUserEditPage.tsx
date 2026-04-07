@@ -1,13 +1,18 @@
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useGlobalAdmin } from '../../context/GlobalAdminContext';
+import { fetchAdminUserDetail } from '../../api/adminUsers';
+import type { EndUser } from '../../types/globalAdmin';
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
 import { appFormInputClass } from '../../components/station-admin/formStyles';
 
 export default function GlobalUserEditPage() {
   const { userId } = useParams<{ userId: string }>();
-  const { getEndUser, replaceEndUser } = useGlobalAdmin();
-  const base = userId ? getEndUser(userId) : undefined;
+  const { replaceEndUser } = useGlobalAdmin();
+
+  const [base, setBase] = useState<EndUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -16,31 +21,89 @@ export default function GlobalUserEditPage() {
   const [blocked, setBlocked] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const idNum = userId ? Number(userId) : NaN;
+  const invalidId = !Number.isFinite(idNum) || idNum < 1;
+
   useEffect(() => {
-    if (base) {
-      setName(base.name);
-      setEmail(base.email);
-      setPhone(base.phone);
-      setBalance(String(base.balance));
-      setBlocked(!!base.blocked);
+    if (invalidId) {
+      setLoading(false);
+      return;
     }
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    void fetchAdminUserDetail(idNum)
+      .then((u) => {
+        if (cancelled) return;
+        setBase(u);
+        replaceEndUser(u);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        const msg = e instanceof Error ? e.message : 'Не вдалося завантажити користувача';
+        setLoadError(msg);
+        setBase(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [idNum, invalidId, replaceEndUser]);
+
+  useEffect(() => {
+    if (!base) return;
+    setName(base.name);
+    setEmail(base.email);
+    setPhone(base.phone);
+    setBalance(String(base.balance));
+    setBlocked(!!base.blocked);
   }, [base]);
 
-  if (!base) {
+  if (invalidId) {
     return <Navigate to="/admin-dashboard/users" replace />;
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-xl space-y-6">
+        <p className="text-sm text-gray-500">Завантаження даних…</p>
+        <div className="h-48 animate-pulse rounded-2xl bg-gray-100" />
+      </div>
+    );
+  }
+
+  if (loadError || !base) {
+    return (
+      <div className="mx-auto max-w-xl space-y-4">
+        <Link
+          to="/admin-dashboard/users"
+          className="text-sm font-medium text-green-600 hover:text-green-700"
+        >
+          ← До списку користувачів
+        </Link>
+        <AppCard className="border-red-100 bg-red-50/80 !p-5">
+          <p className="font-medium text-red-900">Не вдалося відкрити редагування</p>
+          <p className="mt-1 text-sm text-red-800/90">{loadError ?? 'Користувача не знайдено.'}</p>
+        </AppCard>
+      </div>
+    );
   }
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const bal = parseFloat(balance.replace(',', '.'));
-    replaceEndUser({
+    const next: EndUser = {
       ...base,
       name: name.trim() || base.name,
       email: email.trim() || base.email,
       phone: phone.trim() || base.phone,
       balance: Number.isFinite(bal) ? bal : base.balance,
       blocked,
-    });
+    };
+    replaceEndUser(next);
+    setBase(next);
     setSaved(true);
     window.setTimeout(() => setSaved(false), 2400);
   };
@@ -117,7 +180,7 @@ export default function GlobalUserEditPage() {
 
           {saved ? (
             <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800 ring-1 ring-emerald-100">
-              Збережено в пам&apos;яті застосунку  .
+              Збережено в пам&apos;яті застосунку.
             </p>
           ) : null}
 

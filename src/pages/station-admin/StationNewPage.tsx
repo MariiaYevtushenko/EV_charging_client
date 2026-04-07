@@ -1,9 +1,9 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useStations } from '../../context/StationsContext';
 import type { StationPort, StationStatus } from '../../types/station';
 import StationPortsEditor, { emptyPort } from '../../components/station-admin/StationPortsEditor';
-import { geocodeAddressParts } from '../../lib/nominatimGeocode';
+import { geocodeAddressParts, reverseGeocode } from '../../lib/nominatimGeocode';
 import StationLocationPicker from '../../components/station-admin/StationLocationPicker';
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
 import { appSelectClass } from '../../components/station-admin/formStyles';
@@ -17,6 +17,8 @@ const DEFAULT_LNG = 24.0297;
 const MAP_HEIGHT_CLASS =
   'min-h-[380px] h-[min(600px,calc(100dvh-10rem))] w-full sm:min-h-[440px]';
 
+const REVERSE_DEBOUNCE_MS = 650;
+
 export default function StationNewPage() {
   const { addStation, uniqueCities } = useStations();
   const navigate = useNavigate();
@@ -29,13 +31,19 @@ export default function StationNewPage() {
   const [lat, setLat] = useState(String(DEFAULT_LAT));
   const [lng, setLng] = useState(String(DEFAULT_LNG));
   const [status, setStatus] = useState<StationStatus>('working');
-  const [dayTariff, setDayTariff] = useState('7.5');
-  const [nightTariff, setNightTariff] = useState('4.2');
-  const [ports, setPorts] = useState<StationPort[]>(() => [emptyPort(7.5)]);
+  const [ports, setPorts] = useState<StationPort[]>(() => [emptyPort()]);
 
   const [flyToKey, setFlyToKey] = useState(0);
-  const [geocodeLoading, setGeocodeLoading] = useState(false);
-  const [geocodeHint, setGeocodeHint] = useState<string | null>(null);
+  const [reverseLoading, setReverseLoading] = useState(false);
+  const [forwardLoading, setForwardLoading] = useState(false);
+
+  const reverseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (reverseTimerRef.current) clearTimeout(reverseTimerRef.current);
+    };
+  }, []);
 
   const parseNum = (v: string) => {
     const n = parseFloat(v.replace(',', '.'));
@@ -50,61 +58,61 @@ export default function StationNewPage() {
   const setPositionFromMap = (la: number, lo: number) => {
     setLat(la.toFixed(6));
     setLng(lo.toFixed(6));
-    setGeocodeHint(null);
+    if (reverseTimerRef.current) clearTimeout(reverseTimerRef.current);
+    reverseTimerRef.current = setTimeout(async () => {
+      setReverseLoading(true);
+      try {
+        const r = await reverseGeocode(la, lo);
+        if (r.ok) {
+          if (r.city && r.city !== '—') setCity(r.city);
+          setAddress(r.address);
+        }
+      } finally {
+        setReverseLoading(false);
+      }
+    }, REVERSE_DEBOUNCE_MS);
   };
 
-  const bumpMapView = () => {
-    setFlyToKey((k) => k + 1);
-  };
-
-  const handleGeocode = async () => {
-    setGeocodeHint(null);
-    setGeocodeLoading(true);
+  /** Після введення міста та вулиці — підібрати координати (без окремої кнопки). */
+  const applyCoordsFromAddressFields = async () => {
+    const a = address.trim();
+    const c = city.trim();
+    if (!a || !c) return;
+    setForwardLoading(true);
     try {
-      const result = await geocodeAddressParts(address, city);
+      const result = await geocodeAddressParts(a, c);
       if (result.ok) {
         setLat(result.lat.toFixed(6));
         setLng(result.lng.toFixed(6));
-        bumpMapView();
-        setGeocodeHint(
-          result.displayName
-            ? `Знайдено: ${result.displayName.slice(0, 120)}${result.displayName.length > 120 ? '…' : ''}`
-            : 'Координати оновлено.'
-        );
-      } else {
-        setGeocodeHint(result.message);
+        setFlyToKey((k) => k + 1);
       }
     } finally {
-      setGeocodeLoading(false);
+      setForwardLoading(false);
     }
   };
 
-  const handleCoordsFieldBlur = () => {
-    if (Number.isFinite(parseNum(lat)) && Number.isFinite(parseNum(lng))) {
-      bumpMapView();
-    }
-  };
-
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const day = parseNum(dayTariff);
-    const night = parseNum(nightTariff);
-    const station = addStation({
-      name: name.trim() || 'Нова станція',
-      city: city.trim() || 'Львів',
-      address: address.trim() || '—',
-      status,
-      archived: false,
-      lat: mapLat,
-      lng: mapLng,
-      todayRevenue: 0,
-      todaySessions: 0,
-      dayTariff: Number.isFinite(day) ? day : 0,
-      nightTariff: Number.isFinite(night) ? night : 0,
-      energyByHour: Array(24).fill(0),
-      ports: ports.map((p) => ({ ...p, id: p.id || `p-${Math.random().toString(36).slice(2)}` })),
-    });
-    navigate(`${dashBase}/stations/${station.id}`);
+    try {
+      const station = await addStation({
+        name: name.trim() || 'Нова станція',
+        city: city.trim() || 'Львів',
+        address: address.trim() || '—',
+        status,
+        archived: false,
+        lat: mapLat,
+        lng: mapLng,
+        todayRevenue: 0,
+        todaySessions: 0,
+        dayTariff: 0,
+        nightTariff: 0,
+        energyByHour: Array(24).fill(0),
+        ports: ports.map((p) => ({ ...p, id: p.id || `p-${Math.random().toString(36).slice(2)}` })),
+      });
+      navigate(`${dashBase}/stations/${station.id}`);
+    } catch {
+      /* помилка вже в контексті */
+    }
   };
 
   return (
@@ -117,9 +125,7 @@ export default function StationNewPage() {
           ← До списку станцій
         </Link>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-gray-900">Нова станція</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Зліва — карта та позиція (центр = точка станції). Справа — усі поля форми.
-        </p>
+       
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:items-start">
@@ -127,30 +133,14 @@ export default function StationNewPage() {
           <div className="border-b border-gray-100 px-5 py-4">
             <h2 className="text-sm font-semibold text-gray-900">Розташування</h2>
             <p className="mt-1 text-xs text-gray-500">
-              Пересувайте карту під фіксовану шпильку. Nominatim — геокод за адресою.
+              {reverseLoading || forwardLoading
+                ? reverseLoading
+                  ? 'Визначаємо місто й вулицю за координатами…'
+                  : 'Шукаємо координати за адресою…'
+                : 'Координати — центр карти; адреса оновлюється після зупинки карти або з полів нижче.'}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <OutlineButton
-                type="button"
-                className="!text-xs"
-                disabled={geocodeLoading}
-                onClick={handleGeocode}
-              >
-                {geocodeLoading ? 'Пошук…' : 'Координати за адресою'}
-              </OutlineButton>
-              <OutlineButton type="button" className="!text-xs" onClick={bumpMapView}>
-                Показати координати з полів
-              </OutlineButton>
-            </div>
-            {geocodeHint ? (
-              <p
-                className={`mt-2 text-xs ${geocodeHint.startsWith('Знайдено') || geocodeHint.startsWith('Координати') ? 'text-emerald-700' : 'text-amber-800'}`}
-              >
-                {geocodeHint}
-              </p>
-            ) : null}
           </div>
-          <div className="p-3">
+          <div className="space-y-2 p-3">
             <StationLocationPicker
               lat={mapLat}
               lng={mapLng}
@@ -158,6 +148,10 @@ export default function StationNewPage() {
               flyToKey={flyToKey}
               mapClassName={MAP_HEIGHT_CLASS}
             />
+            <p className="text-xs text-gray-600">
+              <span className="font-medium text-gray-700">Координати: </span>
+              {mapLat.toFixed(6)}, {mapLng.toFixed(6)}
+            </p>
           </div>
         </AppCard>
 
@@ -185,6 +179,7 @@ export default function StationNewPage() {
                 id="nw-city"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
+                onBlur={() => void applyCoordsFromAddressFields()}
                 list="city-suggestions"
                 className={inputClass}
                 required
@@ -197,49 +192,19 @@ export default function StationNewPage() {
             </div>
             <div>
               <label htmlFor="nw-addr" className="text-sm font-medium text-gray-700">
-                Адреса
+                Вулиця, будинок
               </label>
               <input
                 id="nw-addr"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="вулиця, будинок"
+                onBlur={() => void applyCoordsFromAddressFields()}
+                placeholder="напр. вул. Університетська, 1"
                 className={inputClass}
                 required
               />
+             
             </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="nw-lat" className="text-sm font-medium text-gray-700">
-                  Широта (lat)
-                </label>
-                <input
-                  id="nw-lat"
-                  inputMode="decimal"
-                  value={lat}
-                  onChange={(e) => setLat(e.target.value)}
-                  onBlur={handleCoordsFieldBlur}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label htmlFor="nw-lng" className="text-sm font-medium text-gray-700">
-                  Довгота (lng)
-                </label>
-                <input
-                  id="nw-lng"
-                  inputMode="decimal"
-                  value={lng}
-                  onChange={(e) => setLng(e.target.value)}
-                  onBlur={handleCoordsFieldBlur}
-                  className={inputClass}
-                />
-              </div>
-            </div>
-            <p className="text-xs text-gray-500">
-              Після редагування полів натисніть «Показати координати з полів» або вийдіть з поля (blur).
-            </p>
 
             <div>
               <label htmlFor="nw-status" className="text-sm font-medium text-gray-700">
@@ -256,41 +221,9 @@ export default function StationNewPage() {
                 <option value="offline">Оффлайн</option>
               </select>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="nw-day" className="text-sm font-medium text-gray-700">
-                  Денний тариф (грн/кВт·год)
-                </label>
-                <input
-                  id="nw-day"
-                  inputMode="decimal"
-                  value={dayTariff}
-                  onChange={(e) => setDayTariff(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label htmlFor="nw-night" className="text-sm font-medium text-gray-700">
-                  Нічний тариф (грн/кВт·год)
-                </label>
-                <input
-                  id="nw-night"
-                  inputMode="decimal"
-                  value={nightTariff}
-                  onChange={(e) => setNightTariff(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-            </div>
 
             <div className="border-t border-gray-100 pt-6">
-              <StationPortsEditor
-                ports={ports}
-                onChange={setPorts}
-                priceDefault={
-                  Number.isFinite(parseNum(dayTariff)) ? parseNum(dayTariff) : 7.5
-                }
-              />
+              <StationPortsEditor ports={ports} onChange={setPorts} onlyMaxPower />
             </div>
 
             <div className="flex flex-wrap gap-3 border-t border-gray-100 pt-6">

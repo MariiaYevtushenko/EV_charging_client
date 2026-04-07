@@ -129,8 +129,7 @@ export default function StationLocationPicker({
       </MapContainer>
       <FixedCenterPin />
       <p className="border-t border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-500">
-        Пересувайте карту: точка зарядки — у центрі (синій маркер). Координати беруться з центру видимої
-        області.
+        Точка станції — центр карти (синій маркер). Адресу можна отримати автоматично з цих координат.
       </p>
     </div>
   );

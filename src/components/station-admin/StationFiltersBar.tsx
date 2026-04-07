@@ -1,15 +1,6 @@
 import type { ReactNode } from "react";
-import type { StationSortKey } from "../../context/StationsContext";
 import { useStations } from "../../context/StationsContext";
 import StationFiltersBarCore from "./StationFiltersBarCore";
-
-const sortLabels: Record<StationSortKey, string> = {
-  name: "Назва",
-  city: "Місто",
-  status: "Статус",
-  todayRevenue: "Дохід (сьогодні)",
-  todaySessions: "Сесії (сьогодні)",
-};
 
 export default function StationFiltersBar({
   showAddButton = false,
@@ -20,31 +11,26 @@ export default function StationFiltersBar({
 }) {
   const {
     uniqueCities,
-    cityFilter,
-    setCityFilter,
-    sortKey,
-    setSortKey,
-    sortDir,
-    setSortDir,
-    toggleSortDir,
+    selectedCities,
+    setSelectedCities,
+    sortValue,
+    setSortValue,
   } = useStations();
 
-  const sortKeyOptions = (Object.keys(sortLabels) as StationSortKey[]).map((key) => ({
-    key,
-    label: sortLabels[key],
-  }));
+  const toggleCity = (city: string) => {
+    setSelectedCities((prev) =>
+      prev.includes(city) ? prev.filter((c) => c !== city) : [...prev, city]
+    );
+  };
 
   return (
     <StationFiltersBarCore
       uniqueCities={uniqueCities}
-      cityFilter={cityFilter}
-      setCityFilter={setCityFilter}
-      sortKeyOptions={sortKeyOptions}
-      sortKey={sortKey}
-      setSortKey={setSortKey}
-      sortDir={sortDir}
-      setSortDir={setSortDir}
-      toggleSortDir={toggleSortDir}
+      selectedCities={selectedCities}
+      toggleCity={toggleCity}
+      clearSelectedCities={() => setSelectedCities([])}
+      sortValue={sortValue}
+      setSortValue={setSortValue}
       showAddButton={showAddButton}
       drawerExtra={drawerExtra}
     />

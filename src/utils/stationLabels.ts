@@ -8,6 +8,8 @@ export function stationStatusLabel(status: StationStatus): string {
       return 'Оффлайн';
     case 'maintenance':
       return 'На обслуговуванні';
+    case 'archived':
+      return 'Архів';
     default:
       return status;
   }
@@ -22,6 +24,8 @@ export function stationStatusTone(
     case 'maintenance':
       return 'warn';
     case 'offline':
+      return 'muted';
+    case 'archived':
       return 'muted';
     default:
       return 'muted';

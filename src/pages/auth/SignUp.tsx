@@ -43,7 +43,7 @@ export default function Signup() {
             </svg>
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-gray-900">Створити акаунт</h2>
-          <p className="mt-1 text-sm text-gray-500">Демо-форма реєстрації</p>
+          <p className="mt-1 text-sm text-gray-500">Створіть акаунт у системі</p>
         </div>
 
         <form onSubmit={handleSignup}>

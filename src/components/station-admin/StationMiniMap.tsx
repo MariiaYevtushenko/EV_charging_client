@@ -14,6 +14,7 @@ const PIN: Record<StationStatus, string> = {
   working: '#16a34a',
   maintenance: '#f59e0b',
   offline: '#9ca3af',
+  archived: '#64748b',
 };
 
 function miniIcon(status: StationStatus) {

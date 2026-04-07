@@ -15,6 +15,8 @@ export type StationDashboardDto = {
   locationId: number;
   city: string;
   addressLine: string;
+  lat: number | null;
+  lng: number | null;
   createdAt: string;
   updatedAt: string;
   ports: StationPortDashboardDto[];

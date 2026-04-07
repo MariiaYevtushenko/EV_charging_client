@@ -9,9 +9,10 @@ function newPortId() {
   return `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export function emptyPort(priceDefault: number): StationPort {
+export function emptyPort(priceDefault = 0): StationPort {
   return {
     id: newPortId(),
+    portNumber: 1,
     label: 'Порт A',
     connector: 'Type 2',
     powerKw: 22,
@@ -26,11 +27,14 @@ const field =
 export default function StationPortsEditor({
   ports,
   onChange,
-  priceDefault,
+  priceDefault = 7.5,
+  onlyMaxPower = false,
 }: {
   ports: StationPort[];
   onChange: (next: StationPort[]) => void;
-  priceDefault: number;
+  /** Для форми створення станції — лише поле потужності (кВт). */
+  onlyMaxPower?: boolean;
+  priceDefault?: number;
 }) {
   const updatePort = (index: number, patch: Partial<StationPort>) => {
     onChange(ports.map((p, i) => (i === index ? { ...p, ...patch } : p)));
@@ -48,10 +52,11 @@ export default function StationPortsEditor({
       ...ports,
       {
         id: newPortId(),
+        portNumber: n,
         label: `Порт ${letter}`,
         connector: 'Type 2',
         powerKw: 22,
-        pricePerKwh: Number.isFinite(priceDefault) ? priceDefault : 7.5,
+        pricePerKwh: onlyMaxPower ? 0 : Number.isFinite(priceDefault) ? priceDefault : 7.5,
         status: 'available',
       },
     ]);
@@ -89,88 +94,131 @@ export default function StationPortsEditor({
                 Видалити
               </button>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="lg:col-span-1">
-                <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                  Назва
-                </label>
-                <input
-                  value={p.label}
-                  onChange={(e) => updatePort(index, { label: e.target.value })}
-                  className={field}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                  Конектор
-                </label>
-                <select
-                  value={p.connector}
-                  onChange={(e) => updatePort(index, { connector: e.target.value })}
-                  className={`mt-0.5 ${appSelectClass} !py-2 !text-sm`}
-                >
-                  {connectorOpts(p.connector).map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                  Статус
-                </label>
-                <select
-                  value={p.status}
-                  onChange={(e) => updatePort(index, { status: e.target.value as PortStatus })}
-                  className={`mt-0.5 ${appSelectClass} !py-2 !text-sm`}
-                >
-                  <option value="available">{portStatusLabel('available')}</option>
-                  <option value="busy">{portStatusLabel('busy')}</option>
-                  <option value="offline">{portStatusLabel('offline')}</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                  кВт
-                </label>
-                <input
-                  inputMode="decimal"
-                  value={String(p.powerKw)}
-                  onChange={(e) => {
-                    const n = parseFloat(e.target.value.replace(',', '.'));
-                    updatePort(index, { powerKw: Number.isFinite(n) ? n : 0 });
-                  }}
-                  className={field}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                  грн/кВт·год
-                </label>
-                <input
-                  inputMode="decimal"
-                  value={String(p.pricePerKwh)}
-                  onChange={(e) => {
-                    const n = parseFloat(e.target.value.replace(',', '.'));
-                    updatePort(index, { pricePerKwh: Number.isFinite(n) ? n : 0 });
-                  }}
-                  className={field}
-                />
-              </div>
-              {p.status === 'busy' ? (
-                <div>
-                  <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                    ETA
-                  </label>
-                  <input
-                    value={p.occupiedEta ?? ''}
-                    onChange={(e) => updatePort(index, { occupiedEta: e.target.value || undefined })}
-                    placeholder="~12 хв"
-                    className={field}
-                  />
-                </div>
-              ) : null}
+            <div
+              className={
+                onlyMaxPower
+                  ? 'grid gap-2 sm:grid-cols-2'
+                  : 'grid gap-2 sm:grid-cols-2 lg:grid-cols-3'
+              }
+            >
+              {onlyMaxPower ? (
+                <>
+                  <div>
+                    <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                      Тип порта (конектор)
+                    </label>
+                    <select
+                      value={p.connector}
+                      onChange={(e) => updatePort(index, { connector: e.target.value })}
+                      className={`mt-0.5 ${appSelectClass} !py-2 !text-sm`}
+                    >
+                      {connectorOpts(p.connector).map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                      Макс. потужність (кВт)
+                    </label>
+                    <input
+                      inputMode="decimal"
+                      value={String(p.powerKw)}
+                      onChange={(e) => {
+                        const n = parseFloat(e.target.value.replace(',', '.'));
+                        updatePort(index, { powerKw: Number.isFinite(n) ? n : 0 });
+                      }}
+                      className={field}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="lg:col-span-1">
+                    <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                      Назва
+                    </label>
+                    <input
+                      value={p.label}
+                      onChange={(e) => updatePort(index, { label: e.target.value })}
+                      className={field}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                      Конектор
+                    </label>
+                    <select
+                      value={p.connector}
+                      onChange={(e) => updatePort(index, { connector: e.target.value })}
+                      className={`mt-0.5 ${appSelectClass} !py-2 !text-sm`}
+                    >
+                      {connectorOpts(p.connector).map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                      Статус
+                    </label>
+                    <select
+                      value={p.status}
+                      onChange={(e) => updatePort(index, { status: e.target.value as PortStatus })}
+                      className={`mt-0.5 ${appSelectClass} !py-2 !text-sm`}
+                    >
+                      <option value="available">{portStatusLabel('available')}</option>
+                      <option value="busy">{portStatusLabel('busy')}</option>
+                      <option value="offline">{portStatusLabel('offline')}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                      кВт
+                    </label>
+                    <input
+                      inputMode="decimal"
+                      value={String(p.powerKw)}
+                      onChange={(e) => {
+                        const n = parseFloat(e.target.value.replace(',', '.'));
+                        updatePort(index, { powerKw: Number.isFinite(n) ? n : 0 });
+                      }}
+                      className={field}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                      грн/кВт·год
+                    </label>
+                    <input
+                      inputMode="decimal"
+                      value={String(p.pricePerKwh)}
+                      onChange={(e) => {
+                        const n = parseFloat(e.target.value.replace(',', '.'));
+                        updatePort(index, { pricePerKwh: Number.isFinite(n) ? n : 0 });
+                      }}
+                      className={field}
+                    />
+                  </div>
+                  {p.status === 'busy' ? (
+                    <div>
+                      <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                        ETA
+                      </label>
+                      <input
+                        value={p.occupiedEta ?? ''}
+                        onChange={(e) => updatePort(index, { occupiedEta: e.target.value || undefined })}
+                        placeholder="~12 хв"
+                        className={field}
+                      />
+                    </div>
+                  ) : null}
+                </>
+              )}
             </div>
           </div>
         ))}

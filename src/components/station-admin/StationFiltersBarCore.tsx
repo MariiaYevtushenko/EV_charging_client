@@ -1,33 +1,28 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import type { StationSortDir, StationSortKey } from "../../context/StationsContext";
 import { OutlineButton } from "./Primitives";
-import { appPrimaryCtaClass, appPrimaryCtaMdClass, appSelectClass } from "./formStyles";
-
-export type StationFiltersSortOption = { key: StationSortKey; label: string };
+import { appPrimaryCtaMdClass, appSelectFilterClass } from "./formStyles";
+import { STATION_SORT_OPTIONS } from "../../features/station-list/stationSortOptions";
 
 export type StationFiltersBarCoreProps = {
   uniqueCities: string[];
-  cityFilter: string;
-  setCityFilter: (city: string) => void;
-  sortKeyOptions: StationFiltersSortOption[];
-  sortKey: StationSortKey;
-  setSortKey: (key: StationSortKey) => void;
-  sortDir: StationSortDir;
-  setSortDir: (dir: StationSortDir) => void;
-  toggleSortDir: () => void;
+  selectedCities: string[];
+  toggleCity: (city: string) => void;
+  clearSelectedCities: () => void;
+  sortValue: string;
+  setSortValue: (v: string) => void;
   showAddButton?: boolean;
   drawerExtra?: ReactNode;
 };
 
-function SlidersIcon({ className }: { className?: string }) {
+function FilterIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={2}
-        d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
       />
     </svg>
   );
@@ -43,14 +38,11 @@ function XIcon({ className }: { className?: string }) {
 
 export default function StationFiltersBarCore({
   uniqueCities,
-  cityFilter,
-  setCityFilter,
-  sortKeyOptions,
-  sortKey,
-  setSortKey,
-  sortDir,
-  setSortDir,
-  toggleSortDir,
+  selectedCities,
+  toggleCity,
+  clearSelectedCities,
+  sortValue,
+  setSortValue,
   showAddButton = false,
   drawerExtra,
 }: StationFiltersBarCoreProps) {
@@ -74,47 +66,14 @@ export default function StationFiltersBarCore({
     };
   }, [open]);
 
-  const resetFilters = () => {
-    setCityFilter("");
-    const first = sortKeyOptions[0]?.key ?? "name";
-    setSortKey(first);
-    setSortDir("asc");
-  };
-
-  const defaultKey = sortKeyOptions[0]?.key ?? "name";
-  const hasNonDefault =
-    cityFilter !== "" || sortKey !== defaultKey || sortDir !== "asc";
-
-  const currentSortLabel =
-    sortKeyOptions.find((o) => o.key === sortKey)?.label ?? sortKey;
-
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-100/90 bg-white/95 px-3 py-2.5 shadow-sm shadow-emerald-900/5 sm:px-4">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-          <span className="font-medium text-gray-500">Поточний вигляд:</span>
-          <span className="truncate text-gray-800">
-            {cityFilter ? (
-              <span className="font-semibold text-green-800">{cityFilter}</span>
-            ) : (
-              <span className="text-gray-600">усі міста</span>
-            )}
-            <span className="mx-2 text-gray-300" aria-hidden>
-              ·
-            </span>
-            <span className="text-gray-700">
-              {currentSortLabel}{" "}
-              <span className="tabular-nums text-gray-500">
-                ({sortDir === "asc" ? "зростання ↑" : "спадання ↓"})
-              </span>
-            </span>
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
+      <div className="rounded-2xl border border-emerald-100/90 bg-white/95 px-3 py-2.5 shadow-sm shadow-emerald-900/5 sm:px-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
           {showAddButton ? (
             <Link
               to="/station-dashboard/stations/new"
-              className={`hidden whitespace-nowrap sm:inline-flex ${appPrimaryCtaMdClass}`}
+              className={`order-2 w-full whitespace-nowrap sm:order-1 sm:w-auto ${appPrimaryCtaMdClass}`}
             >
               + Нова станція
             </Link>
@@ -122,120 +81,137 @@ export default function StationFiltersBarCore({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-100/90 bg-white/90 text-gray-700 shadow-sm shadow-emerald-900/5 transition hover:border-emerald-300 hover:bg-emerald-50/80 hover:text-green-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
-            title="Фільтр і сортування"
+            className="relative order-1 inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl border-2 border-emerald-100/90 bg-white px-4 text-sm font-semibold text-gray-800 shadow-sm shadow-emerald-900/5 transition hover:border-emerald-300 hover:bg-emerald-50/90 hover:text-green-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 sm:order-2 sm:w-auto"
+            title="Фільтр за містом і сортування"
             aria-expanded={open}
-            aria-haspopup="dialog"
+            aria-controls={open ? "station-map-city-filter-panel" : undefined}
           >
-            <SlidersIcon className="h-5 w-5" />
-            <span className="sr-only">Відкрити фільтр і сортування</span>
+            <FilterIcon className="h-5 w-5 text-emerald-700/90" />
+            <span>Місто та сортування</span>
+            {selectedCities.length > 0 ? (
+              <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-green-600 px-1.5 text-[11px] font-bold text-white">
+                {selectedCities.length}
+              </span>
+            ) : null}
           </button>
         </div>
       </div>
 
       {open ? (
         <div
-          className="fixed inset-0 z-[100] flex justify-end"
+          className="fixed inset-0 z-[100]"
           role="dialog"
           aria-modal="true"
-          aria-label="Фільтр і сортування"
+          aria-labelledby="station-map-city-filter-title"
         >
           <button
             type="button"
-            className="absolute inset-0 bg-gray-900/25 transition"
-            aria-label="Закрити"
+            className="animate-city-filter-backdrop absolute inset-0 bg-slate-900/45 backdrop-blur-[3px]"
+            aria-label="Закрити фільтр"
             onClick={() => setOpen(false)}
           />
-          <div className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-emerald-200/80 bg-white shadow-2xl shadow-emerald-900/10">
-            <div className="flex items-center justify-between border-b border-emerald-100/80 px-5 py-4">
-              <h2 className="text-lg font-bold text-gray-900">Фільтр і сортування</h2>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-xl p-2 text-gray-500 transition hover:bg-emerald-50 hover:text-gray-800"
-                aria-label="Закрити"
-              >
-                <XIcon className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-              <div className="space-y-6">
-                <div>
-                  <label
-                    htmlFor="drawer-filter-city"
-                    className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500"
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex max-w-full justify-end">
+            <div
+              id="station-map-city-filter-panel"
+              className="animate-city-filter-panel pointer-events-auto flex h-full w-[min(100%,22rem)] flex-col overflow-hidden rounded-l-3xl border-l-2 border-emerald-200/70 bg-white shadow-[0_25px_50px_-12px_rgba(6,78,59,0.2)] ring-1 ring-emerald-900/5 sm:w-[min(100%,26rem)]"
+            >
+              <div className="relative shrink-0 border-b border-emerald-100/90 bg-gradient-to-bl from-emerald-50/90 via-white to-white px-5 pb-4 pt-5 sm:px-6">
+                <div
+                  className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-green-600 via-emerald-500 to-teal-500/90"
+                  aria-hidden
+                />
+                <div className="flex items-start justify-between gap-3 pt-1">
+                  <div className="min-w-0">
+                    <h2
+                      id="station-map-city-filter-title"
+                      className="text-lg font-bold tracking-tight text-gray-900"
+                    >
+                      Фільтр за містом
+                    </h2>
+                    <p className="mt-1 text-sm leading-relaxed text-gray-500">
+                      Позначте міста або залиште без вибору — тоді видно всі станції.
+                    </p>
+                    <div className="mt-4">
+                      <label
+                        htmlFor="station-map-sort"
+                        className="block text-xs font-semibold uppercase tracking-wide text-gray-500"
+                      >
+                        Сортування
+                      </label>
+                      <select
+                        id="station-map-sort"
+                        className={`mt-1.5 w-full ${appSelectFilterClass}`}
+                        value={sortValue}
+                        onChange={(e) => setSortValue(e.target.value)}
+                      >
+                        {STATION_SORT_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    className="shrink-0 rounded-xl border border-emerald-100/90 bg-white/90 p-2 text-gray-500 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-gray-800"
+                    aria-label="Закрити"
                   >
-                    Місто
-                  </label>
-                  <select
-                    id="drawer-filter-city"
-                    className={appSelectClass}
-                    value={cityFilter}
-                    onChange={(e) => setCityFilter(e.target.value)}
-                  >
-                    <option value="">Усі міста</option>
-                    {uniqueCities.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
+                    <XIcon className="h-5 w-5" />
+                  </button>
                 </div>
-                <div>
-                  <label
-                    htmlFor="drawer-filter-sort"
-                    className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500"
+                {selectedCities.length > 0 ? (
+                  <button
+                    type="button"
+                    className="mt-4 text-sm font-medium text-green-700 underline decoration-green-600/35 underline-offset-2 transition hover:text-green-800"
+                    onClick={() => clearSelectedCities()}
                   >
-                    Сортувати за
-                  </label>
-                  <select
-                    id="drawer-filter-sort"
-                    className={appSelectClass}
-                    value={sortKey}
-                    onChange={(e) => setSortKey(e.target.value as StationSortKey)}
-                  >
-                    {sortKeyOptions.map(({ key, label }) => (
-                      <option key={key} value={key}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Напрямок
-                  </p>
-                  <OutlineButton type="button" className="w-full" onClick={toggleSortDir}>
-                    {sortDir === "asc"
-                      ? "↑ Зростання (A→Z, менше→більше)"
-                      : "↓ Спадання (Z→A, більше→менше)"}
-                  </OutlineButton>
-                </div>
-                {hasNonDefault ? (
-                  <OutlineButton type="button" className="w-full" onClick={resetFilters}>
-                    Скинути фільтр і сортування
-                  </OutlineButton>
-                ) : null}
-                {drawerExtra ? (
-                  <div className="border-t border-emerald-100/80 pt-6">{drawerExtra}</div>
+                    Скинути вибір · показати всі міста
+                  </button>
                 ) : null}
               </div>
-            </div>
-            <div className="border-t border-emerald-100/80 p-4">
-              <div className="flex flex-col gap-2 sm:flex-row">
-                {showAddButton ? (
-                  <Link
-                    to="/station-dashboard/stations/new"
-                    onClick={() => setOpen(false)}
-                    className={`inline-flex flex-1 ${appPrimaryCtaClass}`}
-                  >
-                    + Нова станція
-                  </Link>
-                ) : null}
-                <OutlineButton type="button" className="w-full sm:flex-1" onClick={() => setOpen(false)}>
+
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">
+                {uniqueCities.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50/80 px-4 py-6 text-center text-sm text-gray-500">
+                    Немає міст у списку станцій.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {uniqueCities.map((city) => {
+                      const checked = selectedCities.includes(city);
+                      return (
+                        <li key={city}>
+                          <label
+                            className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-sm font-medium transition ${
+                              checked
+                                ? "border-green-200 bg-emerald-50/80 text-green-950 shadow-sm shadow-emerald-900/5"
+                                : "border-gray-100/90 bg-white text-gray-800 hover:border-emerald-200/80 hover:bg-emerald-50/40"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleCity(city)}
+                              className="h-4 w-4 shrink-0 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                            />
+                            <span className="min-w-0 leading-snug">{city}</span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+              <div className="shrink-0 border-t border-emerald-100/90 bg-emerald-50/30 p-4 sm:px-6">
+                <OutlineButton type="button" className="w-full" onClick={() => setOpen(false)}>
                   Готово
                 </OutlineButton>
               </div>
+              {drawerExtra ? (
+                <div className="border-t border-emerald-100/90 px-5 py-4 sm:px-6">{drawerExtra}</div>
+              ) : null}
             </div>
           </div>
         </div>

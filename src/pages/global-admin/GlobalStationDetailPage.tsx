@@ -69,15 +69,6 @@ export default function GlobalStationDetailPage() {
       </div>
 
       <div className="flex flex-wrap items-stretch gap-0 overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-sm">
-        <div className="flex min-w-[140px] flex-1 flex-col justify-center border-b border-gray-100 px-4 py-3 sm:border-b-0 sm:border-r">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Тарифи</p>
-          <p className="mt-0.5 text-sm font-bold tabular-nums text-gray-900">
-            <span className="text-amber-700">☀ {station.dayTariff}</span>
-            <span className="mx-1.5 font-normal text-gray-300">/</span>
-            <span className="text-sky-700">🌙 {station.nightTariff}</span>
-            <span className="ml-1 text-xs font-medium text-gray-500">грн/кВт·год</span>
-          </p>
-        </div>
         <div className="flex min-w-[100px] flex-1 flex-col justify-center border-b border-gray-100 px-4 py-3 sm:border-b-0 sm:border-r">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Дохід сьогодні</p>
           <p className="mt-0.5 text-base font-bold tabular-nums text-green-700">
@@ -141,7 +132,7 @@ export default function GlobalStationDetailPage() {
                   {p.label} · {p.connector}
                 </p>
                 <p className="mt-1 text-xs text-gray-500">
-                  {p.powerKw} кВт · {p.pricePerKwh} грн/кВт·год
+                  {p.powerKw} кВт
                   {p.occupiedEta ? ` · ${p.occupiedEta}` : ''}
                 </p>
               </div>

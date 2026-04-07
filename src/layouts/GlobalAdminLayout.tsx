@@ -1,5 +1,9 @@
+import { useEffect } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import SeedDemoDataButton from '../components/SeedDemoDataButton';
+import { useGlobalAdmin } from '../context/GlobalAdminContext';
+import { fetchAdminUsersList, mapEvUserPublicRowToEndUser } from '../api/adminUsers';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
@@ -127,7 +131,24 @@ function UserIcon({ className }: { className?: string }) {
 
 export default function GlobalAdminLayout() {
   const { user, logout } = useAuth();
+  const { replaceEndUsers } = useGlobalAdmin();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const rows = await fetchAdminUsersList();
+        if (cancelled) return;
+        replaceEndUsers(rows.map(mapEvUserPublicRowToEndUser));
+      } catch {
+        if (!cancelled) replaceEndUsers([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [replaceEndUsers]);
 
   const handleLogout = () => {
     logout();
@@ -159,7 +180,7 @@ export default function GlobalAdminLayout() {
             <BoltIcon className="h-6 w-6" />
           </div>
           <div className="min-w-0 text-left">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">EcoCharge</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">EV Stations</p>
             <p className="text-sm font-bold text-gray-900">Глобальний адмін</p>
           </div>
         </Link>
@@ -199,13 +220,16 @@ export default function GlobalAdminLayout() {
           </NavLink>
         </nav>
 
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="mt-4 rounded-xl border border-emerald-200/80 bg-white/70 px-3 py-2.5 text-left text-sm font-medium text-gray-600 shadow-sm transition hover:border-emerald-300 hover:bg-white hover:text-gray-900"
-        >
-          Вийти
-        </button>
+        <div className="mt-auto flex flex-col gap-3 border-t border-emerald-100/80 pt-4">
+          <SeedDemoDataButton />
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="rounded-xl border border-emerald-200/80 bg-white/70 px-3 py-2.5 text-left text-sm font-medium text-gray-600 shadow-sm transition hover:border-emerald-300 hover:bg-white hover:text-gray-900"
+          >
+            Вийти
+          </button>
+        </div>
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

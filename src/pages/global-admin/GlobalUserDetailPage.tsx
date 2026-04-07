@@ -1,6 +1,8 @@
 import { Link, Navigate, useParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useGlobalAdmin } from '../../context/GlobalAdminContext';
+import { fetchAdminUserDetail } from '../../api/adminUsers';
+import type { EndUser } from '../../types/globalAdmin';
 import { AppCard, OutlineButton, StatusPill } from '../../components/station-admin/Primitives';
 
 type UserTab = 'overview' | 'cars' | 'bookings' | 'payments' | 'charges';
@@ -83,12 +85,71 @@ function fmt(dt: string) {
 
 export default function GlobalUserDetailPage() {
   const { userId } = useParams<{ userId: string }>();
-  const { getEndUser } = useGlobalAdmin();
-  const user = userId ? getEndUser(userId) : undefined;
+  const { replaceEndUser } = useGlobalAdmin();
+  const [user, setUser] = useState<EndUser | null>(null);
   const [tab, setTab] = useState<UserTab>('overview');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  if (!user) {
+  const idNum = userId ? Number(userId) : NaN;
+  const invalidId = !Number.isFinite(idNum) || idNum < 1;
+
+  useEffect(() => {
+    if (invalidId) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    void fetchAdminUserDetail(idNum)
+      .then((u) => {
+        if (cancelled) return;
+        setUser(u);
+        replaceEndUser(u);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        const msg = e instanceof Error ? e.message : 'Не вдалося завантажити користувача';
+        setLoadError(msg);
+        setUser(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [idNum, invalidId, replaceEndUser]);
+
+  if (invalidId) {
     return <Navigate to="/admin-dashboard/users" replace />;
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <p className="text-sm text-gray-500">Завантаження профілю…</p>
+        <div className="h-40 animate-pulse rounded-2xl bg-gray-100" />
+      </div>
+    );
+  }
+
+  if (loadError || !user) {
+    return (
+      <div className="space-y-4">
+        <Link
+          to="/admin-dashboard/users"
+          className="text-sm font-medium text-green-600 hover:text-green-700"
+        >
+          ← До списку користувачів
+        </Link>
+        <AppCard className="border-red-100 bg-red-50/80 !p-5">
+          <p className="font-medium text-red-900">Не вдалося відкрити профіль</p>
+          <p className="mt-1 text-sm text-red-800/90">{loadError ?? 'Користувача не знайдено.'}</p>
+        </AppCard>
+      </div>
+    );
   }
 
   return (
@@ -127,7 +188,7 @@ export default function GlobalUserDetailPage() {
               </div>
               <p className="mt-1 text-sm text-gray-500">{user.email}</p>
               <p className="text-sm text-gray-500">{user.phone}</p>
-              <p className="mt-2 text-xs text-gray-400">Реєстрація: {user.registeredAt}</p>
+              <p className="mt-2 text-xs text-gray-400">Реєстрація: {fmt(user.registeredAt)}</p>
             </div>
           </div>
           <Link to={`/admin-dashboard/users/${user.id}/edit`}>

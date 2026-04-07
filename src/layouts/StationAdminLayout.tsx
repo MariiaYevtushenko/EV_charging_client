@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useNotifications } from '../context/NotificationsContext';
+import SeedDemoDataButton from '../components/SeedDemoDataButton';
 
 /** Вузький режим: ширина вікна менша за 2/3 ширини екрана — панель ховається, відкривається кнопкою меню. */
 function useNarrowSidebar() {
@@ -92,19 +92,6 @@ function UserIcon({ className }: { className?: string }) {
   );
 }
 
-function BellIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-      />
-    </svg>
-  );
-}
-
 function MenuIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -115,7 +102,6 @@ function MenuIcon({ className }: { className?: string }) {
 
 export default function StationAdminLayout() {
   const { user, logout } = useAuth();
-  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
   const narrowSidebar = useNarrowSidebar();
@@ -141,11 +127,6 @@ export default function StationAdminLayout() {
       .join('')
       .slice(0, 2)
       .toUpperCase() ?? '?';
-
-  const balanceText =
-    user?.balance !== undefined
-      ? `${user.balance.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} грн`
-      : '—';
 
   const asideClassName = [
     'flex h-full w-64 shrink-0 flex-col overflow-y-auto border-r border-emerald-200/60 bg-white px-4 py-6 shadow-sm',
@@ -177,7 +158,7 @@ export default function StationAdminLayout() {
             <BoltIcon className="h-6 w-6" />
           </div>
           <div className="min-w-0 text-left">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">EcoCharge</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">EV Stations</p>
             <p className="text-sm font-bold text-gray-900">Адмін станцій</p>
           </div>
         </Link>
@@ -195,30 +176,22 @@ export default function StationAdminLayout() {
             <ChartIcon className="h-5 w-5 shrink-0 opacity-90" />
             Аналітика
           </NavLink>
-          <NavLink to="/station-dashboard/notifications" className={navLinkClass}>
-            <span className="relative inline-flex shrink-0">
-              <BellIcon className="h-5 w-5 opacity-90" />
-              {unreadCount > 0 ? (
-                <span className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              ) : null}
-            </span>
-            Сповіщення
-          </NavLink>
           <NavLink to="/station-dashboard/profile" className={navLinkClass}>
             <UserIcon className="h-5 w-5 shrink-0 opacity-90" />
             Профіль
           </NavLink>
         </nav>
 
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="mt-4 rounded-xl border border-emerald-200/80 bg-white/70 px-3 py-2.5 text-left text-sm font-medium text-gray-600 shadow-sm transition hover:border-emerald-300 hover:bg-white hover:text-gray-900"
-        >
-          Вийти
-        </button>
+        <div className="mt-auto flex flex-col gap-3 border-t border-emerald-100/80 pt-4">
+          <SeedDemoDataButton />
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="rounded-xl border border-emerald-200/80 bg-white/70 px-3 py-2.5 text-left text-sm font-medium text-gray-600 shadow-sm transition hover:border-emerald-300 hover:bg-white hover:text-gray-900"
+          >
+            Вийти
+          </button>
+        </div>
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -256,21 +229,8 @@ export default function StationAdminLayout() {
           <div className="ml-auto flex items-center gap-2 sm:gap-4">
             <div className="hidden text-right sm:block">
               <p className="text-sm font-semibold text-gray-900">{user?.name ?? 'Користувач'}</p>
-              <p className="text-xs text-gray-500">Баланс: {balanceText}</p>
+            
             </div>
-            <Link
-              to="/station-dashboard/notifications"
-              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-100/90 bg-white/90 text-gray-600 shadow-sm shadow-emerald-900/5 transition hover:border-emerald-300 hover:bg-emerald-50/80 hover:text-green-800 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
-              title="Сповіщення"
-            >
-              <BellIcon className="h-5 w-5" />
-              {unreadCount > 0 ? (
-                <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              ) : null}
-              <span className="sr-only">Сповіщення{unreadCount > 0 ? `, ${unreadCount} непрочитаних` : ''}</span>
-            </Link>
             <Link
               to="/station-dashboard/profile"
               className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-green-600 text-sm font-bold text-white shadow-md shadow-green-600/25 ring-2 ring-white transition hover:bg-green-700 hover:ring-green-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-green-400"

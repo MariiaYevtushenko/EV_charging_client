@@ -4,6 +4,8 @@ export type PortStatus = 'available' | 'busy' | 'offline';
 
 export interface StationPort {
   id: string;
+  /** Номер порту в БД (для синхронізації при збереженні) */
+  portNumber?: number;
   label: string;
   connector: string;
   powerKw: number;

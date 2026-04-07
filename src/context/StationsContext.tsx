@@ -2,31 +2,46 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
+  type Dispatch,
   type ReactNode,
+  type SetStateAction,
 } from 'react';
 import type { Station } from '../types/station';
-import { INITIAL_STATIONS } from '../data/stationsMock';
+import { parseStationSortValue } from '../features/station-list/stationSortOptions';
+import {
+  archiveStationApi,
+  createStationApi,
+  patchStationStatusApi,
+  fetchStationsList,
+  unarchiveStationApi,
+  updateStationApi,
+} from '../api/stations';
+import { stationFromDashboardDto } from '../utils/stationFromDashboardDto';
+import { stationToCreateBody, stationToUpdateBody } from '../utils/stationApiPayload';
 
 export type StationSortKey = 'name' | 'city' | 'status' | 'todayRevenue' | 'todaySessions';
 export type StationSortDir = 'asc' | 'desc';
 
 type StationsContextValue = {
   stations: Station[];
+  loading: boolean;
+  error: string | null;
+  reload: () => Promise<void>;
   filteredStations: Station[];
   uniqueCities: string[];
-  cityFilter: string;
-  setCityFilter: (city: string) => void;
-  sortKey: StationSortKey;
-  setSortKey: (key: StationSortKey) => void;
-  sortDir: StationSortDir;
-  setSortDir: (dir: StationSortDir) => void;
-  toggleSortDir: () => void;
-  addStation: (station: Omit<Station, 'id'>) => Station;
-  updateStation: (id: string, patch: Partial<Station>) => void;
-  archiveStation: (id: string) => void;
-  unarchiveStation: (id: string) => void;
+  /** Порожній масив — показати всі міста. */
+  selectedCities: string[];
+  setSelectedCities: Dispatch<SetStateAction<string[]>>;
+  /** Одне поле: критерій і напрямок, напр. `name:asc`. */
+  sortValue: string;
+  setSortValue: (v: string) => void;
+  addStation: (station: Omit<Station, 'id'>) => Promise<Station>;
+  updateStation: (id: string, patch: Partial<Station>) => Promise<void>;
+  archiveStation: (id: string) => Promise<void>;
+  unarchiveStation: (id: string) => Promise<void>;
   getStation: (id: string) => Station | undefined;
 };
 
@@ -39,6 +54,7 @@ function sortStations(list: Station[], sortKey: StationSortKey, sortDir: Station
     working: 0,
     maintenance: 1,
     offline: 2,
+    archived: 3,
   };
   next.sort((a, b) => {
     switch (sortKey) {
@@ -60,61 +76,145 @@ function sortStations(list: Station[], sortKey: StationSortKey, sortDir: Station
 }
 
 export function StationsProvider({ children }: { children: ReactNode }) {
-  const [stations, setStations] = useState<Station[]>(() => [...INITIAL_STATIONS]);
-  const [cityFilter, setCityFilter] = useState('');
-  const [sortKey, setSortKey] = useState<StationSortKey>('name');
-  const [sortDir, setSortDir] = useState<StationSortDir>('asc');
+  const [stations, setStations] = useState<Station[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedCities, setSelectedCities] = useState<string[]>([]);
+  const [sortValue, setSortValue] = useState('name:asc');
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await fetchStationsList();
+      setStations(rows.map(stationFromDashboardDto));
+    } catch (e) {
+      setStations([]);
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   const uniqueCities = useMemo(() => {
     const set = new Set(stations.map((s) => s.city));
     return [...set].sort((a, b) => a.localeCompare(b, 'uk'));
   }, [stations]);
 
+  const { key: sortKey, dir: sortDir } = useMemo(() => parseStationSortValue(sortValue), [sortValue]);
+
   const filteredStations = useMemo(() => {
-    const base = cityFilter ? stations.filter((s) => s.city === cityFilter) : [...stations];
+    const base =
+      selectedCities.length === 0
+        ? [...stations]
+        : stations.filter((s) => selectedCities.includes(s.city));
     return sortStations(base, sortKey, sortDir);
-  }, [stations, cityFilter, sortKey, sortDir]);
+  }, [stations, selectedCities, sortKey, sortDir]);
 
-  const addStation = useCallback((input: Omit<Station, 'id'>) => {
-    const id = `st-${Date.now().toString(36)}`;
-    const station: Station = { ...input, id };
-    setStations((prev) => [...prev, station]);
-    return station;
+  const addStation = useCallback(async (input: Omit<Station, 'id'>): Promise<Station> => {
+    setError(null);
+    try {
+      const dto = await createStationApi(stationToCreateBody(input));
+      const station = stationFromDashboardDto(dto);
+      setStations((prev) => [...prev, station]);
+      return station;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      throw e;
+    }
   }, []);
 
-  const updateStation = useCallback((id: string, patch: Partial<Station>) => {
-    setStations((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  const updateStation = useCallback(
+    async (id: string, patch: Partial<Station>) => {
+      const cur = stations.find((s) => s.id === id);
+      if (!cur) return;
+      setError(null);
+      try {
+        const merged: Station = { ...cur, ...patch };
+        const numericId = Number(id);
+        if (!Number.isFinite(numericId)) {
+          setError('Некоректний ідентифікатор станції');
+          return;
+        }
+
+        const keys = Object.keys(patch);
+        const onlyStatus =
+          keys.length === 1 &&
+          keys[0] === 'status' &&
+          patch.status !== undefined &&
+          !merged.archived;
+
+        if (onlyStatus) {
+          const dto = await patchStationStatusApi(numericId, patch.status!);
+          const updated = stationFromDashboardDto(dto);
+          setStations((prev) => prev.map((s) => (s.id === id ? updated : s)));
+          return;
+        }
+
+        const dto = await updateStationApi(numericId, stationToUpdateBody(merged));
+        const updated = stationFromDashboardDto(dto);
+        setStations((prev) => prev.map((s) => (s.id === id ? updated : s)));
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
+        throw e;
+      }
+    },
+    [stations]
+  );
+
+  const archiveStation = useCallback(async (id: string) => {
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId)) return;
+    setError(null);
+    try {
+      const dto = await archiveStationApi(numericId);
+      const updated = stationFromDashboardDto(dto);
+      setStations((prev) => prev.map((s) => (s.id === id ? updated : s)));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      throw e;
+    }
   }, []);
 
-  const archiveStation = useCallback((id: string) => {
-    updateStation(id, { archived: true });
-  }, [updateStation]);
-
-  const unarchiveStation = useCallback((id: string) => {
-    updateStation(id, { archived: false });
-  }, [updateStation]);
+  const unarchiveStation = useCallback(async (id: string) => {
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId)) return;
+    setError(null);
+    try {
+      const dto = await unarchiveStationApi(numericId);
+      const updated = stationFromDashboardDto(dto);
+      setStations((prev) => prev.map((s) => (s.id === id ? updated : s)));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      throw e;
+    }
+  }, []);
 
   const getStation = useCallback(
     (id: string) => stations.find((s) => s.id === id),
     [stations]
   );
 
-  const toggleSortDir = useCallback(() => {
-    setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-  }, []);
-
   const value = useMemo(
     () => ({
       stations,
+      loading,
+      error,
+      reload,
       filteredStations,
       uniqueCities,
-      cityFilter,
-      setCityFilter,
-      sortKey,
-      setSortKey,
-      sortDir,
-      setSortDir,
-      toggleSortDir,
+      selectedCities,
+      setSelectedCities,
+      sortValue,
+      setSortValue,
       addStation,
       updateStation,
       archiveStation,
@@ -123,12 +223,13 @@ export function StationsProvider({ children }: { children: ReactNode }) {
     }),
     [
       stations,
+      loading,
+      error,
+      reload,
       filteredStations,
       uniqueCities,
-      cityFilter,
-      sortKey,
-      sortDir,
-      toggleSortDir,
+      selectedCities,
+      sortValue,
       addStation,
       updateStation,
       archiveStation,

@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useStations } from '../../context/StationsContext';
 import type { StationPort, StationStatus } from '../../types/station';
-import { geocodeAddressParts } from '../../lib/nominatimGeocode';
+import { geocodeAddressParts, reverseGeocode } from '../../lib/nominatimGeocode';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import StationLocationPicker from '../../components/station-admin/StationLocationPicker';
 import StationPortsEditor from '../../components/station-admin/StationPortsEditor';
 import {
@@ -19,10 +20,14 @@ const inputClass =
 const MAP_HEIGHT_CLASS =
   'min-h-[380px] h-[min(600px,calc(100dvh-10rem))] w-full sm:min-h-[440px]';
 
+const REVERSE_DEBOUNCE_MS = 650;
+
 export default function StationEditPage() {
   const { stationId } = useParams<{ stationId: string }>();
   const navigate = useNavigate();
-  const { getStation, updateStation, archiveStation, uniqueCities } = useStations();
+  const { pathname } = useLocation();
+  const dashBase = pathname.startsWith('/admin-dashboard') ? '/admin-dashboard' : '/station-dashboard';
+  const { getStation, updateStation, archiveStation, unarchiveStation, uniqueCities } = useStations();
   const base = stationId ? getStation(stationId) : undefined;
 
   const [name, setName] = useState('');
@@ -31,13 +36,26 @@ export default function StationEditPage() {
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [status, setStatus] = useState<StationStatus>('working');
-  const [dayTariff, setDayTariff] = useState('');
-  const [nightTariff, setNightTariff] = useState('');
   const [ports, setPorts] = useState<StationPort[]>([]);
 
   const [flyToKey, setFlyToKey] = useState(0);
-  const [geocodeLoading, setGeocodeLoading] = useState(false);
-  const [geocodeHint, setGeocodeHint] = useState<string | null>(null);
+  const [reverseLoading, setReverseLoading] = useState(false);
+  const [forwardLoading, setForwardLoading] = useState(false);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+
+  const reverseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Не перезаписувати адресу з БД після першого moveend карти при відкритті сторінки. */
+  const skipFirstReverse = useRef(true);
+
+  useEffect(() => {
+    skipFirstReverse.current = true;
+  }, [base?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (reverseTimerRef.current) clearTimeout(reverseTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!base) return;
@@ -47,14 +65,11 @@ export default function StationEditPage() {
     setLat(base.lat.toFixed(6));
     setLng(base.lng.toFixed(6));
     setStatus(base.status);
-    setDayTariff(String(base.dayTariff));
-    setNightTariff(String(base.nightTariff));
     setPorts(base.ports.map((p) => ({ ...p })));
-    setGeocodeHint(null);
   }, [base?.id, base]);
 
   if (!base) {
-    return <Navigate to="/station-dashboard/stations" replace />;
+    return <Navigate to={`${dashBase}/stations`} replace />;
   }
 
   const parseNum = (v: string) => {
@@ -70,77 +85,115 @@ export default function StationEditPage() {
   const setPositionFromMap = (la: number, lo: number) => {
     setLat(la.toFixed(6));
     setLng(lo.toFixed(6));
-    setGeocodeHint(null);
+    if (reverseTimerRef.current) clearTimeout(reverseTimerRef.current);
+    reverseTimerRef.current = setTimeout(async () => {
+      if (skipFirstReverse.current) {
+        skipFirstReverse.current = false;
+        return;
+      }
+      setReverseLoading(true);
+      try {
+        const r = await reverseGeocode(la, lo);
+        if (r.ok) {
+          if (r.city && r.city !== '—') setCity(r.city);
+          setAddress(r.address);
+        }
+      } finally {
+        setReverseLoading(false);
+      }
+    }, REVERSE_DEBOUNCE_MS);
   };
 
-  const bumpMapView = () => setFlyToKey((k) => k + 1);
-
-  const handleGeocode = async () => {
-    setGeocodeHint(null);
-    setGeocodeLoading(true);
+  const applyCoordsFromAddressFields = async () => {
+    const a = address.trim();
+    const c = city.trim();
+    if (!a || !c) return;
+    setForwardLoading(true);
     try {
-      const result = await geocodeAddressParts(address, city);
+      const result = await geocodeAddressParts(a, c);
       if (result.ok) {
         setLat(result.lat.toFixed(6));
         setLng(result.lng.toFixed(6));
-        bumpMapView();
-        setGeocodeHint(
-          result.displayName
-            ? `Знайдено: ${result.displayName.slice(0, 120)}${result.displayName.length > 120 ? '…' : ''}`
-            : 'Координати оновлено.'
-        );
-      } else {
-        setGeocodeHint(result.message);
+        setFlyToKey((k) => k + 1);
       }
     } finally {
-      setGeocodeLoading(false);
+      setForwardLoading(false);
     }
   };
 
-  const handleCoordsFieldBlur = () => {
-    if (Number.isFinite(parseNum(lat)) && Number.isFinite(parseNum(lng))) {
-      bumpMapView();
-    }
-  };
-
-  const dayN = parseNum(dayTariff);
-  const nightN = parseNum(nightTariff);
-
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    updateStation(base.id, {
-      name: name.trim(),
-      city: city.trim(),
-      address: address.trim(),
-      lat: mapLat,
-      lng: mapLng,
-      status,
-      dayTariff: Number.isFinite(dayN) ? dayN : base.dayTariff,
-      nightTariff: Number.isFinite(nightN) ? nightN : base.nightTariff,
-      ports: ports.map((p) => ({ ...p })),
-    });
-    navigate(`/station-dashboard/stations/${base.id}`, { replace: true });
+    try {
+      await updateStation(base.id, {
+        name: name.trim() || base.name,
+        city: city.trim() || base.city,
+        address: address.trim() || base.address,
+        lat: mapLat,
+        lng: mapLng,
+        status,
+        ports: ports.map((p) => ({ ...p })),
+      });
+      navigate(`${dashBase}/stations/${base.id}`, { replace: true });
+    } catch {
+      /* помилка в контексті */
+    }
   };
 
-  const handleArchive = () => {
-    if (!window.confirm('Архівувати станцію? Вона зникне з карти та зі списку «Усі».')) return;
-    archiveStation(base.id);
-    navigate('/station-dashboard/stations', { replace: true });
+  const confirmArchive = async () => {
+    if (!base) return;
+    try {
+      await archiveStation(base.id);
+      setArchiveConfirmOpen(false);
+      navigate(`${dashBase}/stations`, { replace: true });
+    } catch {
+      /* помилка в контексті */
+    }
+  };
+
+  const handleUnarchive = async () => {
+    try {
+      await unarchiveStation(base.id);
+    } catch {
+      /* помилка в контексті */
+    }
   };
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <div>
+      <ConfirmDialog
+        open={archiveConfirmOpen}
+        onClose={() => setArchiveConfirmOpen(false)}
+        onConfirm={confirmArchive}
+        title="Перемістити станцію в архів?"
+        description="Вона зникне з карти та зі списку «Усі»; після цього ви перейдете до списку станцій."
+        confirmLabel="Так, в архів"
+        cancelLabel="Скасувати"
+        variant="danger"
+      />
+
+      <div
+        className={
+          base.archived
+            ? 'rounded-2xl border border-amber-200/90 bg-amber-50/40 p-4 ring-1 ring-amber-100/80 sm:p-5'
+            : ''
+        }
+      >
         <Link
-          to={`/station-dashboard/stations/${base.id}`}
+          to={`${dashBase}/stations/${base.id}`}
           className="text-sm font-medium text-green-600 hover:text-green-700"
         >
           ← Назад до станції
         </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-gray-900">Редагування станції</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Як при створенні: зліва карта, справа дані та порти. Зміни в пам&apos;яті до перезавантаження.
-        </p>
+        <h1
+          className={`mt-2 text-2xl font-bold tracking-tight ${
+            base.archived ? 'text-amber-950' : 'text-gray-900'
+          }`}
+        >
+          Редагування станції
+        </h1>
+        {base.archived ? (
+          <p className="mt-2 text-sm font-medium text-amber-900/90">Станція в архіві</p>
+        ) : null}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:items-start">
@@ -148,30 +201,14 @@ export default function StationEditPage() {
           <div className="border-b border-gray-100 px-5 py-4">
             <h2 className="text-sm font-semibold text-gray-900">Розташування</h2>
             <p className="mt-1 text-xs text-gray-500">
-              Центр карти = координати станції. Можна змінити адресу й отримати координати з Nominatim.
+              {reverseLoading || forwardLoading
+                ? reverseLoading
+                  ? 'Визначаємо місто й вулицю за координатами…'
+                  : 'Шукаємо координати за адресою…'
+                : 'Координати — центр карти; адреса оновлюється після зупинки карти або з полів нижче.'}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <OutlineButton
-                type="button"
-                className="!text-xs"
-                disabled={geocodeLoading}
-                onClick={handleGeocode}
-              >
-                {geocodeLoading ? 'Пошук…' : 'Координати за адресою'}
-              </OutlineButton>
-              <OutlineButton type="button" className="!text-xs" onClick={bumpMapView}>
-                Показати координати з полів
-              </OutlineButton>
-            </div>
-            {geocodeHint ? (
-              <p
-                className={`mt-2 text-xs ${geocodeHint.startsWith('Знайдено') || geocodeHint.startsWith('Координати') ? 'text-emerald-700' : 'text-amber-800'}`}
-              >
-                {geocodeHint}
-              </p>
-            ) : null}
           </div>
-          <div className="p-3">
+          <div className="space-y-2 p-3">
             <StationLocationPicker
               lat={mapLat}
               lng={mapLng}
@@ -179,6 +216,10 @@ export default function StationEditPage() {
               flyToKey={flyToKey}
               mapClassName={MAP_HEIGHT_CLASS}
             />
+            <p className="text-xs text-gray-600">
+              <span className="font-medium text-gray-700">Координати: </span>
+              {mapLat.toFixed(6)}, {mapLng.toFixed(6)}
+            </p>
           </div>
         </AppCard>
 
@@ -187,12 +228,13 @@ export default function StationEditPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="st-name" className="text-sm font-medium text-gray-700">
-                Назва
+                Назва станції
               </label>
               <input
                 id="st-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                placeholder="напр. Станція «Вокзал»"
                 className={inputClass}
                 required
               />
@@ -205,6 +247,7 @@ export default function StationEditPage() {
                 id="st-city"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
+                onBlur={() => void applyCoordsFromAddressFields()}
                 list="edit-city-suggestions"
                 className={inputClass}
                 required
@@ -217,49 +260,23 @@ export default function StationEditPage() {
             </div>
             <div>
               <label htmlFor="st-addr" className="text-sm font-medium text-gray-700">
-                Адреса
+                Вулиця, будинок
               </label>
               <input
                 id="st-addr"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
+                onBlur={() => void applyCoordsFromAddressFields()}
+                placeholder="напр. вул. Університетська, 1"
                 className={inputClass}
                 required
               />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="st-lat" className="text-sm font-medium text-gray-700">
-                  Широта (lat)
-                </label>
-                <input
-                  id="st-lat"
-                  inputMode="decimal"
-                  value={lat}
-                  onChange={(e) => setLat(e.target.value)}
-                  onBlur={handleCoordsFieldBlur}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label htmlFor="st-lng" className="text-sm font-medium text-gray-700">
-                  Довгота (lng)
-                </label>
-                <input
-                  id="st-lng"
-                  inputMode="decimal"
-                  value={lng}
-                  onChange={(e) => setLng(e.target.value)}
-                  onBlur={handleCoordsFieldBlur}
-                  className={inputClass}
-                />
-              </div>
+             
             </div>
 
             <div>
               <label htmlFor="st-status" className="text-sm font-medium text-gray-700">
-                Статус станції
+                Статус
               </label>
               <select
                 id="st-status"
@@ -270,61 +287,50 @@ export default function StationEditPage() {
                 <option value="working">Працює</option>
                 <option value="maintenance">На обслуговуванні</option>
                 <option value="offline">Оффлайн</option>
+                <option value="archived">Архів</option>
               </select>
+              <p className="mt-1 text-xs text-gray-500">
+                «Архів» приховує станцію з основного списку. Можна також скористатися кнопкою нижче або
+                відновити станцію кнопкою «Відновити з архіву».
+              </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="st-day" className="text-sm font-medium text-gray-700">
-                  Денний тариф (грн/кВт·год)
-                </label>
-                <input
-                  id="st-day"
-                  inputMode="decimal"
-                  value={dayTariff}
-                  onChange={(e) => setDayTariff(e.target.value)}
-                  className={inputClass}
-                />
+            {base.archived ? (
+              <div className="rounded-xl border border-amber-200/90 bg-gradient-to-br from-amber-50/95 to-white px-4 py-4 shadow-sm shadow-amber-900/5">
+                <p className="text-sm font-semibold text-amber-950">Станція в архіві</p>
+                <p className="mt-1 text-xs leading-relaxed text-amber-900/85">
+                  Після відновлення статус стане «Працює»; за потреби змініть його в списку вище й збережіть
+                  форму.
+                </p>
+                <PrimaryButton type="button" className="mt-3" onClick={() => void handleUnarchive()}>
+                  Відновити з архіву
+                </PrimaryButton>
               </div>
-              <div>
-                <label htmlFor="st-night" className="text-sm font-medium text-gray-700">
-                  Нічний тариф (грн/кВт·год)
-                </label>
-                <input
-                  id="st-night"
-                  inputMode="decimal"
-                  value={nightTariff}
-                  onChange={(e) => setNightTariff(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-            </div>
+            ) : null}
 
             <div className="border-t border-gray-100 pt-6">
-              <StationPortsEditor
-                ports={ports}
-                onChange={setPorts}
-                priceDefault={Number.isFinite(dayN) ? dayN : base.dayTariff}
-              />
+              <StationPortsEditor ports={ports} onChange={setPorts} onlyMaxPower />
             </div>
 
             <div className="flex flex-wrap gap-3 border-t border-gray-100 pt-6">
-              <PrimaryButton type="submit">Зберегти</PrimaryButton>
-              <OutlineButton type="button" onClick={() => navigate(`/station-dashboard/stations/${base.id}`)}>
+              <PrimaryButton type="submit">Зберегти зміни</PrimaryButton>
+              <OutlineButton type="button" onClick={() => navigate(`${dashBase}/stations/${base.id}`)}>
                 Скасувати
               </OutlineButton>
             </div>
           </form>
 
-          <div className="mt-8 border-t border-gray-200 pt-6">
-            <p className="text-sm font-semibold text-gray-900">Архів</p>
-            <p className="mt-1 text-xs text-gray-500">
-              Архівні станції не відображаються на карті та у списку «Усі» — лише у фільтрі «Архів».
-            </p>
-            <DangerButton type="button" className="mt-4" onClick={handleArchive}>
-              Архівувати станцію
-            </DangerButton>
-          </div>
+          {!base.archived ? (
+            <div className="mt-8 border-t border-gray-200 pt-6">
+              <p className="text-sm font-semibold text-gray-900">Архів</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Архівні станції не відображаються на карті та у списку «Усі» — лише у фільтрі «Архів».
+              </p>
+              <DangerButton type="button" className="mt-4" onClick={() => setArchiveConfirmOpen(true)}>
+                Архівувати станцію
+              </DangerButton>
+            </div>
+          ) : null}
         </AppCard>
       </div>
     </div>

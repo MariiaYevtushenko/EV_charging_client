@@ -43,7 +43,7 @@ function SessionRing({ pct }: { pct: number }) {
 
 export default function UserHomePage() {
   const { stations } = useStations();
-  const { currentSession, endCurrentSession, startDemoSession } = useUserPortal();
+  const { currentSession, endCurrentSession } = useUserPortal();
 
   const mapStations = useMemo(() => stations.filter((s) => !s.archived), [stations]);
 
@@ -130,10 +130,12 @@ export default function UserHomePage() {
           ) : (
             <AppCard className="space-y-3 py-8 text-center">
               <p className="text-sm font-medium text-gray-700">Немає активної зарядки</p>
-              <p className="text-xs text-gray-500">Підключіть авто на станції або запустіть демо-сесію.</p>
-              <PrimaryButton type="button" className="mx-auto" onClick={startDemoSession}>
-                Демо: поточна сесія
-              </PrimaryButton>
+              <p className="text-xs text-gray-500">Почніть зарядку з розділу нижче або через «Почати зарядку».</p>
+              <Link to="/dashboard/session" className="inline-block">
+                <PrimaryButton type="button" className="mx-auto">
+                  До вибору станції
+                </PrimaryButton>
+              </Link>
             </AppCard>
           )}
 

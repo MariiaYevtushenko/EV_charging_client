@@ -1,6 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { NotificationsProvider } from './context/NotificationsContext';
 import { StationsProvider } from './context/StationsContext';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 
@@ -9,7 +8,6 @@ import Login from "./pages/auth/Login"
 import Signup from './pages/auth/SignUp';
 import UserPortalLayout from './layouts/UserPortalLayout';
 import { UserPortalProvider } from './context/UserPortalContext';
-import { UserNotificationsProvider } from './context/UserNotificationsContext';
 import UserHomePage from './pages/user-portal/UserHomePage';
 import UserCarsPage from './pages/user-portal/UserCarsPage';
 import UserSessionsPage from './pages/user-portal/UserSessionsPage';
@@ -22,8 +20,6 @@ import UserPaymentDetailPage from './pages/user-portal/UserPaymentDetailPage';
 import UserCarNewPage from './pages/user-portal/UserCarNewPage';
 import UserCarEditPage from './pages/user-portal/UserCarEditPage';
 import UserAnalyticsPage from './pages/user-portal/UserAnalyticsPage';
-import UserNotificationsPage from './pages/user-portal/UserNotificationsPage';
-import UserNotificationDetailPage from './pages/user-portal/UserNotificationDetailPage';
 import UserProfilePage from './pages/user-portal/UserProfilePage';
 import UserStationDetailPage from './pages/user-portal/UserStationDetailPage';
 import UserSessionStartPage from './pages/user-portal/UserSessionStartPage';
@@ -49,9 +45,6 @@ import StationFunctionalityPage from './pages/station-admin/StationFunctionality
 import StationAnalyticsPage from './pages/station-admin/StationAnalyticsPage';
 import StationAdminProfilePage from './pages/station-admin/StationAdminProfilePage';
 import StationNewPage from './pages/station-admin/StationNewPage';
-import StationNotificationsPage from './pages/station-admin/StationNotificationsPage';
-import StationNotificationDetailPage from './pages/station-admin/StationNotificationDetailPage';
-
 function App() {
   return (
     <AuthProvider>
@@ -68,9 +61,7 @@ function App() {
               element={
                 <StationsProvider>
                   <UserPortalProvider>
-                    <UserNotificationsProvider>
-                      <UserPortalLayout />
-                    </UserNotificationsProvider>
+                    <UserPortalLayout />
                   </UserPortalProvider>
                 </StationsProvider>
               }
@@ -87,8 +78,6 @@ function App() {
               <Route path="bookings/:bookingId" element={<UserBookingDetailPage />} />
               <Route path="payments" element={<UserPaymentsPage />} />
               <Route path="payments/:paymentId" element={<UserPaymentDetailPage />} />
-              <Route path="notifications" element={<UserNotificationsPage />} />
-              <Route path="notifications/:notificationId" element={<UserNotificationDetailPage />} />
               <Route path="analytics" element={<UserAnalyticsPage />} />
               <Route path="profile" element={<UserProfilePage />} />
               <Route path="stations/:stationId" element={<UserStationDetailPage />} />
@@ -101,9 +90,7 @@ function App() {
               path="/station-dashboard"
               element={
                 <StationsProvider>
-                  <NotificationsProvider>
-                    <StationAdminLayout />
-                  </NotificationsProvider>
+                  <StationAdminLayout />
                 </StationsProvider>
               }
             >
@@ -117,8 +104,6 @@ function App() {
                 element={<StationFunctionalityPage />}
               />
               <Route path="analytics" element={<StationAnalyticsPage />} />
-              <Route path="notifications" element={<StationNotificationsPage />} />
-              <Route path="notifications/:notificationId" element={<StationNotificationDetailPage />} />
               <Route path="profile" element={<StationAdminProfilePage />} />
             </Route>
           </Route>

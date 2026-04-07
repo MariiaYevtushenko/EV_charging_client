@@ -84,7 +84,6 @@ export default function GlobalAnalyticsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Аналітика та статистика</h1>
-       
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -263,7 +262,7 @@ export default function GlobalAnalyticsPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <AppCard>
             <h2 className="text-sm font-semibold text-gray-900">Активність користувачів  </h2>
-            <p className="mt-1 text-xs text-gray-500">Кількість зарядок і платежів у мок-даних.</p>
+            <p className="mt-1 text-xs text-gray-500">Кількість зарядок і платежів (за завантаженими даними).</p>
             <div className="mt-4 h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={userActivity} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>

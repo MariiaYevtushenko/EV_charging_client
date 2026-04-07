@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import type { StationPort, StationStatus } from '../../types/station';
 import { useStations } from '../../context/StationsContext';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import StationPortsEditor from '../../components/station-admin/StationPortsEditor';
 import StationMiniMap from '../../components/station-admin/StationMiniMap';
 import {
@@ -20,12 +21,7 @@ import {
   PrimaryButton,
   StatusPill,
 } from '../../components/station-admin/Primitives';
-import {
-  portStatusLabel,
-  portStatusTone,
-  stationStatusLabel,
-  stationStatusTone,
-} from '../../utils/stationLabels';
+import { portStatusLabel, portStatusTone } from '../../utils/stationLabels';
 
 type DetailTab = 'overview' | 'analytics' | 'ports';
 
@@ -51,6 +47,9 @@ const STATION_STATUS_OPTIONS: { value: StationStatus; label: string }[] = [
 export default function StationDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const dashBase = location.pathname.startsWith('/admin-dashboard')
+    ? '/admin-dashboard'
+    : '/station-dashboard';
   const { getStation, unarchiveStation, updateStation, archiveStation } = useStations();
   const { stationId } = useParams<{ stationId: string }>();
   const station = stationId ? getStation(stationId) : undefined;
@@ -60,6 +59,7 @@ export default function StationDetailPage() {
   );
   const [portsModalOpen, setPortsModalOpen] = useState(false);
   const [portsDraft, setPortsDraft] = useState<StationPort[]>([]);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
 
   const hourly = useMemo(
     () =>
@@ -87,27 +87,35 @@ export default function StationDetailPage() {
     setPortsModalOpen(true);
   };
 
-  const savePorts = () => {
+  const savePorts = async () => {
     if (!station) return;
-    updateStation(station.id, { ports: portsDraft.map((p) => ({ ...p })) });
-    setPortsModalOpen(false);
+    try {
+      await updateStation(station.id, { ports: portsDraft.map((p) => ({ ...p })) });
+      setPortsModalOpen(false);
+    } catch {
+      /* помилка в контексті */
+    }
   };
 
   if (!station) {
-    return <Navigate to="/station-dashboard/stations" replace />;
+    return <Navigate to={`${dashBase}/stations`} replace />;
   }
 
   const goTab = (t: DetailTab) => {
     setTab(t);
-    const pathname = `/station-dashboard/stations/${station.id}`;
+    const pathname = `${dashBase}/stations/${station.id}`;
     const hash =
       t === 'analytics' ? 'station-analytics' : t === 'ports' ? 'station-ports' : '';
     navigate({ pathname, hash }, { replace: true });
   };
 
-  const handleArchive = () => {
-    if (!window.confirm('Архівувати станцію? Вона зникне з карти та зі списку «Усі».')) return;
-    archiveStation(station.id);
+  const confirmArchive = async () => {
+    try {
+      await archiveStation(station.id);
+      setArchiveConfirmOpen(false);
+    } catch {
+      /* помилка в контексті */
+    }
   };
 
   return (
@@ -130,13 +138,13 @@ export default function StationDetailPage() {
               Редагування портів
             </h2>
             <p className="mt-1 text-xs text-gray-500">
-              Зміни зберігаються в пам&apos;яті застосунку до перезавантаження сторінки.
+              Зміни збережено
             </p>
             <div className="mt-4 max-h-[min(65dvh,520px)] overflow-y-auto pr-1">
               <StationPortsEditor
                 ports={portsDraft}
                 onChange={setPortsDraft}
-                priceDefault={station.dayTariff}
+                priceDefault={0}
               />
             </div>
             <div className="mt-6 flex flex-wrap gap-2 border-t border-gray-100 pt-4">
@@ -152,21 +160,28 @@ export default function StationDetailPage() {
       ) : null}
 
       {station.archived ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          <p className="font-medium">Станція в архіві — не показується на карті та у списку «Усі».</p>
-          <OutlineButton
-            type="button"
-            className="!text-xs"
-            onClick={() => unarchiveStation(station.id)}
-          >
-            Повернути з архіву
-          </OutlineButton>
+        <div className="rounded-2xl border border-amber-200/90 bg-amber-50/80 px-4 py-3 text-sm shadow-sm">
+          <p className="font-bold text-amber-900">
+            Станція в архіві — не показується на карті та у списку «Усі». Щоб змінити статус роботи,
+            спочатку натисніть «Розархівувати» біля блоку «Статус» нижче.
+          </p>
         </div>
       ) : null}
 
+      <ConfirmDialog
+        open={archiveConfirmOpen}
+        onClose={() => setArchiveConfirmOpen(false)}
+        onConfirm={confirmArchive}
+        title="Перемістити станцію в архів?"
+        description="Вона зникне з карти та зі списку «Усі»; її можна буде знайти у вкладці «Архів»."
+        confirmLabel="Так, в архів"
+        cancelLabel="Скасувати"
+        variant="danger"
+      />
+
       <div>
         <Link
-          to="/station-dashboard/stations"
+          to={`${dashBase}/stations`}
           className="text-sm font-medium text-green-600 hover:text-green-700"
         >
           ← До списку станцій
@@ -188,12 +203,10 @@ export default function StationDetailPage() {
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-            <StatusPill tone={stationStatusTone(station.status)} size="md">
-              {stationStatusLabel(station.status)}
-            </StatusPill>
+           
             <OutlineButton
               type="button"
-              onClick={() => navigate(`/station-dashboard/stations/${station.id}/edit`)}
+              onClick={() => navigate(`${dashBase}/stations/${station.id}/edit`)}
             >
               Редагувати дані
             </OutlineButton>
@@ -202,15 +215,6 @@ export default function StationDetailPage() {
       </div>
 
       <div className="flex flex-wrap items-stretch gap-0 overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-sm">
-        <div className="flex min-w-[140px] flex-1 flex-col justify-center border-b border-gray-100 px-4 py-3 sm:border-b-0 sm:border-r">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Тарифи</p>
-          <p className="mt-0.5 text-sm font-bold tabular-nums text-gray-900">
-            <span className="text-amber-700">☀ {station.dayTariff}</span>
-            <span className="mx-1.5 font-normal text-gray-300">/</span>
-            <span className="text-sky-700">🌙 {station.nightTariff}</span>
-            <span className="ml-1 text-xs font-medium text-gray-500">грн/кВт·год</span>
-          </p>
-        </div>
         <div className="flex min-w-[100px] flex-1 flex-col justify-center border-b border-gray-100 px-4 py-3 sm:border-b-0 sm:border-r">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Дохід сьогодні</p>
           <p className="mt-0.5 text-base font-bold tabular-nums text-green-700">
@@ -253,7 +257,11 @@ export default function StationDetailPage() {
           <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Статус</p>
           <div className="flex flex-wrap items-center gap-2">
             <div
-              className="inline-flex rounded-xl border border-emerald-100/90 bg-emerald-50/40 p-0.5 shadow-sm"
+              className={`inline-flex rounded-xl border p-0.5 shadow-sm ${
+                station.archived
+                  ? 'border-amber-200/80 bg-amber-100/50'
+                  : 'border-emerald-100/90 bg-emerald-50/40'
+              }`}
               role="group"
               aria-label="Зміна статусу станції"
             >
@@ -264,7 +272,7 @@ export default function StationDetailPage() {
                     key={value}
                     type="button"
                     disabled={station.archived}
-                    onClick={() => updateStation(station.id, { status: value })}
+                    onClick={() => void updateStation(station.id, { status: value })}
                     className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-45 ${
                       active
                         ? 'bg-white text-green-800 shadow-sm ring-1 ring-gray-200/80'
@@ -277,13 +285,23 @@ export default function StationDetailPage() {
               })}
             </div>
             {station.archived ? (
-              <span className="max-w-[220px] text-right text-[11px] text-amber-800">
-                Щоб змінити статус, спочатку поверніть станцію з архіву.
-              </span>
+              <OutlineButton
+                type="button"
+                className="!px-3 !py-1.5 !text-xs"
+                onClick={async () => {
+                  try {
+                    await unarchiveStation(station.id);
+                  } catch {
+                    /* помилка в контексті */
+                  }
+                }}
+              >
+                Розархівувати
+              </OutlineButton>
             ) : (
               <button
                 type="button"
-                onClick={handleArchive}
+                onClick={() => setArchiveConfirmOpen(true)}
                 className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-800 shadow-sm transition hover:bg-red-50"
               >
                 В архів
@@ -310,7 +328,7 @@ export default function StationDetailPage() {
               </span>
             </p>
             <p className="text-xs text-gray-500">
-              Аналітика та порти — у вкладках вище. Тарифи й показники за добу — у рядку під заголовком.
+              Аналітика та порти — у вкладках вище. Показники за добу — у рядку статистики під заголовком.
             </p>
           </AppCard>
           <div>
@@ -369,9 +387,7 @@ export default function StationDetailPage() {
                   <p className="font-semibold text-gray-900">
                     {p.label} · {p.connector}
                   </p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {p.powerKw} кВт · {p.pricePerKwh} грн/кВт·год
-                  </p>
+                  <p className="mt-1 text-xs text-gray-500">{p.powerKw} кВт</p>
                   {p.occupiedEta ? (
                     <p className="mt-1 text-xs font-medium text-sky-700">Орієнтовно {p.occupiedEta}</p>
                   ) : null}

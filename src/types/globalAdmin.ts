@@ -36,11 +36,15 @@ export interface ChargeRecord {
   portLabel: string;
 }
 
+/** Як у Prisma `ev_user.role` (ADMIN = глобальний адмін). */
+export type EvUserRole = 'USER' | 'STATION_ADMIN' | 'ADMIN';
+
 export interface EndUser {
   id: string;
   name: string;
   email: string;
   phone: string;
+  role?: EvUserRole;
   balance: number;
   registeredAt: string;
   avatarUrl?: string;

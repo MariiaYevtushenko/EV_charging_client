@@ -8,6 +8,8 @@ export function stationApiStatusLabel(status: string): string {
       return "Немає зв'язку";
     case "FIX":
       return "На ремонті";
+    case "ARCHIVED":
+      return "Архів";
     default:
       return status;
   }
@@ -22,6 +24,8 @@ export function stationApiStatusTone(
     case "FIX":
       return "warn";
     case "NO_CONNECTION":
+      return "muted";
+    case "ARCHIVED":
       return "muted";
     default:
       return "muted";

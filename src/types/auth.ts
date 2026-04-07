@@ -7,6 +7,8 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  /** Телефон з БД (`ev_user.phone_number`) */
+  phone?: string;
   balance?: number; // Опціонально для звичайного юзера
   /** data URL фото профілю (демо, без бекенду) */
   avatarUrl?: string;

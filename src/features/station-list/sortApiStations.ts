@@ -5,6 +5,7 @@ const statusOrder: Record<string, number> = {
   WORK: 0,
   FIX: 1,
   NO_CONNECTION: 2,
+  ARCHIVED: 3,
 };
 
 /** Сортування списку з API (без полів todayRevenue / todaySessions). */

@@ -7,7 +7,6 @@ import {
   type ReactNode,
 } from 'react';
 import type { EndUser, TariffPlan } from '../types/globalAdmin';
-import { INITIAL_END_USERS, INITIAL_TARIFF_PLANS } from '../data/globalAdminMock';
 
 export type PaymentRow = EndUser['payments'][number] & {
   userId: string;
@@ -21,6 +20,9 @@ export type BookingRow = EndUser['bookings'][number] & {
 
 type GlobalAdminContextValue = {
   endUsers: EndUser[];
+  /** true після першого завантаження списку з API (або після replaceEndUsers). */
+  endUsersReady: boolean;
+  replaceEndUsers: (users: EndUser[]) => void;
   getEndUser: (id: string) => EndUser | undefined;
   updateEndUser: (id: string, patch: Partial<EndUser>) => void;
   replaceEndUser: (user: EndUser) => void;
@@ -53,18 +55,14 @@ function buildBookingRows(users: EndUser[]): BookingRow[] {
 }
 
 export function GlobalAdminProvider({ children }: { children: ReactNode }) {
-  const [endUsers, setEndUsers] = useState<EndUser[]>(() =>
-    INITIAL_END_USERS.map((u) => ({
-      ...u,
-      cars: u.cars.map((c) => ({ ...c })),
-      bookings: u.bookings.map((b) => ({ ...b })),
-      payments: u.payments.map((p) => ({ ...p })),
-      charges: u.charges.map((c) => ({ ...c })),
-    }))
-  );
-  const [tariffPlans, setTariffPlans] = useState<TariffPlan[]>(() =>
-    INITIAL_TARIFF_PLANS.map((t) => ({ ...t }))
-  );
+  const [endUsers, setEndUsers] = useState<EndUser[]>([]);
+  const [endUsersReady, setEndUsersReady] = useState(false);
+  const [tariffPlans, setTariffPlans] = useState<TariffPlan[]>([]);
+
+  const replaceEndUsers = useCallback((users: EndUser[]) => {
+    setEndUsers(users);
+    setEndUsersReady(true);
+  }, []);
 
   const getEndUser = useCallback(
     (id: string) => endUsers.find((u) => u.id === id),
@@ -76,7 +74,11 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const replaceEndUser = useCallback((user: EndUser) => {
-    setEndUsers((prev) => prev.map((u) => (u.id === user.id ? user : u)));
+    setEndUsers((prev) => {
+      const idx = prev.findIndex((u) => u.id === user.id);
+      if (idx === -1) return [...prev, user];
+      return prev.map((u) => (u.id === user.id ? user : u));
+    });
   }, []);
 
   const updateTariffPlan = useCallback((id: string, patch: Partial<TariffPlan>) => {
@@ -89,6 +91,8 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       endUsers,
+      endUsersReady,
+      replaceEndUsers,
       getEndUser,
       updateEndUser,
       replaceEndUser,
@@ -99,6 +103,8 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
     }),
     [
       endUsers,
+      endUsersReady,
+      replaceEndUsers,
       getEndUser,
       updateEndUser,
       replaceEndUser,

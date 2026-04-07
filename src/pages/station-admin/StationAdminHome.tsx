@@ -1,15 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useStations } from '../../context/StationsContext';
 import StationFiltersBar from '../../components/station-admin/StationFiltersBar';
 import StationMap from '../../components/station-admin/StationMap';
-import { AppCard, OutlineButton, PrimaryButton, StatusPill } from '../../components/station-admin/Primitives';
-import { stationStatusLabel, stationStatusTone } from '../../utils/stationLabels';
+import { AppCard } from '../../components/station-admin/Primitives';
 import StationsTableList from '../../components/station-admin/StationsTableList';
 
-
 export default function StationAdminHome() {
-  const navigate = useNavigate();
   const { stations, filteredStations, getStation } = useStations();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -55,8 +51,7 @@ export default function StationAdminHome() {
           <div className="min-h-[400px] flex-1 p-3">
             {mapStations.length === 0 ? (
               <div className="flex min-h-[400px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-emerald-200/70 bg-emerald-50/30 px-6 text-center text-sm text-gray-500">
-                <p>Немає активних станцій (усі в архіві або фільтр міста порожній)</p>
-                <p className="text-xs">Оберіть «Усі міста», відкрийте список або додайте станцію</p>
+                <p>Немає активних станцій</p>
               </div>
             ) : (
               <StationMap

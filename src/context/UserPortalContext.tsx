@@ -16,16 +16,11 @@ import type {
   UserPaymentRow,
   UserSessionRecord,
 } from '../types/userPortal';
-import {
-  INITIAL_CURRENT_SESSION,
-  INITIAL_USER_BOOKINGS,
-  INITIAL_USER_CARS,
-  INITIAL_USER_PAYMENTS,
-  INITIAL_USER_SESSIONS,
-} from '../data/userPortalMock';
 
 type UserPortalContextValue = {
   cars: UserCar[];
+  /** Повна заміна списку (наприклад після завантаження з API). */
+  replaceCars: (cars: UserCar[]) => void;
   addCar: (car: Omit<UserCar, 'id'>) => void;
   updateCar: (id: string, patch: Partial<Omit<UserCar, 'id'>>) => void;
   removeCar: (id: string) => void;
@@ -44,8 +39,7 @@ type UserPortalContextValue = {
   cancelBooking: (id: string) => void;
   currentSession: UserCurrentSession | null;
   endCurrentSession: () => void;
-  startDemoSession: () => void;
-  /** Почати зарядку на обраному порту (демо; якщо сесія вже є — ігнорується). */
+  /** Почати зарядку на обраному порту (якщо сесія вже є — ігнорується). */
   startSessionAtPort: (params: {
     stationId: string;
     stationName: string;
@@ -57,31 +51,16 @@ type UserPortalContextValue = {
 
 const UserPortalContext = createContext<UserPortalContextValue | undefined>(undefined);
 
-const DEMO_SESSION_TEMPLATE: UserCurrentSession = {
-  stationId: 'st-14',
-  stationName: 'Станція #14 «Lviv-Polytech»',
-  portLabel: 'Порт B · CCS2',
-  progressPct: 64,
-  kwhSoFar: 12.4,
-  costSoFar: 93.0,
-  startedAt: new Date().toISOString().slice(0, 19),
-  elapsedLabel: '00:24:15',
-};
-
 export function UserPortalProvider({ children }: { children: ReactNode }) {
   const sessionRef = useRef<UserCurrentSession | null>(null);
-  const [cars, setCars] = useState<UserCar[]>(() => INITIAL_USER_CARS.map((c) => ({ ...c })));
-  const [sessions] = useState<UserSessionRecord[]>(() =>
-    INITIAL_USER_SESSIONS.map((s) => ({ ...s }))
-  );
-  const [bookings, setBookings] = useState<UserBooking[]>(() =>
-    INITIAL_USER_BOOKINGS.map((b) => ({ ...b }))
-  );
-  const [currentSession, setCurrentSessionState] = useState<UserCurrentSession | null>(() => {
-    const s = INITIAL_CURRENT_SESSION ? { ...INITIAL_CURRENT_SESSION } : null;
-    sessionRef.current = s;
-    return s;
-  });
+  const [cars, setCars] = useState<UserCar[]>([]);
+
+  const replaceCars = useCallback((next: UserCar[]) => {
+    setCars(next);
+  }, []);
+  const [sessions] = useState<UserSessionRecord[]>([]);
+  const [bookings, setBookings] = useState<UserBooking[]>([]);
+  const [currentSession, setCurrentSessionState] = useState<UserCurrentSession | null>(null);
 
   const setCurrentSession = useCallback((next: UserCurrentSession | null | ((prev: UserCurrentSession | null) => UserCurrentSession | null)) => {
     setCurrentSessionState((prev) => {
@@ -90,7 +69,7 @@ export function UserPortalProvider({ children }: { children: ReactNode }) {
       return resolved;
     });
   }, []);
-  const [payments] = useState<UserPaymentRow[]>(() => INITIAL_USER_PAYMENTS.map((p) => ({ ...p })));
+  const [payments] = useState<UserPaymentRow[]>([]);
 
   const addCar = useCallback((car: Omit<UserCar, 'id'>) => {
     const id = `uc-${Date.now().toString(36)}`;
@@ -144,10 +123,6 @@ export function UserPortalProvider({ children }: { children: ReactNode }) {
     setCurrentSession(null);
   }, [setCurrentSession]);
 
-  const startDemoSession = useCallback(() => {
-    setCurrentSession({ ...DEMO_SESSION_TEMPLATE });
-  }, [setCurrentSession]);
-
   const startSessionAtPort = useCallback(
     (params: { stationId: string; stationName: string; portLabel: string; dayTariff: number }) => {
       if (sessionRef.current) return false;
@@ -172,6 +147,7 @@ export function UserPortalProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       cars,
+      replaceCars,
       addCar,
       updateCar,
       removeCar,
@@ -181,12 +157,12 @@ export function UserPortalProvider({ children }: { children: ReactNode }) {
       cancelBooking,
       currentSession,
       endCurrentSession,
-      startDemoSession,
       startSessionAtPort,
       payments,
     }),
     [
       cars,
+      replaceCars,
       addCar,
       updateCar,
       removeCar,
@@ -196,7 +172,6 @@ export function UserPortalProvider({ children }: { children: ReactNode }) {
       cancelBooking,
       currentSession,
       endCurrentSession,
-      startDemoSession,
       startSessionAtPort,
       payments,
     ]
