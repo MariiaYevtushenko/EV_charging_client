@@ -35,6 +35,7 @@ export function stationToCreateBody(input: Omit<Station, "id">) {
   const { street, houseNumber } = splitStreetHouse(input.address);
   return {
     name: input.name,
+    country: input.country,
     city: input.city,
     street,
     houseNumber,
@@ -49,6 +50,7 @@ export function stationToUpdateBody(merged: Station) {
   const { street, houseNumber } = splitStreetHouse(merged.address);
   return {
     name: merged.name,
+    country: merged.country,
     city: merged.city,
     street,
     houseNumber,

@@ -322,6 +322,9 @@ export default function StationDetailPage() {
               Місто: <span className="font-medium text-gray-900">{station.city}</span>
             </p>
             <p className="text-sm text-gray-600">
+              Країна: <span className="font-medium text-gray-900">{station.country}</span>
+            </p>
+            <p className="text-sm text-gray-600">
               Координати:{' '}
               <span className="font-mono text-xs text-gray-800">
                 {station.lat.toFixed(5)}, {station.lng.toFixed(5)}

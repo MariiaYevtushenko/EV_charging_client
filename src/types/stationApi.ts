@@ -13,6 +13,7 @@ export type StationDashboardDto = {
   name: string;
   status: string;
   locationId: number;
+  country: string;
   city: string;
   addressLine: string;
   lat: number | null;

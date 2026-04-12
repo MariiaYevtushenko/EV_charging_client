@@ -9,7 +9,6 @@ export type VehicleApiRow = {
   brand: string;
   vehicleModel: string;
   batteryCapacity: string | number;
-  powerRate: string | number;
 };
 
 export type CreateVehicleBody = {
@@ -17,7 +16,6 @@ export type CreateVehicleBody = {
   brand: string;
   vehicleModel: string;
   batteryCapacity: number;
-  powerRate: number;
 };
 
 /** POST /api/user/:userId/vehicle */

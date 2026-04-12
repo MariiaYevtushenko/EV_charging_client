@@ -18,6 +18,8 @@ export interface StationPort {
 export interface Station {
   id: string;
   name: string;
+  /** Код або назва країни (узгоджено з location.country) */
+  country: string;
   /** Місто для фільтрації та сортування */
   city: string;
   address: string;

@@ -31,6 +31,7 @@ export default function StationEditPage() {
   const base = stationId ? getStation(stationId) : undefined;
 
   const [name, setName] = useState('');
+  const [country, setCountry] = useState('UA');
   const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
   const [lat, setLat] = useState('');
@@ -60,6 +61,7 @@ export default function StationEditPage() {
   useEffect(() => {
     if (!base) return;
     setName(base.name);
+    setCountry(base.country || 'UA');
     setCity(base.city);
     setAddress(base.address);
     setLat(base.lat.toFixed(6));
@@ -126,6 +128,7 @@ export default function StationEditPage() {
     try {
       await updateStation(base.id, {
         name: name.trim() || base.name,
+        country: country.trim() || base.country,
         city: city.trim() || base.city,
         address: address.trim() || base.address,
         lat: mapLat,
@@ -235,6 +238,20 @@ export default function StationEditPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="напр. Станція «Вокзал»"
+                className={inputClass}
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="st-country" className="text-sm font-medium text-gray-700">
+                Країна (код ISO)
+              </label>
+              <input
+                id="st-country"
+                value={country}
+                onChange={(e) => setCountry(e.target.value.toUpperCase())}
+                placeholder="UA"
+                maxLength={100}
                 className={inputClass}
                 required
               />

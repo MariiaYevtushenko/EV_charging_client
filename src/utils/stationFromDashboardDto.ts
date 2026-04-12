@@ -59,6 +59,7 @@ export function stationFromDashboardDto(dto: StationDashboardDto): Station {
   return {
     id: String(dto.id),
     name: dto.name,
+    country: dto.country?.trim() ? dto.country : "UA",
     city: dto.city,
     address: dto.addressLine,
     status: mapStationStatus(dto.status),

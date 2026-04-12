@@ -19,7 +19,6 @@ export default function UserCarNewPage() {
   const [vehicleModel, setVehicleModel] = useState('');
   const [plate, setPlate] = useState('');
   const [batteryCapacity, setBatteryCapacity] = useState('60');
-  const [powerRate, setPowerRate] = useState('11');
   const [connector, setConnector] = useState<string>('Type 2');
   const [imageUrl, setImageUrl] = useState('');
   const [error, setError] = useState('');
@@ -48,13 +47,12 @@ export default function UserCarNewPage() {
     const mStr = vehicleModel.trim();
     const plateStr = plate.trim();
     const bat = Number(batteryCapacity.replace(',', '.'));
-    const pow = Number(powerRate.replace(',', '.'));
     if (!bStr || !mStr || !plateStr) {
       setError('Заповніть бренд, модель та номер.');
       return;
     }
-    if (!Number.isFinite(bat) || !Number.isFinite(pow) || bat <= 0 || pow <= 0) {
-      setError('Ємність і потужність мають бути додатними числами.');
+    if (!Number.isFinite(bat) || bat <= 0) {
+      setError('Ємність акумулятора має бути додатним числом.');
       return;
     }
 
@@ -65,7 +63,6 @@ export default function UserCarNewPage() {
         brand: bStr,
         vehicleModel: mStr,
         batteryCapacity: bat,
-        powerRate: pow,
       });
       const rows = await fetchUserVehicles(uid);
       replaceCars(rows.map((r) => mapVehicleApiRowToUserCar(r, connector)));
@@ -148,33 +145,18 @@ export default function UserCarNewPage() {
               required
             />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="new-car-bat" className="text-sm font-medium text-gray-700">
-                Ємність акумулятора (кВт·год)
-              </label>
-              <input
-                id="new-car-bat"
-                value={batteryCapacity}
-                onChange={(e) => setBatteryCapacity(e.target.value)}
-                inputMode="decimal"
-                className={appFormInputClass}
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="new-car-pow" className="text-sm font-medium text-gray-700">
-                Макс. потужність зарядки (кВт)
-              </label>
-              <input
-                id="new-car-pow"
-                value={powerRate}
-                onChange={(e) => setPowerRate(e.target.value)}
-                inputMode="decimal"
-                className={appFormInputClass}
-                required
-              />
-            </div>
+          <div>
+            <label htmlFor="new-car-bat" className="text-sm font-medium text-gray-700">
+              Ємність акумулятора (кВт·год)
+            </label>
+            <input
+              id="new-car-bat"
+              value={batteryCapacity}
+              onChange={(e) => setBatteryCapacity(e.target.value)}
+              inputMode="decimal"
+              className={appFormInputClass}
+              required
+            />
           </div>
           <div>
             <label htmlFor="new-car-conn" className="text-sm font-medium text-gray-700">

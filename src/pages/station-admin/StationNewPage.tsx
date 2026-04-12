@@ -26,6 +26,7 @@ export default function StationNewPage() {
   const dashBase = pathname.startsWith('/admin-dashboard') ? '/admin-dashboard' : '/station-dashboard';
 
   const [name, setName] = useState('');
+  const [country, setCountry] = useState('UA');
   const [city, setCity] = useState('Львів');
   const [address, setAddress] = useState('');
   const [lat, setLat] = useState(String(DEFAULT_LAT));
@@ -96,6 +97,7 @@ export default function StationNewPage() {
     try {
       const station = await addStation({
         name: name.trim() || 'Нова станція',
+        country: country.trim() || 'UA',
         city: city.trim() || 'Львів',
         address: address.trim() || '—',
         status,
@@ -167,6 +169,20 @@ export default function StationNewPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="напр. Станція «Вокзал»"
+                className={inputClass}
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="nw-country" className="text-sm font-medium text-gray-700">
+                Країна (код ISO)
+              </label>
+              <input
+                id="nw-country"
+                value={country}
+                onChange={(e) => setCountry(e.target.value.toUpperCase())}
+                placeholder="UA"
+                maxLength={100}
                 className={inputClass}
                 required
               />
