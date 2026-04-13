@@ -17,6 +17,8 @@ export interface EndUserBooking {
 
 export interface EndUserPayment {
   id: string;
+  /** Сесія зарядки, для якої виставлено bill. */
+  sessionId: string;
   amount: number;
   currency: string;
   method: string;

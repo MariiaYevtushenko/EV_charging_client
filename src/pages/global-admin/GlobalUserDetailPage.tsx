@@ -373,11 +373,17 @@ export default function GlobalUserDetailPage() {
                   {fmt(p.createdAt)} · {p.method}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <p className="text-sm font-bold tabular-nums text-gray-900">
                   {p.amount.toLocaleString('uk-UA')} {p.currency}
                 </p>
                 <StatusPill tone={paymentTone(p.status)}>{paymentLabel(p.status)}</StatusPill>
+                <Link
+                  to={`/admin-dashboard/sessions/${p.sessionId}`}
+                  className="text-sm font-semibold text-green-700 hover:text-green-800"
+                >
+                  Рахунок (сесія)
+                </Link>
               </div>
             </div>
           ))}

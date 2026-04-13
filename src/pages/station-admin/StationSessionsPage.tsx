@@ -1,8 +1,14 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import type { AdminNetworkSessionRow } from '../../api/adminNetwork';
 import { useStationAdminNetwork } from '../../context/StationAdminNetworkContext';
+import SortableTableTh, {
+  defaultDirForSortColumn,
+  type SortDir,
+} from '../../components/admin/SortableTableTh';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
-import { appInputClass } from '../../components/station-admin/formStyles';
+
+type SessionSortKey = 'startedAt' | 'userName' | 'stationName' | 'portLabel' | 'kwh' | 'status' | 'cost';
 
 function sessionTone(s: string): 'success' | 'warn' | 'muted' | 'danger' | 'info' {
   switch (s) {
@@ -30,36 +36,92 @@ function sessionLabel(s: string) {
   }
 }
 
+/** День, місяць (повна назва), рік + час — завжди з роком. */
 function fmt(dt: string) {
   try {
-    return new Date(dt).toLocaleString('uk-UA', {
+    const d = new Date(dt);
+    const datePart = d.toLocaleDateString('uk-UA', {
       day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
+      month: 'long',
+      year: 'numeric',
     });
+    const timePart = d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+    return `${datePart}, ${timePart}`;
   } catch {
     return dt;
   }
 }
 
-export default function StationSessionsPage() {
-  const { sessions, loading, error } = useStationAdminNetwork();
-  const [q, setQ] = useState('');
+function cmpSessions(
+  a: AdminNetworkSessionRow,
+  b: AdminNetworkSessionRow,
+  sortKey: SessionSortKey,
+  sortDir: SortDir
+): number {
+  let c = 0;
+  switch (sortKey) {
+    case 'startedAt':
+      c = new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
+      break;
+    case 'userName':
+      c = a.userName.localeCompare(b.userName, 'uk');
+      break;
+    case 'stationName':
+      c = a.stationName.localeCompare(b.stationName, 'uk');
+      break;
+    case 'portLabel':
+      c = a.portLabel.localeCompare(b.portLabel, 'uk');
+      break;
+    case 'kwh':
+      c = a.kwh - b.kwh;
+      break;
+    case 'status':
+      c = a.status.localeCompare(b.status, 'uk');
+      break;
+    case 'cost': {
+      const va = a.cost;
+      const vb = b.cost;
+      const na = va == null || !Number.isFinite(va);
+      const nb = vb == null || !Number.isFinite(vb);
+      if (na && nb) c = 0;
+      else if (na) c = -1;
+      else if (nb) c = 1;
+      else c = va - vb;
+      break;
+    }
+    default:
+      c = new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
+  }
+  return sortDir === 'desc' ? -c : c;
+}
 
-  const rows = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    const list = [...sessions].sort(
-      (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
-    );
-    if (!needle) return list;
-    return list.filter(
-      (s) =>
-        s.userName.toLowerCase().includes(needle) ||
-        s.stationName.toLowerCase().includes(needle) ||
-        s.id.toLowerCase().includes(needle)
-    );
-  }, [sessions, q]);
+export default function StationSessionsPage() {
+  const navigate = useNavigate();
+  const { sessions, loading, error } = useStationAdminNetwork();
+  const [sortKey, setSortKey] = useState<SessionSortKey>('startedAt');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  const onSort = useCallback(
+    (key: string) => {
+      const k = key as SessionSortKey;
+      if (sortKey === k) {
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+      } else {
+        setSortKey(k);
+        setSortDir(defaultDirForSortColumn(k));
+      }
+    },
+    [sortKey]
+  );
+
+  const rows = useMemo(
+    () => [...sessions].sort((a, b) => cmpSessions(a, b, sortKey, sortDir)),
+    [sessions, sortKey, sortDir]
+  );
+
+  const openDetail = (id: string) => {
+    navigate(`/station-dashboard/sessions/${id}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -72,33 +134,64 @@ export default function StationSessionsPage() {
         <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="sr-only" htmlFor="station-sessions-search">
-          Пошук
-        </label>
-        <input
-          id="station-sessions-search"
-          type="search"
-          placeholder="Користувач, станція, ID…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className={appInputClass}
-          disabled={loading}
-        />
-      </div>
-
       <AppCard className="overflow-x-auto !p-0" padding={false}>
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-gray-100 bg-gray-50/80 text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr>
-              <th className="px-4 py-3">Початок</th>
-              <th className="px-4 py-3">Користувач</th>
-              <th className="px-4 py-3">Станція</th>
-              <th className="px-4 py-3">Порт</th>
-              <th className="px-4 py-3 text-right">кВт·год</th>
-              <th className="px-4 py-3">Статус</th>
-              <th className="px-4 py-3 text-right">Сума</th>
-              <th className="px-4 py-3 text-right">Дія</th>
+              <SortableTableTh
+                label="Початок"
+                columnKey="startedAt"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="Користувач"
+                columnKey="userName"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="Станція"
+                columnKey="stationName"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="Порт"
+                columnKey="portLabel"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="кВт·год"
+                columnKey="kwh"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+                align="right"
+              />
+              <SortableTableTh
+                label="Статус"
+                columnKey="status"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="Сума"
+                columnKey="cost"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+                align="right"
+              />
+              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Дія
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -110,7 +203,19 @@ export default function StationSessionsPage() {
               </tr>
             ) : null}
             {rows.map((s) => (
-              <tr key={s.id} className="bg-white hover:bg-gray-50/80">
+              <tr
+                key={s.id}
+                role="button"
+                tabIndex={0}
+                className="cursor-pointer bg-white hover:bg-emerald-50/70"
+                onClick={() => openDetail(s.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openDetail(s.id);
+                  }
+                }}
+              >
                 <td className="whitespace-nowrap px-4 py-3 text-gray-600">{fmt(s.startedAt)}</td>
                 <td className="px-4 py-3 font-medium text-gray-900">{s.userName}</td>
                 <td className="px-4 py-3 text-gray-700">{s.stationName}</td>
@@ -124,7 +229,7 @@ export default function StationSessionsPage() {
                 <td className="px-4 py-3 text-right tabular-nums text-gray-800">
                   {s.cost != null ? `${s.cost.toLocaleString('uk-UA')} грн` : '—'}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                   <Link
                     to={`/station-dashboard/stations/${s.stationId}`}
                     className="font-semibold text-green-700 hover:text-green-800"

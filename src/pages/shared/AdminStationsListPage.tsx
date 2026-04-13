@@ -9,6 +9,7 @@ import { appPrimaryCtaClass } from '../../components/station-admin/formStyles';
 import { stationStatusLabel, stationStatusTone } from '../../utils/stationLabels';
 import type { StationStatus } from '../../types/station';
 import { parseStationSortValue } from '../../features/station-list/stationSortOptions';
+import SortableTableTh from '../../components/admin/SortableTableTh';
 
 const STATUS_STATS_ORDER: StationStatus[] = ['working', 'maintenance', 'offline', 'archived'];
 
@@ -56,43 +57,6 @@ function TrashIcon({ className }: { className?: string }) {
   );
 }
 
-function SortableTh({
-  label,
-  sortKey,
-  sortValue,
-  onSort,
-  align = 'left',
-}: {
-  label: string;
-  sortKey: StationSortKey;
-  sortValue: string;
-  onSort: (key: StationSortKey) => void;
-  align?: 'left' | 'right';
-}) {
-  const { key: activeKey, dir } = parseStationSortValue(sortValue);
-  const active = activeKey === sortKey;
-  return (
-    <th
-      scope="col"
-      className={`px-4 py-3 ${align === 'right' ? 'text-right' : 'text-left'}`}
-      aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-    >
-      <button
-        type="button"
-        onClick={() => onSort(sortKey)}
-        className={`inline-flex max-w-full items-center gap-1.5 rounded-lg uppercase tracking-wide transition hover:bg-gray-100/90 hover:text-gray-800 ${
-          align === 'right' ? 'w-full justify-end' : ''
-        } ${active ? 'font-bold text-green-800' : 'font-semibold text-gray-500'}`}
-      >
-        <span>{label}</span>
-        <span className="select-none text-[10px] leading-none opacity-80" aria-hidden>
-          {active ? (dir === 'asc' ? '▲' : '▼') : '⇅'}
-        </span>
-      </button>
-    </th>
-  );
-}
-
 export default function AdminStationsListPage({ dashboardBase }: AdminStationsListPageProps) {
   const navigate = useNavigate();
   const {
@@ -126,12 +90,13 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
   const stationPath = useCallback((id: string) => `${dashboardBase}/stations/${id}`, [dashboardBase]);
 
   const handleSort = useCallback(
-    (key: StationSortKey) => {
+    (key: string) => {
+      const k = key as StationSortKey;
       const { key: currentKey, dir } = parseStationSortValue(sortValue);
-      if (currentKey === key) {
-        setSortValue(`${key}:${dir === 'asc' ? 'desc' : 'asc'}`);
+      if (currentKey === k) {
+        setSortValue(`${k}:${dir === 'asc' ? 'desc' : 'asc'}`);
       } else {
-        setSortValue(`${key}:asc`);
+        setSortValue(`${k}:asc`);
       }
     },
     [sortValue, setSortValue]
@@ -180,6 +145,7 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
   }, [deleteTarget, deleteStation]);
 
   const rows = filteredStations;
+  const parsedSort = parseStationSortValue(sortValue);
 
   const toggleStatusFilter = useCallback(
     (status: StationStatus) => {
@@ -338,20 +304,40 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-gray-100 bg-gray-50/80 text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr>
-              <SortableTh label="Станція" sortKey="name" sortValue={sortValue} onSort={handleSort} />
-              <SortableTh label="Місто" sortKey="city" sortValue={sortValue} onSort={handleSort} />
-              <SortableTh label="Статус" sortKey="status" sortValue={sortValue} onSort={handleSort} />
-              <SortableTh
+              <SortableTableTh
+                label="Станція"
+                columnKey="name"
+                activeKey={parsedSort.key}
+                dir={parsedSort.dir}
+                onSort={handleSort}
+              />
+              <SortableTableTh
+                label="Місто"
+                columnKey="city"
+                activeKey={parsedSort.key}
+                dir={parsedSort.dir}
+                onSort={handleSort}
+              />
+              <SortableTableTh
+                label="Статус"
+                columnKey="status"
+                activeKey={parsedSort.key}
+                dir={parsedSort.dir}
+                onSort={handleSort}
+              />
+              <SortableTableTh
                 label="Дохід сьогодні"
-                sortKey="todayRevenue"
-                sortValue={sortValue}
+                columnKey="todayRevenue"
+                activeKey={parsedSort.key}
+                dir={parsedSort.dir}
                 onSort={handleSort}
                 align="right"
               />
-              <SortableTh
+              <SortableTableTh
                 label="Сесії"
-                sortKey="todaySessions"
-                sortValue={sortValue}
+                columnKey="todaySessions"
+                activeKey={parsedSort.key}
+                dir={parsedSort.dir}
                 onSort={handleSort}
                 align="right"
               />

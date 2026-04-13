@@ -1,10 +1,16 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useGlobalAdmin } from '../../context/GlobalAdminContext';
 import AdminListPagination from '../../components/admin/AdminListPagination';
+import SortableTableTh, {
+  defaultDirForSortColumn,
+  type SortDir,
+} from '../../components/admin/SortableTableTh';
 import type { EvUserRole } from '../../types/globalAdmin';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
+
+type UserSortKey = 'name' | 'email' | 'phone' | 'role';
 
 const ROLE_CARDS: { id: EvUserRole; label: string; pillTone: 'success' | 'warn' | 'danger' }[] = [
   { id: 'USER', label: 'Користувачі', pillTone: 'success' },
@@ -23,6 +29,32 @@ function roleLabel(role: EvUserRole | undefined): string {
     default:
       return '—';
   }
+}
+
+function cmpUsers(
+  a: { name: string; email: string; phone: string; role?: EvUserRole },
+  b: { name: string; email: string; phone: string; role?: EvUserRole },
+  sortKey: UserSortKey,
+  sortDir: SortDir
+): number {
+  let c = 0;
+  switch (sortKey) {
+    case 'name':
+      c = a.name.localeCompare(b.name, 'uk');
+      break;
+    case 'email':
+      c = a.email.localeCompare(b.email, 'uk');
+      break;
+    case 'phone':
+      c = a.phone.localeCompare(b.phone, 'uk');
+      break;
+    case 'role':
+      c = roleLabel(a.role).localeCompare(roleLabel(b.role), 'uk');
+      break;
+    default:
+      c = a.name.localeCompare(b.name, 'uk');
+  }
+  return sortDir === 'desc' ? -c : c;
 }
 
 function PencilIcon({ className }: { className?: string }) {
@@ -53,6 +85,19 @@ export default function GlobalUsersPage() {
     usersRoleCounts,
   } = useGlobalAdmin();
 
+  const [sortKey, setSortKey] = useState<UserSortKey>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const onSort = useCallback((key: string) => {
+    const k = key as UserSortKey;
+    if (sortKey === k) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(k);
+      setSortDir(defaultDirForSortColumn(k));
+    }
+  }, [sortKey]);
+
   const toggleRoleFilter = useCallback(
     (id: EvUserRole) => {
       setUsersRoleFilter(usersRoleFilter === id ? null : id);
@@ -65,8 +110,8 @@ export default function GlobalUsersPage() {
     if (currentUser?.id) {
       list = list.filter((u) => u.id !== currentUser.id);
     }
-    return [...list].sort((a, b) => a.name.localeCompare(b.name, 'uk'));
-  }, [endUsers, currentUser?.id]);
+    return [...list].sort((a, b) => cmpUsers(a, b, sortKey, sortDir));
+  }, [endUsers, currentUser?.id, sortKey, sortDir]);
 
   return (
     <div className="space-y-6">
@@ -108,10 +153,34 @@ export default function GlobalUsersPage() {
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-gray-100 bg-gray-50/80 text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr>
-              <th className="px-4 py-3">ПІБ</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Телефон</th>
-              <th className="px-4 py-3">Роль</th>
+              <SortableTableTh
+                label="ПІБ"
+                columnKey="name"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="Email"
+                columnKey="email"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="Телефон"
+                columnKey="phone"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="Роль"
+                columnKey="role"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
               <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Дія
               </th>

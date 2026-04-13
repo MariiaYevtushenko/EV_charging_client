@@ -1,14 +1,22 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { fetchAdminNetworkBookings, type AdminNetworkBookingRow } from '../../api/adminNetwork';
+import {
+  fetchAdminNetworkBookings,
+  type AdminNetworkBookingRow,
+} from '../../api/adminNetwork';
 import { ApiError } from '../../api/http';
 import AdminListPagination from '../../components/admin/AdminListPagination';
+import SortableTableTh, {
+  defaultDirForSortColumn,
+  type SortDir,
+} from '../../components/admin/SortableTableTh';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
-import { appInputClass } from '../../components/station-admin/formStyles';
 
 const BOOKING_PAGE_SIZE = 50;
 
 type StatusTab = 'all' | AdminNetworkBookingRow['status'];
+
+type BookingSortKey = 'start' | 'userName' | 'stationName' | 'slot' | 'status';
 
 const tabClass = (active: boolean) =>
   `relative shrink-0 border-b-2 px-1 pb-3 text-sm font-semibold transition ${
@@ -46,20 +54,22 @@ function bookingLabel(s: string) {
   }
 }
 
+/** День, місяць (повна назва), рік + час — завжди з роком. */
 function fmt(dt: string) {
   try {
-    return new Date(dt).toLocaleString('uk-UA', {
+    const d = new Date(dt);
+    const datePart = d.toLocaleDateString('uk-UA', {
       day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
+      month: 'long',
+      year: 'numeric',
     });
+    const timePart = d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+    return `${datePart}, ${timePart}`;
   } catch {
     return dt;
   }
 }
 
-/** Узгоджено з mapBookingStatus на сервері: BOOKED → pending, PAID → completed, CANCELLED → cancelled. */
 const STATUS_TABS: { id: StatusTab; label: string }[] = [
   { id: 'all', label: 'Усі' },
   { id: 'pending', label: 'Очікує' },
@@ -67,14 +77,57 @@ const STATUS_TABS: { id: StatusTab; label: string }[] = [
   { id: 'cancelled', label: 'Скасовано' },
 ];
 
+function cmpBookings(
+  a: AdminNetworkBookingRow,
+  b: AdminNetworkBookingRow,
+  sortKey: BookingSortKey,
+  sortDir: SortDir
+): number {
+  let c = 0;
+  switch (sortKey) {
+    case 'start':
+      c = new Date(a.start).getTime() - new Date(b.start).getTime();
+      break;
+    case 'userName':
+      c = a.userName.localeCompare(b.userName, 'uk');
+      break;
+    case 'stationName':
+      c = a.stationName.localeCompare(b.stationName, 'uk');
+      break;
+    case 'slot':
+      c = a.slotLabel.localeCompare(b.slotLabel, 'uk');
+      break;
+    case 'status':
+      c = a.status.localeCompare(b.status, 'uk');
+      break;
+    default:
+      c = new Date(a.start).getTime() - new Date(b.start).getTime();
+  }
+  return sortDir === 'desc' ? -c : c;
+}
+
 export default function GlobalBookingsPage() {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<AdminNetworkBookingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [q, setQ] = useState('');
+  const [sortKey, setSortKey] = useState<BookingSortKey>('start');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [statusTab, setStatusTab] = useState<StatusTab>('all');
   const [page, setPage] = useState(1);
+
+  const onSort = useCallback(
+    (key: string) => {
+      const k = key as BookingSortKey;
+      if (sortKey === k) {
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+      } else {
+        setSortKey(k);
+        setSortDir(defaultDirForSortColumn(k));
+      }
+    },
+    [sortKey]
+  );
 
   const load = useCallback(() => {
     setLoading(true);
@@ -93,9 +146,8 @@ export default function GlobalBookingsPage() {
   }, [load]);
 
   const sortedBase = useMemo(
-    () =>
-      [...bookings].sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()),
-    [bookings]
+    () => [...bookings].sort((a, b) => cmpBookings(a, b, sortKey, sortDir)),
+    [bookings, sortKey, sortDir]
   );
 
   const filteredByStatus = useMemo(() => {
@@ -103,30 +155,19 @@ export default function GlobalBookingsPage() {
     return sortedBase.filter((b) => b.status === statusTab);
   }, [sortedBase, statusTab]);
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return filteredByStatus;
-    return filteredByStatus.filter(
-      (b) =>
-        b.userName.toLowerCase().includes(needle) ||
-        b.stationName.toLowerCase().includes(needle) ||
-        b.id.toLowerCase().includes(needle)
-    );
-  }, [filteredByStatus, q]);
-
   useEffect(() => {
     setPage(1);
-  }, [statusTab, q]);
+  }, [statusTab, sortKey, sortDir]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / BOOKING_PAGE_SIZE) || 1);
+  const totalPages = Math.max(1, Math.ceil(filteredByStatus.length / BOOKING_PAGE_SIZE) || 1);
   useEffect(() => {
     setPage((p) => Math.min(Math.max(1, p), totalPages));
-  }, [filtered.length, totalPages]);
+  }, [filteredByStatus.length, totalPages]);
 
   const pagedRows = useMemo(() => {
     const start = (page - 1) * BOOKING_PAGE_SIZE;
-    return filtered.slice(start, start + BOOKING_PAGE_SIZE);
-  }, [filtered, page]);
+    return filteredByStatus.slice(start, start + BOOKING_PAGE_SIZE);
+  }, [filteredByStatus, page]);
 
   const openDetail = (id: string) => {
     navigate(`/admin-dashboard/bookings/${id}`);
@@ -159,35 +200,52 @@ export default function GlobalBookingsPage() {
         ))}
       </nav>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="sr-only" htmlFor="global-bookings-search">
-          Пошук
-        </label>
-        <input
-          id="global-bookings-search"
-          type="search"
-          placeholder="Користувач, станція, ID…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className={appInputClass}
-          disabled={loading}
-        />
-      </div>
-
       <AppCard className="overflow-x-auto !p-0" padding={false}>
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-gray-100 bg-gray-50/80 text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr>
-              <th className="px-4 py-3">Початок</th>
-              <th className="px-4 py-3">Користувач</th>
-              <th className="px-4 py-3">Станція</th>
-              <th className="px-4 py-3">Слот</th>
-              <th className="px-4 py-3">Статус</th>
-              <th className="px-4 py-3 text-right">Дії</th>
+              <SortableTableTh
+                label="Початок"
+                columnKey="start"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="Користувач"
+                columnKey="userName"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="Станція"
+                columnKey="stationName"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="Слот"
+                columnKey="slot"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="Статус"
+                columnKey="status"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Дії
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {loading && filtered.length === 0 ? (
+            {loading && filteredByStatus.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
                   Завантаження…
@@ -237,15 +295,15 @@ export default function GlobalBookingsPage() {
             ))}
           </tbody>
         </table>
-        {!loading && filtered.length === 0 ? (
+        {!loading && filteredByStatus.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-gray-500">Нічого не знайдено.</p>
         ) : null}
-        {filtered.length > 0 ? (
+        {filteredByStatus.length > 0 ? (
           <div className="border-t border-gray-100 px-4 py-4">
             <AdminListPagination
               page={page}
               pageSize={BOOKING_PAGE_SIZE}
-              total={filtered.length}
+              total={filteredByStatus.length}
               onPageChange={setPage}
             />
           </div>

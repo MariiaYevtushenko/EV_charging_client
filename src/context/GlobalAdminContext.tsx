@@ -13,11 +13,13 @@ import {
   mapEvUserPublicRowToEndUser,
   type UsersRoleCounts,
 } from '../api/adminUsers';
+import { fetchAdminNetworkPayments } from '../api/adminNetwork';
+import { ApiError } from '../api/http';
 
 const USERS_PAGE_SIZE = 50;
 
 export type PaymentRow = EndUser['payments'][number] & {
-  userId: string;
+  userId: string | null;
   userName: string;
 };
 
@@ -44,21 +46,15 @@ type GlobalAdminContextValue = {
   replaceEndUser: (user: EndUser) => void;
   tariffPlans: TariffPlan[];
   updateTariffPlan: (id: string, patch: Partial<TariffPlan>) => void;
+  /** Усі платежі (bill) з `/api/admin/network/payments`. */
   allPayments: PaymentRow[];
+  paymentsLoading: boolean;
+  paymentsError: string | null;
+  reloadPayments: () => void;
   allBookings: BookingRow[];
 };
 
 const GlobalAdminContext = createContext<GlobalAdminContextValue | undefined>(undefined);
-
-function buildPaymentRows(users: EndUser[]): PaymentRow[] {
-  return users.flatMap((u) =>
-    u.payments.map((p) => ({
-      ...p,
-      userId: u.id,
-      userName: u.name,
-    }))
-  );
-}
 
 function buildBookingRows(users: EndUser[]): BookingRow[] {
   return users.flatMap((u) =>
@@ -78,6 +74,41 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
   const [usersRoleFilter, setUsersRoleFilterState] = useState<EvUserRole | null>(null);
   const [usersRoleCounts, setUsersRoleCounts] = useState<UsersRoleCounts | null>(null);
   const [tariffPlans, setTariffPlans] = useState<TariffPlan[]>([]);
+
+  const [allPayments, setAllPayments] = useState<PaymentRow[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
+  const [paymentsError, setPaymentsError] = useState<string | null>(null);
+
+  const reloadPayments = useCallback(() => {
+    setPaymentsLoading(true);
+    setPaymentsError(null);
+    void fetchAdminNetworkPayments()
+      .then((rows) => {
+        setAllPayments(
+          rows.map((r) => ({
+            id: r.id,
+            sessionId: r.sessionId,
+            amount: r.amount,
+            currency: r.currency,
+            method: r.method,
+            status: r.status,
+            createdAt: r.createdAt,
+            description: r.description,
+            userId: r.userId,
+            userName: r.userName,
+          }))
+        );
+      })
+      .catch((e: unknown) => {
+        setAllPayments([]);
+        setPaymentsError(e instanceof ApiError ? e.message : 'Не вдалося завантажити платежі');
+      })
+      .finally(() => setPaymentsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    void reloadPayments();
+  }, [reloadPayments]);
 
   useEffect(() => {
     let cancelled = false;
@@ -143,7 +174,6 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
     setTariffPlans((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
   }, []);
 
-  const allPayments = useMemo(() => buildPaymentRows(endUsers), [endUsers]);
   const allBookings = useMemo(() => buildBookingRows(endUsers), [endUsers]);
 
   const value = useMemo(
@@ -164,6 +194,9 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
       tariffPlans,
       updateTariffPlan,
       allPayments,
+      paymentsLoading,
+      paymentsError,
+      reloadPayments,
       allBookings,
     }),
     [
@@ -182,6 +215,9 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
       tariffPlans,
       updateTariffPlan,
       allPayments,
+      paymentsLoading,
+      paymentsError,
+      reloadPayments,
       allBookings,
     ]
   );

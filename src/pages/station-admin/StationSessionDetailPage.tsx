@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { fetchAdminNetworkSessionDetail, type AdminSessionDetailDto } from '../../api/adminNetwork';
 import { ApiError } from '../../api/http';
 import AdminSessionDetailView, {
   AdminSessionDetailBackLink,
 } from '../../components/admin/AdminSessionDetailView';
 
-export default function GlobalSessionDetailPage() {
+export default function StationSessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const location = useLocation();
   const [data, setData] = useState<AdminSessionDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,19 +29,10 @@ export default function GlobalSessionDetailPage() {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    const focusBill = (location.state as { focusBill?: boolean } | null)?.focusBill;
-    if (!focusBill || loading || !data) return;
-    const id = window.setTimeout(() => {
-      document.getElementById('admin-session-bill')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 80);
-    return () => clearTimeout(id);
-  }, [loading, data, location.state]);
-
   return (
     <div className="space-y-6">
       <div>
-        <AdminSessionDetailBackLink to="/admin-dashboard/sessions">Назад до списку сесій</AdminSessionDetailBackLink>
+        <AdminSessionDetailBackLink to="/station-dashboard/sessions">Назад до списку сесій</AdminSessionDetailBackLink>
         <h1 className="mt-4 text-2xl font-bold tracking-tight text-gray-900">Сесія #{sessionId}</h1>
       </div>
 
@@ -55,9 +45,7 @@ export default function GlobalSessionDetailPage() {
         <AdminSessionDetailView
           data={data}
           links={{
-            stationHref: (stationId) => `/admin-dashboard/stations/${stationId}`,
-            userHref: (userId) => `/admin-dashboard/users/${userId}`,
-            bookingHref: (bookingId) => `/admin-dashboard/bookings/${bookingId}`,
+            stationHref: (stationId) => `/station-dashboard/stations/${stationId}`,
           }}
         />
       ) : null}

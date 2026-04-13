@@ -69,6 +69,24 @@ export function fetchAdminNetworkSessions(): Promise<AdminNetworkSessionRow[]> {
   return getJson<AdminNetworkSessionRow[]>("/api/admin/network/sessions");
 }
 
+/** Усі рахунки (bill) у мережі — узгоджено з `PaymentRow` у GlobalAdminContext. */
+export type AdminNetworkPaymentRow = {
+  id: string;
+  sessionId: string;
+  amount: number;
+  currency: string;
+  method: string;
+  status: "success" | "pending" | "failed";
+  createdAt: string;
+  description: string;
+  userId: string | null;
+  userName: string;
+};
+
+export function fetchAdminNetworkPayments(): Promise<AdminNetworkPaymentRow[]> {
+  return getJson<AdminNetworkPaymentRow[]>("/api/admin/network/payments");
+}
+
 export type AdminSessionDetailBillDto = {
   id: string;
   calculatedAmount: number;

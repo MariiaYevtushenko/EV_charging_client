@@ -48,6 +48,7 @@ import StationFunctionalityPage from './pages/station-admin/StationFunctionality
 import StationAnalyticsPage from './pages/station-admin/StationAnalyticsPage';
 import StationBookingsPage from './pages/station-admin/StationBookingsPage';
 import StationSessionsPage from './pages/station-admin/StationSessionsPage';
+import StationSessionDetailPage from './pages/station-admin/StationSessionDetailPage';
 import StationAdminProfilePage from './pages/station-admin/StationAdminProfilePage';
 import StationNewPage from './pages/station-admin/StationNewPage';
 function App() {
@@ -112,6 +113,7 @@ function App() {
               />
               <Route path="bookings" element={<StationBookingsPage />} />
               <Route path="sessions" element={<StationSessionsPage />} />
+              <Route path="sessions/:sessionId" element={<StationSessionDetailPage />} />
               <Route path="analytics" element={<StationAnalyticsPage />} />
               <Route path="profile" element={<StationAdminProfilePage />} />
             </Route>

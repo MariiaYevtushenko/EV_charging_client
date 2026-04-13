@@ -1,8 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import type { AdminNetworkBookingRow } from '../../api/adminNetwork';
 import { useStationAdminNetwork } from '../../context/StationAdminNetworkContext';
+import SortableTableTh, {
+  defaultDirForSortColumn,
+  type SortDir,
+} from '../../components/admin/SortableTableTh';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
 import { appInputClass } from '../../components/station-admin/formStyles';
+
+type BookingSortKey = 'start' | 'userName' | 'stationName' | 'slot' | 'status';
 
 function bookingTone(s: string): 'success' | 'warn' | 'muted' | 'danger' | 'info' {
   switch (s) {
@@ -33,36 +40,82 @@ function bookingLabel(s: string) {
   }
 }
 
+/** День, місяць (повна назва), рік + час — завжди з роком. */
 function fmt(dt: string) {
   try {
-    return new Date(dt).toLocaleString('uk-UA', {
+    const d = new Date(dt);
+    const datePart = d.toLocaleDateString('uk-UA', {
       day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
+      month: 'long',
+      year: 'numeric',
     });
+    const timePart = d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+    return `${datePart}, ${timePart}`;
   } catch {
     return dt;
   }
 }
 
+function cmpBookings(
+  a: AdminNetworkBookingRow,
+  b: AdminNetworkBookingRow,
+  sortKey: BookingSortKey,
+  sortDir: SortDir
+): number {
+  let c = 0;
+  switch (sortKey) {
+    case 'start':
+      c = new Date(a.start).getTime() - new Date(b.start).getTime();
+      break;
+    case 'userName':
+      c = a.userName.localeCompare(b.userName, 'uk');
+      break;
+    case 'stationName':
+      c = a.stationName.localeCompare(b.stationName, 'uk');
+      break;
+    case 'slot':
+      c = a.slotLabel.localeCompare(b.slotLabel, 'uk');
+      break;
+    case 'status':
+      c = a.status.localeCompare(b.status, 'uk');
+      break;
+    default:
+      c = new Date(a.start).getTime() - new Date(b.start).getTime();
+  }
+  return sortDir === 'desc' ? -c : c;
+}
+
 export default function StationBookingsPage() {
   const { bookings, loading, error } = useStationAdminNetwork();
   const [q, setQ] = useState('');
+  const [sortKey, setSortKey] = useState<BookingSortKey>('start');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  const onSort = useCallback(
+    (key: string) => {
+      const k = key as BookingSortKey;
+      if (sortKey === k) {
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+      } else {
+        setSortKey(k);
+        setSortDir(defaultDirForSortColumn(k));
+      }
+    },
+    [sortKey]
+  );
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    const list = [...bookings].sort(
-      (a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()
-    );
-    if (!needle) return list;
-    return list.filter(
-      (b) =>
-        b.userName.toLowerCase().includes(needle) ||
-        b.stationName.toLowerCase().includes(needle) ||
-        b.id.toLowerCase().includes(needle)
-    );
-  }, [bookings, q]);
+    const filtered = !needle
+      ? bookings
+      : bookings.filter(
+          (b) =>
+            b.userName.toLowerCase().includes(needle) ||
+            b.stationName.toLowerCase().includes(needle) ||
+            b.id.toLowerCase().includes(needle)
+        );
+    return [...filtered].sort((a, b) => cmpBookings(a, b, sortKey, sortDir));
+  }, [bookings, q, sortKey, sortDir]);
 
   return (
     <div className="space-y-6">
@@ -75,7 +128,7 @@ export default function StationBookingsPage() {
         <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="min-w-0">
         <label className="sr-only" htmlFor="station-bookings-search">
           Пошук
         </label>
@@ -94,12 +147,44 @@ export default function StationBookingsPage() {
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-gray-100 bg-gray-50/80 text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr>
-              <th className="px-4 py-3">Початок</th>
-              <th className="px-4 py-3">Користувач</th>
-              <th className="px-4 py-3">Станція</th>
-              <th className="px-4 py-3">Слот</th>
-              <th className="px-4 py-3">Статус</th>
-              <th className="px-4 py-3 text-right">Дія</th>
+              <SortableTableTh
+                label="Початок"
+                columnKey="start"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="Користувач"
+                columnKey="userName"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="Станція"
+                columnKey="stationName"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="Слот"
+                columnKey="slot"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <SortableTableTh
+                label="Статус"
+                columnKey="status"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+              />
+              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Дія
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">

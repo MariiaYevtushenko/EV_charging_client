@@ -11,6 +11,10 @@ import {
   type TariffListItemDto,
 } from '../../api/tariffsAdmin';
 import AdminListPagination from '../../components/admin/AdminListPagination';
+import SortableTableTh, {
+  defaultDirForSortColumn,
+  type SortDir,
+} from '../../components/admin/SortableTableTh';
 
 const TARIFF_LIST_PAGE_SIZE = 20;
 
@@ -29,8 +33,64 @@ function formatUahPerKwh(uah: number | null | undefined): string {
   return `${uah.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} грн`;
 }
 
+/** Дата календарного дня тарифу (YYYY-MM-DD) — день, місяць повністю, рік (як у списку сесій, без часу). */
+function formatTariffCalendarDate(isoDate: string): string {
+  const parts = isoDate.trim().split('-');
+  if (parts.length === 3) {
+    const y = Number(parts[0]);
+    const mo = Number(parts[1]);
+    const day = Number(parts[2]);
+    if (Number.isFinite(y) && Number.isFinite(mo) && Number.isFinite(day)) {
+      return new Date(y, mo - 1, day).toLocaleDateString('uk-UA', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+    }
+  }
+  try {
+    const d = new Date(isoDate);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleDateString('uk-UA', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+    }
+  } catch {
+    /* fallthrough */
+  }
+  return isoDate;
+}
+
+type TariffGroupedRow = {
+  effectiveDate: string;
+  dayPrice: number | null;
+  nightPrice: number | null;
+};
+
+type TariffSortKey = 'effectiveDate' | 'dayPrice' | 'nightPrice';
+
+function cmpTariffRows(a: TariffGroupedRow, b: TariffGroupedRow, sortKey: TariffSortKey, sortDir: SortDir): number {
+  let c = 0;
+  switch (sortKey) {
+    case 'effectiveDate':
+      c = a.effectiveDate.localeCompare(b.effectiveDate);
+      break;
+    case 'dayPrice':
+      c = (a.dayPrice ?? -Infinity) - (b.dayPrice ?? -Infinity);
+      break;
+    case 'nightPrice':
+      c = (a.nightPrice ?? -Infinity) - (b.nightPrice ?? -Infinity);
+      break;
+    default:
+      c = a.effectiveDate.localeCompare(b.effectiveDate);
+  }
+  return sortDir === 'desc' ? -c : c;
+}
+
 /** Один рядок на календарну дату: денний і нічний тариф. */
-function groupTariffsByDate(rows: TariffListItemDto[]) {
+function groupTariffsByDate(rows: TariffListItemDto[]): TariffGroupedRow[] {
   const byDate = new Map<string, { day: number | null; night: number | null }>();
   for (const r of rows) {
     let e = byDate.get(r.effectiveDate);
@@ -41,13 +101,11 @@ function groupTariffsByDate(rows: TariffListItemDto[]) {
     if (r.tariffType === 'DAY') e.day = r.pricePerKwh;
     if (r.tariffType === 'NIGHT') e.night = r.pricePerKwh;
   }
-  return [...byDate.entries()]
-    .map(([effectiveDate, v]) => ({
-      effectiveDate,
-      dayPrice: v.day,
-      nightPrice: v.night,
-    }))
-    .sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate));
+  return [...byDate.entries()].map(([effectiveDate, v]) => ({
+    effectiveDate,
+    dayPrice: v.day,
+    nightPrice: v.night,
+  }));
 }
 
 function ForecastBiasCard() {
@@ -385,6 +443,21 @@ export default function GlobalTariffsPage() {
   const [gapSyncMessage, setGapSyncMessage] = useState<string | null>(null);
   const [syncGapError, setSyncGapError] = useState<string | null>(null);
   const [listPage, setListPage] = useState(1);
+  const [tariffSortKey, setTariffSortKey] = useState<TariffSortKey>('effectiveDate');
+  const [tariffSortDir, setTariffSortDir] = useState<SortDir>('desc');
+
+  const onTariffSort = useCallback(
+    (key: string) => {
+      const k = key as TariffSortKey;
+      if (tariffSortKey === k) {
+        setTariffSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+      } else {
+        setTariffSortKey(k);
+        setTariffSortDir(defaultDirForSortColumn(k));
+      }
+    },
+    [tariffSortKey]
+  );
 
   const loadList = useCallback(() => {
     setListLoading(true);
@@ -445,7 +518,10 @@ export default function GlobalTariffsPage() {
     };
   }, [loadList, loadToday]);
 
-  const groupedRows = useMemo(() => groupTariffsByDate(rows), [rows]);
+  const groupedRows = useMemo(() => {
+    const g = groupTariffsByDate(rows);
+    return [...g].sort((a, b) => cmpTariffRows(a, b, tariffSortKey, tariffSortDir));
+  }, [rows, tariffSortKey, tariffSortDir]);
 
   const pagedRows = useMemo(() => {
     const start = (listPage - 1) * TARIFF_LIST_PAGE_SIZE;
@@ -456,6 +532,10 @@ export default function GlobalTariffsPage() {
     const totalPages = Math.max(1, Math.ceil(groupedRows.length / TARIFF_LIST_PAGE_SIZE));
     setListPage((p) => Math.min(Math.max(1, p), totalPages));
   }, [groupedRows.length]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [tariffSortKey, tariffSortDir]);
 
   const saveTodayWithValues = useCallback(
     async (dayUahStr: string, nightUahStr: string): Promise<boolean> => {
@@ -536,7 +616,6 @@ export default function GlobalTariffsPage() {
           <AppCard padding={false} className="overflow-hidden">
             <div className="border-b border-gray-100 px-5 py-4">
               <h2 className="text-sm font-semibold text-gray-900">Архів тарифів</h2>
-            
             </div>
 
             {listError ? (
@@ -547,9 +626,32 @@ export default function GlobalTariffsPage() {
               <table className="min-w-full text-left text-sm">
                 <thead className="border-b border-gray-100 bg-gray-50/80 text-xs font-semibold uppercase tracking-wide text-gray-500">
                   <tr>
-                    <th className="px-5 py-3">Дата</th>
-                    <th className="px-5 py-3 text-right">День (грн)</th>
-                    <th className="px-5 py-3 text-right">Ніч (грн)</th>
+                    <SortableTableTh
+                      label="Дата"
+                      columnKey="effectiveDate"
+                      activeKey={tariffSortKey}
+                      dir={tariffSortDir}
+                      onSort={onTariffSort}
+                      thClassName="px-5 py-3"
+                    />
+                    <SortableTableTh
+                      label="День (грн)"
+                      columnKey="dayPrice"
+                      activeKey={tariffSortKey}
+                      dir={tariffSortDir}
+                      onSort={onTariffSort}
+                      align="right"
+                      thClassName="px-5 py-3"
+                    />
+                    <SortableTableTh
+                      label="Ніч (грн)"
+                      columnKey="nightPrice"
+                      activeKey={tariffSortKey}
+                      dir={tariffSortDir}
+                      onSort={onTariffSort}
+                      align="right"
+                      thClassName="px-5 py-3"
+                    />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -569,7 +671,9 @@ export default function GlobalTariffsPage() {
                           isToday ? 'bg-emerald-50/80 hover:bg-emerald-50' : 'bg-white hover:bg-gray-50/80'
                         }
                       >
-                        <td className="whitespace-nowrap px-5 py-3 text-gray-800">{r.effectiveDate}</td>
+                        <td className="whitespace-nowrap px-5 py-3 text-gray-800">
+                          {formatTariffCalendarDate(r.effectiveDate)}
+                        </td>
                         <td className="px-5 py-3 text-right tabular-nums font-medium text-gray-900">
                           {formatUahPerKwh(r.dayPrice)}
                         </td>
