@@ -12,23 +12,35 @@ export type EvUserPublicRow = {
   createdAt: string;
 };
 
+export type UsersRoleCounts = {
+  USER: number;
+  STATION_ADMIN: number;
+  ADMIN: number;
+};
+
 export type PaginatedUsersResponse = {
   items: EvUserPublicRow[];
   total: number;
   page: number;
   pageSize: number;
+  roleCounts: UsersRoleCounts;
 };
 
 const DEFAULT_ADMIN_USERS_PAGE_SIZE = 50;
 
 export function fetchAdminUsersPage(
   page: number,
-  pageSize: number = DEFAULT_ADMIN_USERS_PAGE_SIZE
+  pageSize: number = DEFAULT_ADMIN_USERS_PAGE_SIZE,
+  /** Фільтр списку за роллю; не передається — усі користувачі. */
+  role?: EvUserRole | null
 ): Promise<PaginatedUsersResponse> {
   const params = new URLSearchParams({
     page: String(Math.max(1, page)),
     pageSize: String(pageSize),
   });
+  if (role != null) {
+    params.set("role", role);
+  }
   return getJson<PaginatedUsersResponse>(`/api/admin/users?${params.toString()}`);
 }
 
@@ -56,6 +68,6 @@ export function mapEvUserPublicRowToEndUser(row: EvUserPublicRow): EndUser {
     cars: [],
     bookings: [],
     payments: [],
-    charges: [],
+    sessions: [],
   };
 }

@@ -6,6 +6,18 @@ import type { EndUser } from '../../types/globalAdmin';
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
 import { appFormInputClass } from '../../components/station-admin/formStyles';
 
+function splitDisplayName(full: string): { firstName: string; surname: string } {
+  const t = full.trim();
+  if (!t) return { firstName: '', surname: '' };
+  const i = t.indexOf(' ');
+  if (i === -1) return { firstName: t, surname: '' };
+  return { firstName: t.slice(0, i).trim(), surname: t.slice(i + 1).trim() };
+}
+
+function joinDisplayName(firstName: string, surname: string): string {
+  return [firstName.trim(), surname.trim()].filter(Boolean).join(' ');
+}
+
 export default function GlobalUserEditPage() {
   const { userId } = useParams<{ userId: string }>();
   const { replaceEndUser } = useGlobalAdmin();
@@ -14,10 +26,10 @@ export default function GlobalUserEditPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [surname, setSurname] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [balance, setBalance] = useState('');
   const [blocked, setBlocked] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -54,10 +66,11 @@ export default function GlobalUserEditPage() {
 
   useEffect(() => {
     if (!base) return;
-    setName(base.name);
+    const { firstName: fn, surname: sn } = splitDisplayName(base.name);
+    setFirstName(fn);
+    setSurname(sn);
     setEmail(base.email);
     setPhone(base.phone);
-    setBalance(String(base.balance));
     setBlocked(!!base.blocked);
   }, [base]);
 
@@ -93,13 +106,12 @@ export default function GlobalUserEditPage() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const bal = parseFloat(balance.replace(',', '.'));
+    const fullName = joinDisplayName(firstName, surname) || base.name;
     const next: EndUser = {
       ...base,
-      name: name.trim() || base.name,
+      name: fullName,
       email: email.trim() || base.email,
       phone: phone.trim() || base.phone,
-      balance: Number.isFinite(bal) ? bal : base.balance,
       blocked,
     };
     replaceEndUser(next);
@@ -123,16 +135,31 @@ export default function GlobalUserEditPage() {
 
       <AppCard>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="gu-name" className="text-sm font-medium text-gray-700">
-              Повне імʼя
-            </label>
-            <input
-              id="gu-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={appFormInputClass}
-            />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="gu-first-name" className="text-sm font-medium text-gray-700">
+                Імʼя
+              </label>
+              <input
+                id="gu-first-name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className={appFormInputClass}
+                autoComplete="given-name"
+              />
+            </div>
+            <div>
+              <label htmlFor="gu-surname" className="text-sm font-medium text-gray-700">
+                Прізвище
+              </label>
+              <input
+                id="gu-surname"
+                value={surname}
+                onChange={(e) => setSurname(e.target.value)}
+                className={appFormInputClass}
+                autoComplete="family-name"
+              />
+            </div>
           </div>
           <div>
             <label htmlFor="gu-email" className="text-sm font-medium text-gray-700">
@@ -157,17 +184,6 @@ export default function GlobalUserEditPage() {
               className={appFormInputClass}
             />
           </div>
-          <div>
-            <label htmlFor="gu-balance" className="text-sm font-medium text-gray-700">
-              Баланс (грн)
-            </label>
-            <input
-              id="gu-balance"
-              value={balance}
-              onChange={(e) => setBalance(e.target.value)}
-              className={appFormInputClass}
-            />
-          </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
             <input
               type="checkbox"
@@ -189,10 +205,11 @@ export default function GlobalUserEditPage() {
             <OutlineButton
               type="button"
               onClick={() => {
-                setName(base.name);
+                const { firstName: fn, surname: sn } = splitDisplayName(base.name);
+                setFirstName(fn);
+                setSurname(sn);
                 setEmail(base.email);
                 setPhone(base.phone);
-                setBalance(String(base.balance));
                 setBlocked(!!base.blocked);
               }}
             >

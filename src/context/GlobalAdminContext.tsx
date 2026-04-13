@@ -7,8 +7,12 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { EndUser, TariffPlan } from '../types/globalAdmin';
-import { fetchAdminUsersPage, mapEvUserPublicRowToEndUser } from '../api/adminUsers';
+import type { EndUser, EvUserRole, TariffPlan } from '../types/globalAdmin';
+import {
+  fetchAdminUsersPage,
+  mapEvUserPublicRowToEndUser,
+  type UsersRoleCounts,
+} from '../api/adminUsers';
 
 const USERS_PAGE_SIZE = 50;
 
@@ -30,6 +34,10 @@ type GlobalAdminContextValue = {
   usersTotal: number;
   usersPageSize: number;
   setUsersPage: (page: number) => void;
+  /** null — усі ролі в списку; інакше фільтр на сервері (пагінація узгоджена). */
+  usersRoleFilter: EvUserRole | null;
+  setUsersRoleFilter: (role: EvUserRole | null) => void;
+  usersRoleCounts: UsersRoleCounts | null;
   replaceEndUsers: (users: EndUser[]) => void;
   getEndUser: (id: string) => EndUser | undefined;
   updateEndUser: (id: string, patch: Partial<EndUser>) => void;
@@ -67,15 +75,18 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
   const [endUsersReady, setEndUsersReady] = useState(false);
   const [usersPage, setUsersPageState] = useState(1);
   const [usersTotal, setUsersTotal] = useState(0);
+  const [usersRoleFilter, setUsersRoleFilterState] = useState<EvUserRole | null>(null);
+  const [usersRoleCounts, setUsersRoleCounts] = useState<UsersRoleCounts | null>(null);
   const [tariffPlans, setTariffPlans] = useState<TariffPlan[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetchAdminUsersPage(usersPage, USERS_PAGE_SIZE);
+        const res = await fetchAdminUsersPage(usersPage, USERS_PAGE_SIZE, usersRoleFilter);
         if (cancelled) return;
         setUsersTotal(res.total);
+        setUsersRoleCounts(res.roleCounts);
         const maxPage = Math.max(1, Math.ceil(res.total / res.pageSize) || 1);
         if (usersPage > maxPage) {
           setUsersPageState(maxPage);
@@ -87,6 +98,7 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
         if (!cancelled) {
           setEndUsers([]);
           setUsersTotal(0);
+          setUsersRoleCounts(null);
           setEndUsersReady(true);
         }
       }
@@ -94,10 +106,15 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [usersPage]);
+  }, [usersPage, usersRoleFilter]);
 
   const setUsersPage = useCallback((page: number) => {
     setUsersPageState(Math.max(1, page));
+  }, []);
+
+  const setUsersRoleFilter = useCallback((role: EvUserRole | null) => {
+    setUsersRoleFilterState(role);
+    setUsersPageState(1);
   }, []);
 
   const replaceEndUsers = useCallback((users: EndUser[]) => {
@@ -137,6 +154,9 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
       usersTotal,
       usersPageSize: USERS_PAGE_SIZE,
       setUsersPage,
+      usersRoleFilter,
+      setUsersRoleFilter,
+      usersRoleCounts,
       replaceEndUsers,
       getEndUser,
       updateEndUser,
@@ -152,6 +172,9 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
       usersPage,
       usersTotal,
       setUsersPage,
+      usersRoleFilter,
+      setUsersRoleFilter,
+      usersRoleCounts,
       replaceEndUsers,
       getEndUser,
       updateEndUser,

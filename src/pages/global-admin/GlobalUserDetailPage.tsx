@@ -5,7 +5,7 @@ import { fetchAdminUserDetail } from '../../api/adminUsers';
 import type { EndUser } from '../../types/globalAdmin';
 import { AppCard, OutlineButton, StatusPill } from '../../components/station-admin/Primitives';
 
-type UserTab = 'overview' | 'cars' | 'bookings' | 'payments' | 'charges';
+type UserTab = 'overview' | 'cars' | 'bookings' | 'sessions' | 'payments';
 
 const tabClass = (active: boolean) =>
   `relative shrink-0 border-b-2 px-1 pb-3 text-sm font-semibold transition ${
@@ -62,6 +62,32 @@ function paymentLabel(s: string) {
       return 'Успіх';
     case 'pending':
       return 'Очікується';
+    case 'failed':
+      return 'Помилка';
+    default:
+      return s;
+  }
+}
+
+function sessionTone(s: string): 'success' | 'warn' | 'muted' | 'danger' | 'info' {
+  switch (s) {
+    case 'completed':
+      return 'success';
+    case 'active':
+      return 'info';
+    case 'failed':
+      return 'danger';
+    default:
+      return 'muted';
+  }
+}
+
+function sessionLabel(s: string) {
+  switch (s) {
+    case 'active':
+      return 'Активна';
+    case 'completed':
+      return 'Завершена';
     case 'failed':
       return 'Помилка';
     default:
@@ -180,11 +206,6 @@ export default function GlobalUserDetailPage() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-bold tracking-tight text-gray-900">{user.name}</h1>
-                {user.blocked ? (
-                  <StatusPill tone="danger">Заблоковано</StatusPill>
-                ) : (
-                  <StatusPill tone="success">Активний</StatusPill>
-                )}
               </div>
               <p className="mt-1 text-sm text-gray-500">{user.email}</p>
               <p className="text-sm text-gray-500">{user.phone}</p>
@@ -197,20 +218,14 @@ export default function GlobalUserDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <AppCard className="!p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Баланс</p>
-          <p className="mt-1 text-xl font-bold tabular-nums text-green-700">
-            {user.balance.toLocaleString('uk-UA', { minimumFractionDigits: 2 })} грн
-          </p>
-        </AppCard>
+      <div className="grid gap-4 sm:grid-cols-2">
         <AppCard className="!p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Авто</p>
           <p className="mt-1 text-xl font-bold text-gray-900">{user.cars.length}</p>
         </AppCard>
         <AppCard className="!p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Зарядки (записів)</p>
-          <p className="mt-1 text-xl font-bold text-gray-900">{user.charges.length}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сесії</p>
+          <p className="mt-1 text-xl font-bold text-gray-900">{user.sessions.length}</p>
         </AppCard>
       </div>
 
@@ -227,11 +242,11 @@ export default function GlobalUserDetailPage() {
         <button type="button" className={tabClass(tab === 'bookings')} onClick={() => setTab('bookings')}>
           Бронювання ({user.bookings.length})
         </button>
+        <button type="button" className={tabClass(tab === 'sessions')} onClick={() => setTab('sessions')}>
+          Сесії ({user.sessions.length})
+        </button>
         <button type="button" className={tabClass(tab === 'payments')} onClick={() => setTab('payments')}>
           Платежі ({user.payments.length})
-        </button>
-        <button type="button" className={tabClass(tab === 'charges')} onClick={() => setTab('charges')}>
-          Зарядки ({user.charges.length})
         </button>
       </nav>
 
@@ -246,13 +261,13 @@ export default function GlobalUserDetailPage() {
               Телефон: <span className="font-medium text-gray-900">{user.phone}</span>
             </p>
             <p className="text-xs text-gray-500">
-              Повна історія — у вкладках «Бронювання», «Платежі» та «Зарядки».
+              Повна історія — у вкладках «Бронювання», «Сесії» та «Платежі».
             </p>
           </AppCard>
           <AppCard className="space-y-2 text-sm text-gray-600">
             <h2 className="text-sm font-semibold text-gray-900">Короткий огляд</h2>
             <p>Останній платіж: {user.payments[0] ? fmt(user.payments[0].createdAt) : '—'}</p>
-            <p>Остання зарядка: {user.charges[0] ? user.charges[0].stationName : '—'}</p>
+            <p>Остання сесія: {user.sessions[0] ? user.sessions[0].stationName : '—'}</p>
             <p>Активні бронювання: {user.bookings.filter((b) => b.status === 'pending').length}</p>
           </AppCard>
         </div>
@@ -293,6 +308,58 @@ export default function GlobalUserDetailPage() {
         </AppCard>
       ) : null}
 
+      {tab === 'sessions' ? (
+        <AppCard className="space-y-3">
+          {user.sessions.map((s) => (
+            <div
+              key={s.id}
+              className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-start sm:justify-between"
+            >
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-900">{s.stationName}</p>
+                <p className="text-xs text-gray-500">
+                  {s.portLabel} · {fmt(s.startedAt)}
+                  {s.endedAt ? ` — ${fmt(s.endedAt)}` : ''}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  {s.kwh} кВт·год · {s.cost.toLocaleString('uk-UA')} грн
+                </p>
+                {s.bookingId ? (
+                  <p className="mt-1 text-xs">
+                    <Link
+                      to={`/admin-dashboard/bookings/${s.bookingId}`}
+                      className="font-medium text-green-600 hover:text-green-700"
+                    >
+                      Бронювання #{s.bookingId}
+                    </Link>
+                    {' · '}
+                    <Link
+                      to={`/admin-dashboard/sessions/${s.id}`}
+                      className="font-medium text-green-600 hover:text-green-700"
+                    >
+                      Сесія #{s.id}
+                    </Link>
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs">
+                    <Link
+                      to={`/admin-dashboard/sessions/${s.id}`}
+                      className="font-medium text-green-600 hover:text-green-700"
+                    >
+                      Сесія #{s.id}
+                    </Link>
+                  </p>
+                )}
+              </div>
+              <StatusPill tone={sessionTone(s.status)}>{sessionLabel(s.status)}</StatusPill>
+            </div>
+          ))}
+          {user.sessions.length === 0 ? (
+            <p className="text-sm text-gray-500">Сесій немає.</p>
+          ) : null}
+        </AppCard>
+      ) : null}
+
       {tab === 'payments' ? (
         <AppCard className="space-y-3">
           {user.payments.map((p) => (
@@ -315,29 +382,6 @@ export default function GlobalUserDetailPage() {
             </div>
           ))}
           {user.payments.length === 0 ? <p className="text-sm text-gray-500">Платежів немає.</p> : null}
-        </AppCard>
-      ) : null}
-
-      {tab === 'charges' ? (
-        <AppCard className="space-y-3">
-          {user.charges.map((c) => (
-            <div
-              key={c.id}
-              className="rounded-xl border border-gray-100 bg-gray-50/90 px-4 py-3 sm:flex sm:items-center sm:justify-between"
-            >
-              <div>
-                <p className="font-semibold text-gray-900">{c.stationName}</p>
-                <p className="text-xs text-gray-500">
-                  {c.portLabel} · {fmt(c.startedAt)} · {c.durationMin} хв
-                </p>
-              </div>
-              <div className="mt-2 text-right sm:mt-0">
-                <p className="text-sm font-bold text-gray-900">{c.kwh} кВт·год</p>
-                <p className="text-xs font-semibold text-green-700">{c.cost.toLocaleString('uk-UA')} грн</p>
-              </div>
-            </div>
-          ))}
-          {user.charges.length === 0 ? <p className="text-sm text-gray-500">Історії зарядок немає.</p> : null}
         </AppCard>
       ) : null}
     </div>

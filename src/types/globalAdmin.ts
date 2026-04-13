@@ -25,15 +25,17 @@ export interface EndUserPayment {
   description: string;
 }
 
-export interface ChargeRecord {
+export interface EndUserSession {
   id: string;
   stationId: string;
   stationName: string;
+  portLabel: string;
+  status: 'active' | 'completed' | 'failed';
+  startedAt: string;
+  endedAt: string | null;
   kwh: number;
   cost: number;
-  startedAt: string;
-  durationMin: number;
-  portLabel: string;
+  bookingId: string | null;
 }
 
 /** Як у Prisma `ev_user.role` (ADMIN = глобальний адмін). */
@@ -52,7 +54,7 @@ export interface EndUser {
   cars: EndUserCar[];
   bookings: EndUserBooking[];
   payments: EndUserPayment[];
-  charges: ChargeRecord[];
+  sessions: EndUserSession[];
 }
 
 export interface TariffPlan {

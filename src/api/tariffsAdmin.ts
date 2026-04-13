@@ -1,4 +1,4 @@
-import { getJson, putJson } from "./http";
+import { getJson, postJson, putJson } from "./http";
 
 export type TariffListItemDto = {
   id: number;
@@ -13,12 +13,23 @@ export type TodayTariffsDto = {
   nightPrice: number;
 };
 
+export type SyncMissingTariffsDto = {
+  filledDays: number;
+  dates: string[];
+  bootstrappedTodayOnly: boolean;
+};
+
 export function fetchTariffsList(): Promise<TariffListItemDto[]> {
   return getJson<TariffListItemDto[]>("/api/admin/tariffs");
 }
 
 export function fetchTariffsToday(): Promise<TodayTariffsDto> {
   return getJson<TodayTariffsDto>("/api/admin/tariffs/today");
+}
+
+/** Доповнює пропущені календарні дні від останнього запису до сьогодні (ціни з API, як ingest). */
+export function postTariffsSyncMissing(): Promise<SyncMissingTariffsDto> {
+  return postJson<SyncMissingTariffsDto>("/api/admin/tariffs/sync-missing", {});
 }
 
 export function putTariffsToday(payload: {

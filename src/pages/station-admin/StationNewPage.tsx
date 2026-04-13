@@ -158,7 +158,7 @@ export default function StationNewPage() {
         </AppCard>
 
         <AppCard>
-          <h2 className="mb-4 text-sm font-semibold text-gray-900">Дані станції</h2>
+          <h2 className="mb-4 text-base font-semibold text-gray-900">Дані станції</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="nw-name" className="text-sm font-medium text-gray-700">

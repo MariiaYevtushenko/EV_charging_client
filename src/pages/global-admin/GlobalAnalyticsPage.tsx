@@ -60,10 +60,10 @@ export default function GlobalAnalyticsPage() {
       [...endUsers]
         .map((u) => ({
           name: u.name.split(' ')[0],
-          charges: u.charges.length,
+          sessions: u.sessions.length,
           payments: u.payments.length,
         }))
-        .sort((a, b) => b.charges - a.charges),
+        .sort((a, b) => b.sessions - a.sessions),
     [endUsers]
   );
 
@@ -262,7 +262,7 @@ export default function GlobalAnalyticsPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <AppCard>
             <h2 className="text-sm font-semibold text-gray-900">Активність користувачів  </h2>
-            <p className="mt-1 text-xs text-gray-500">Кількість зарядок і платежів (за завантаженими даними).</p>
+            <p className="mt-1 text-xs text-gray-500">Кількість сесій і платежів (за завантаженими даними).</p>
             <div className="mt-4 h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={userActivity} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
@@ -271,7 +271,7 @@ export default function GlobalAnalyticsPage() {
                   <YAxis tick={{ fontSize: 10 }} stroke="#9ca3af" />
                   <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
                   <Legend />
-                  <Bar dataKey="charges" fill="#34d399" name="Зарядки" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="sessions" fill="#34d399" name="Сесії" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="payments" fill="#60a5fa" name="Платежі" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>

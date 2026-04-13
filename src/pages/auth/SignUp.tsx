@@ -73,7 +73,7 @@ export default function Signup() {
             >
               <option value="USER">Користувач (водій)</option>
               <option value="STATION_ADMIN">Адміністратор станції</option>
-              <option value="GLOBAL_ADMIN">Глобальний адміністратор</option>
+              <option value="GLOBAL_ADMIN">Адміністратор</option>
             </select>
           </div>
 

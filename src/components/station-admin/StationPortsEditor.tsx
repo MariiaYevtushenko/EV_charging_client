@@ -71,7 +71,7 @@ export default function StationPortsEditor({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-gray-500">Редагуйте рядки; мінімум один порт.</p>
+      
         <OutlineButton type="button" className="!py-1.5 !px-2 !text-xs" onClick={addPort}>
           + Порт
         </OutlineButton>
@@ -105,7 +105,7 @@ export default function StationPortsEditor({
                 <>
                   <div>
                     <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                      Тип порта (конектор)
+                      Тип порта
                     </label>
                     <select
                       value={p.connector}

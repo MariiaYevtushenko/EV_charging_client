@@ -1,21 +1,56 @@
 import { Link } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useStations } from '../../context/StationsContext';
 import { useGlobalAdmin } from '../../context/GlobalAdminContext';
-import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
+import { AppCard, PrimaryButton } from '../../components/station-admin/Primitives';
+import { fetchAdminDashboard } from '../../api/adminDashboard';
 
 export default function GlobalAdminHome() {
-  const { stations } = useStations();
-  const { endUsers, allPayments } = useGlobalAdmin();
+  const { stationsTotal, stationStatusCounts, loading: stationsLoading } = useStations();
+  const { usersTotal, endUsersReady } = useGlobalAdmin();
 
-  const active = useMemo(() => stations.filter((s) => !s.archived), [stations]);
-  const totalStations = stations.length;
-  const working = active.filter((s) => s.status === 'working').length;
-  const offline = active.filter((s) => s.status === 'offline').length;
-  const maintenance = active.filter((s) => s.status === 'maintenance').length;
-  const todayRev = active.reduce((a, s) => a + s.todayRevenue, 0);
-  const todaySess = active.reduce((a, s) => a + s.todaySessions, 0);
-  const paymentsOk = allPayments.filter((p) => p.status === 'success').length;
+  const [dashLoading, setDashLoading] = useState(true);
+  const [dashError, setDashError] = useState<string | null>(null);
+  const [todayRev, setTodayRev] = useState(0);
+  const [todaySess, setTodaySess] = useState(0);
+  const [paymentsOk, setPaymentsOk] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setDashLoading(true);
+      setDashError(null);
+      try {
+        const d = await fetchAdminDashboard();
+        if (cancelled) return;
+        setTodayRev(d.todayRevenueUah);
+        setTodaySess(d.todaySessions);
+        setPaymentsOk(d.todaySuccessfulPayments);
+      } catch {
+        if (!cancelled) {
+          setDashError('Не вдалося завантажити статистику');
+          setTodayRev(0);
+          setTodaySess(0);
+          setPaymentsOk(0);
+        }
+      } finally {
+        if (!cancelled) setDashLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const working = stationStatusCounts?.working ?? 0;
+  const offline = stationStatusCounts?.offline ?? 0;
+  const maintenance = stationStatusCounts?.maintenance ?? 0;
+  const archived = stationStatusCounts?.archived ?? 0;
+  const activeOnMap = Math.max(0, stationsTotal - archived);
+
+  const showDashPlaceholder = dashLoading;
+  const usersLabel =
+    !endUsersReady && usersTotal === 0 ? '…' : usersTotal.toLocaleString('uk-UA');
 
   return (
     <div className="space-y-8">
@@ -27,16 +62,15 @@ export default function GlobalAdminHome() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Мережа</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">
-            {totalStations} <span className="text-lg font-semibold text-gray-600">станцій у базі</span>
+            {stationsLoading ? '…' : stationsTotal.toLocaleString('uk-UA')}{' '}
+            <span className="text-lg font-semibold text-gray-600">станцій у базі</span>
           </p>
           <p className="mt-1 text-sm text-gray-500">
-            Активних на карті: {active.length} · Користувачів  : {endUsers.length}
+            Активних на карті: {stationsLoading ? '…' : activeOnMap.toLocaleString('uk-UA')} ·
+            Користувачів: {usersLabel}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/admin-dashboard/stations">
-            <OutlineButton type="button">Управляти станціями</OutlineButton>
-          </Link>
           <Link to="/admin-dashboard/stations/new">
             <PrimaryButton type="button">Додати станцію</PrimaryButton>
           </Link>
@@ -53,7 +87,9 @@ export default function GlobalAdminHome() {
             </div>
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Працює</p>
-              <p className="text-2xl font-bold text-gray-900">{working}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {stationsLoading ? '…' : working.toLocaleString('uk-UA')}
+              </p>
             </div>
           </div>
         </AppCard>
@@ -66,7 +102,9 @@ export default function GlobalAdminHome() {
             </div>
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Оффлайн</p>
-              <p className="text-2xl font-bold text-gray-900">{offline}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {stationsLoading ? '…' : offline.toLocaleString('uk-UA')}
+              </p>
             </div>
           </div>
         </AppCard>
@@ -79,29 +117,35 @@ export default function GlobalAdminHome() {
             </div>
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Обслуговування</p>
-              <p className="text-2xl font-bold text-gray-900">{maintenance}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {stationsLoading ? '…' : maintenance.toLocaleString('uk-UA')}
+              </p>
             </div>
           </div>
         </AppCard>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-4">
+      <div className="grid gap-4 lg:grid-cols-3">
         <AppCard className="!p-5">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Дохід сьогодні</p>
-          <p className="mt-1 text-2xl font-bold text-green-700">{todayRev.toLocaleString('uk-UA')} грн</p>
-            </AppCard>
-        <AppCard className="!p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сесії сьогодні</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">{todaySess}</p>
+          <p className="mt-1 text-2xl font-bold text-green-700">
+            {showDashPlaceholder ? '…' : todayRev.toLocaleString('uk-UA')} грн
+          </p>
+          {dashError ? <p className="mt-1 text-xs text-red-600">{dashError}</p> : null}
         </AppCard>
         <AppCard className="!p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Успішні платежі</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">{paymentsOk}</p>
-          </AppCard>
-      
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сесії сьогодні</p>
+          <p className="mt-1 text-2xl font-bold text-gray-900">
+            {showDashPlaceholder ? '…' : todaySess.toLocaleString('uk-UA')}
+          </p>
+        </AppCard>
+        <AppCard className="!p-5">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Успішні платежі сьогодні</p>
+          <p className="mt-1 text-2xl font-bold text-gray-900">
+            {showDashPlaceholder ? '…' : paymentsOk.toLocaleString('uk-UA')}
+          </p>
+        </AppCard>
       </div>
-
-  
     </div>
   );
 }
