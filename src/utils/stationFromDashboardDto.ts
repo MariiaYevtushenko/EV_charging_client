@@ -16,6 +16,23 @@ function mapStationStatus(api: string): StationStatus {
   }
 }
 
+/** Коди `connector_type.name` у БД → підписи у фільтрах картки/порталу. */
+function connectorDbToUi(db: string | null | undefined): string {
+  if (db == null || db === "") return "—";
+  switch (db) {
+    case "TYPE_2":
+      return "Type 2";
+    case "CCS_2":
+      return "CCS2";
+    case "CHADEMO":
+      return "CHAdeMO";
+    case "TESLA_SUPERCHARGER":
+      return "Tesla";
+    default:
+      return db;
+  }
+}
+
 function mapPortStatus(api: string): PortStatus {
   switch (api) {
     case "FREE":
@@ -50,7 +67,7 @@ export function stationFromDashboardDto(dto: StationDashboardDto): Station {
     id: `port-${p.id}`,
     portNumber: p.portNumber,
     label: `Порт ${p.portNumber}`,
-    connector: p.connectorCategory ?? "—",
+    connector: connectorDbToUi(p.connectorCategory),
     powerKw: p.maxPower,
     pricePerKwh: 0,
     status: mapPortStatus(p.status),

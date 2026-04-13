@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { useStations } from '../../context/StationsContext';
+import AdminListPagination from '../../components/admin/AdminListPagination';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
 import { appInputClass, appPrimaryCtaClass } from '../../components/station-admin/formStyles';
 import { stationStatusLabel, stationStatusTone } from '../../utils/stationLabels';
 
 export default function GlobalStationsListPage() {
-  const { stations } = useStations();
+  const { stations, stationsPage, stationsTotal, stationsPageSize, setStationsPage } = useStations();
   const [q, setQ] = useState('');
 
   const rows = useMemo(() => {
@@ -35,18 +36,7 @@ export default function GlobalStationsListPage() {
         </Link>
       </div>
 
-      <AppCard className="!p-4">
-        <label className="sr-only" htmlFor="st-search">
-          Пошук
-        </label>
-        <input
-          id="st-search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Назва, місто або адреса…"
-          className={`${appInputClass} bg-white/90`}
-        />
-      </AppCard>
+     
 
       <AppCard className="overflow-x-auto !p-0" padding={false}>
         <table className="min-w-full text-left text-sm">
@@ -92,6 +82,13 @@ export default function GlobalStationsListPage() {
           <p className="px-4 py-8 text-center text-sm text-gray-500">Нічого не знайдено.</p>
         ) : null}
       </AppCard>
+
+      <AdminListPagination
+        page={stationsPage}
+        pageSize={stationsPageSize}
+        total={stationsTotal}
+        onPageChange={setStationsPage}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useGlobalAdmin } from '../../context/GlobalAdminContext';
+import AdminListPagination from '../../components/admin/AdminListPagination';
 import type { EvUserRole } from '../../types/globalAdmin';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
 import {
@@ -25,7 +26,8 @@ const tabClass = (active: boolean) =>
 
 export default function GlobalUsersPage() {
   const { user: currentUser } = useAuth();
-  const { endUsers, endUsersReady } = useGlobalAdmin();
+  const { endUsers, endUsersReady, usersPage, usersTotal, usersPageSize, setUsersPage } =
+    useGlobalAdmin();
   const [q, setQ] = useState('');
   const [roleTab, setRoleTab] = useState<EvUserRole>('USER');
 
@@ -85,14 +87,6 @@ export default function GlobalUsersPage() {
         </div>
       </AppCard>
 
-      <AppCard className="!p-4">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Імʼя, email або телефон…"
-          className={`${appInputClass} bg-white/90`}
-        />
-      </AppCard>
 
       <div className="space-y-3">
         {rows.map((u) => (
@@ -152,6 +146,13 @@ export default function GlobalUsersPage() {
               : 'У цій категорії немає інших користувачів (або лише ваш обліковий запис, який не показується).'}
           </AppCard>
         ) : null}
+
+      <AdminListPagination
+        page={usersPage}
+        pageSize={usersPageSize}
+        total={usersTotal}
+        onPageChange={setUsersPage}
+      />
       </div>
     </div>
   );

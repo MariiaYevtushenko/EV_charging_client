@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useStationAdminNetwork } from '../../context/StationAdminNetworkContext';
 import {
   Bar,
   BarChart,
@@ -38,6 +39,7 @@ const tabClass = (active: boolean) =>
 
 export default function StationAnalyticsPage() {
   const { stations } = useStations();
+  const { bookings, sessions, loading: networkLoading } = useStationAdminNetwork();
   const [tab, setTab] = useState<AnalyticsTab>('trends');
 
   const activeStations = useMemo(() => stations.filter((s) => !s.archived), [stations]);
@@ -85,11 +87,72 @@ export default function StationAnalyticsPage() {
   const todayRev = activeStations.reduce((a, s) => a + s.todayRevenue, 0);
   const todaySess = activeStations.reduce((a, s) => a + s.todaySessions, 0);
 
+  const sessionEnergyTotal = useMemo(
+    () => sessions.reduce((a, s) => a + s.kwh, 0),
+    [sessions]
+  );
+  const sessionCostTotal = useMemo(
+    () => sessions.reduce((a, s) => a + (s.cost ?? 0), 0),
+    [sessions]
+  );
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Аналітика</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Дані з обліку станцій і з API мережі (бронювання та сесії).
+        </p>
       </div>
+
+      <section aria-labelledby="network-activity-heading">
+        <h2 id="network-activity-heading" className="mb-3 text-sm font-semibold text-gray-900">
+          Активність мережі (БД)
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <AppCard className="!p-5">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Бронювання</p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">
+              {networkLoading ? '…' : bookings.length}
+            </p>
+            <Link
+              to="/station-dashboard/bookings"
+              className="mt-2 inline-block text-sm font-semibold text-green-700 hover:text-green-800"
+            >
+              Список бронювань
+            </Link>
+          </AppCard>
+          <AppCard className="!p-5">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сесії</p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">
+              {networkLoading ? '…' : sessions.length}
+            </p>
+            <Link
+              to="/station-dashboard/sessions"
+              className="mt-2 inline-block text-sm font-semibold text-green-700 hover:text-green-800"
+            >
+              Список сесій
+            </Link>
+          </AppCard>
+          <AppCard className="!p-5">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Енергія (усі сесії)</p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">
+              {networkLoading
+                ? '…'
+                : `${sessionEnergyTotal.toLocaleString('uk-UA', { maximumFractionDigits: 1 })} кВт·год`}
+            </p>
+          </AppCard>
+          <AppCard className="!p-5">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сума по рахунках</p>
+            <p className="mt-1 text-2xl font-bold text-green-800">
+              {networkLoading
+                ? '…'
+                : `${sessionCostTotal.toLocaleString('uk-UA', { maximumFractionDigits: 2 })} грн`}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">За сесіями з виставленим bill</p>
+          </AppCard>
+        </div>
+      </section>
 
       <section aria-labelledby="analytics-overview-heading">
         <h2 id="analytics-overview-heading" className="mb-3 text-sm font-semibold text-gray-900">
@@ -105,7 +168,7 @@ export default function StationAnalyticsPage() {
             <p className="mt-1 text-3xl font-bold text-green-700">
               {todayRev.toLocaleString('uk-UA')} грн
             </p>
-            <p className="mt-1 text-xs font-medium text-emerald-600">+22% до вчора  </p>
+            <p className="mt-1 text-xs text-gray-500">За дашбордом станцій (сьогодні)</p>
           </AppCard>
           <AppCard className="!p-5">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сесії сьогодні</p>

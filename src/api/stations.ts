@@ -1,9 +1,43 @@
-import type { StationDashboardDto } from "../types/stationApi";
+import type {
+  PaginatedStationsResponse,
+  StationDashboardDto,
+  StationsMapResponse,
+} from "../types/stationApi";
 import type { StationStatus } from "../types/station";
 import { getJson, patchJson, postJson, putJson } from "./http";
 
-export function fetchStationsList(): Promise<StationDashboardDto[]> {
-  return getJson<StationDashboardDto[]>("/api/stations");
+const DEFAULT_STATION_PAGE_SIZE = 50;
+
+export function fetchStationsPage(
+  page: number,
+  pageSize: number = DEFAULT_STATION_PAGE_SIZE
+): Promise<PaginatedStationsResponse> {
+  const params = new URLSearchParams({
+    page: String(Math.max(1, page)),
+    pageSize: String(pageSize),
+  });
+  return getJson<PaginatedStationsResponse>(`/api/stations?${params.toString()}`);
+}
+
+export type MapBoundsQuery = {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+  /** Якщо не передано — сервер за замовчуванням 2500, макс. 5000. Клієнт карти передає 1000. */
+  limit?: number;
+};
+
+/** Станції лише у межах видимої області карти (не вся БД). */
+export function fetchStationsMapBounds(q: MapBoundsQuery): Promise<StationsMapResponse> {
+  const params = new URLSearchParams({
+    minLat: String(q.minLat),
+    maxLat: String(q.maxLat),
+    minLng: String(q.minLng),
+    maxLng: String(q.maxLng),
+  });
+  if (q.limit != null) params.set("limit", String(q.limit));
+  return getJson<StationsMapResponse>(`/api/stations/map?${params.toString()}`);
 }
 
 export function fetchStationDashboard(

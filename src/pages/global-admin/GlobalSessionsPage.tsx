@@ -1,14 +1,14 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { fetchAdminNetworkBookings, type AdminNetworkBookingRow } from '../../api/adminNetwork';
+import { fetchAdminNetworkSessions, type AdminNetworkSessionRow } from '../../api/adminNetwork';
 import { ApiError } from '../../api/http';
 import AdminListPagination from '../../components/admin/AdminListPagination';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
 import { appInputClass } from '../../components/station-admin/formStyles';
 
-const BOOKING_PAGE_SIZE = 50;
+const SESSION_PAGE_SIZE = 50;
 
-type StatusTab = 'all' | AdminNetworkBookingRow['status'];
+type StatusTab = 'all' | AdminNetworkSessionRow['status'];
 
 const tabClass = (active: boolean) =>
   `relative shrink-0 border-b-2 px-1 pb-3 text-sm font-semibold transition ${
@@ -17,30 +17,27 @@ const tabClass = (active: boolean) =>
       : 'border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800'
   }`;
 
-function bookingTone(s: string): 'success' | 'warn' | 'muted' | 'danger' | 'info' {
+function sessionTone(s: string): 'success' | 'warn' | 'muted' | 'danger' | 'info' {
   switch (s) {
-    case 'confirmed':
     case 'completed':
       return 'success';
-    case 'pending':
-      return 'warn';
-    case 'cancelled':
+    case 'active':
+      return 'info';
+    case 'failed':
       return 'danger';
     default:
       return 'muted';
   }
 }
 
-function bookingLabel(s: string) {
+function sessionLabel(s: string) {
   switch (s) {
-    case 'confirmed':
-      return 'Підтверджено';
-    case 'pending':
-      return 'Очікує';
-    case 'cancelled':
-      return 'Скасовано';
+    case 'active':
+      return 'Активна';
     case 'completed':
       return 'Завершено';
+    case 'failed':
+      return 'Помилка';
     default:
       return s;
   }
@@ -59,17 +56,16 @@ function fmt(dt: string) {
   }
 }
 
-/** Узгоджено з mapBookingStatus на сервері: BOOKED → pending, PAID → completed, CANCELLED → cancelled. */
 const STATUS_TABS: { id: StatusTab; label: string }[] = [
   { id: 'all', label: 'Усі' },
-  { id: 'pending', label: 'Очікує' },
+  { id: 'active', label: 'Активна' },
   { id: 'completed', label: 'Завершено' },
-  { id: 'cancelled', label: 'Скасовано' },
+  { id: 'failed', label: 'Помилка' },
 ];
 
-export default function GlobalBookingsPage() {
+export default function GlobalSessionsPage() {
   const navigate = useNavigate();
-  const [bookings, setBookings] = useState<AdminNetworkBookingRow[]>([]);
+  const [sessions, setSessions] = useState<AdminNetworkSessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
@@ -79,11 +75,11 @@ export default function GlobalBookingsPage() {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    void fetchAdminNetworkBookings()
-      .then(setBookings)
+    void fetchAdminNetworkSessions()
+      .then(setSessions)
       .catch((e: unknown) => {
-        setBookings([]);
-        setError(e instanceof ApiError ? e.message : 'Не вдалося завантажити бронювання');
+        setSessions([]);
+        setError(e instanceof ApiError ? e.message : 'Не вдалося завантажити сесії');
       })
       .finally(() => setLoading(false));
   }, []);
@@ -94,23 +90,26 @@ export default function GlobalBookingsPage() {
 
   const sortedBase = useMemo(
     () =>
-      [...bookings].sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()),
-    [bookings]
+      [...sessions].sort(
+        (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+      ),
+    [sessions]
   );
 
   const filteredByStatus = useMemo(() => {
     if (statusTab === 'all') return sortedBase;
-    return sortedBase.filter((b) => b.status === statusTab);
+    return sortedBase.filter((s) => s.status === statusTab);
   }, [sortedBase, statusTab]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     if (!needle) return filteredByStatus;
     return filteredByStatus.filter(
-      (b) =>
-        b.userName.toLowerCase().includes(needle) ||
-        b.stationName.toLowerCase().includes(needle) ||
-        b.id.toLowerCase().includes(needle)
+      (s) =>
+        s.userName.toLowerCase().includes(needle) ||
+        s.stationName.toLowerCase().includes(needle) ||
+        s.id.toLowerCase().includes(needle) ||
+        s.portLabel.toLowerCase().includes(needle)
     );
   }, [filteredByStatus, q]);
 
@@ -118,25 +117,25 @@ export default function GlobalBookingsPage() {
     setPage(1);
   }, [statusTab, q]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / BOOKING_PAGE_SIZE) || 1);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / SESSION_PAGE_SIZE) || 1);
   useEffect(() => {
     setPage((p) => Math.min(Math.max(1, p), totalPages));
   }, [filtered.length, totalPages]);
 
   const pagedRows = useMemo(() => {
-    const start = (page - 1) * BOOKING_PAGE_SIZE;
-    return filtered.slice(start, start + BOOKING_PAGE_SIZE);
+    const start = (page - 1) * SESSION_PAGE_SIZE;
+    return filtered.slice(start, start + SESSION_PAGE_SIZE);
   }, [filtered, page]);
 
   const openDetail = (id: string) => {
-    navigate(`/admin-dashboard/bookings/${id}`);
+    navigate(`/admin-dashboard/sessions/${id}`);
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Бронювання</h1>
-        <p className="mt-1 text-sm text-gray-500">Усі бронювання з бази. Рядок — відкрити деталі.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Сесії зарядки</h1>
+        <p className="mt-1 text-sm text-gray-500">Усі сесії з бази. Рядок — повна інформація.</p>
       </div>
 
       {error ? (
@@ -145,7 +144,7 @@ export default function GlobalBookingsPage() {
 
       <nav
         className="-mx-1 flex gap-4 overflow-x-auto border-b border-gray-200 px-1 sm:gap-6"
-        aria-label="Фільтр за статусом"
+        aria-label="Фільтр за статусом сесії"
       >
         {STATUS_TABS.map((t) => (
           <button
@@ -160,13 +159,13 @@ export default function GlobalBookingsPage() {
       </nav>
 
       <div className="flex flex-wrap items-center gap-3">
-        <label className="sr-only" htmlFor="global-bookings-search">
+        <label className="sr-only" htmlFor="global-sessions-search">
           Пошук
         </label>
         <input
-          id="global-bookings-search"
+          id="global-sessions-search"
           type="search"
-          placeholder="Користувач, станція, ID…"
+          placeholder="Користувач, станція, порт, ID…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           className={appInputClass}
@@ -181,52 +180,62 @@ export default function GlobalBookingsPage() {
               <th className="px-4 py-3">Початок</th>
               <th className="px-4 py-3">Користувач</th>
               <th className="px-4 py-3">Станція</th>
-              <th className="px-4 py-3">Слот</th>
+              <th className="px-4 py-3">Порт</th>
+              <th className="px-4 py-3 text-right">кВт·год</th>
               <th className="px-4 py-3">Статус</th>
+              <th className="px-4 py-3 text-right">Сума</th>
               <th className="px-4 py-3 text-right">Дії</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading && filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
                   Завантаження…
                 </td>
               </tr>
             ) : null}
-            {pagedRows.map((b) => (
+            {pagedRows.map((s) => (
               <tr
-                key={b.id}
+                key={s.id}
                 role="button"
                 tabIndex={0}
                 className="cursor-pointer bg-white hover:bg-emerald-50/70"
-                onClick={() => openDetail(b.id)}
+                onClick={() => openDetail(s.id)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    openDetail(b.id);
+                    openDetail(s.id);
                   }
                 }}
               >
-                <td className="whitespace-nowrap px-4 py-3 text-gray-600">{fmt(b.start)}</td>
-                <td className="px-4 py-3 font-medium text-gray-900">{b.userName}</td>
-                <td className="px-4 py-3 text-gray-700">{b.stationName}</td>
-                <td className="px-4 py-3 text-xs text-gray-500">{b.slotLabel}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-gray-600">{fmt(s.startedAt)}</td>
+                <td className="px-4 py-3 font-medium text-gray-900">{s.userName}</td>
+                <td className="px-4 py-3 text-gray-700">{s.stationName}</td>
+                <td className="px-4 py-3 text-xs text-gray-600">{s.portLabel}</td>
+                <td className="px-4 py-3 text-right tabular-nums text-gray-800">
+                  {s.kwh.toLocaleString('uk-UA', { maximumFractionDigits: 3 })}
+                </td>
                 <td className="px-4 py-3">
-                  <StatusPill tone={bookingTone(b.status)}>{bookingLabel(b.status)}</StatusPill>
+                  <StatusPill tone={sessionTone(s.status)}>{sessionLabel(s.status)}</StatusPill>
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums text-gray-800">
+                  {s.cost != null
+                    ? `${s.cost.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} грн`
+                    : '—'}
                 </td>
                 <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex flex-wrap justify-end gap-2">
-                    {b.userId ? (
+                    {s.userId ? (
                       <Link
-                        to={`/admin-dashboard/users/${b.userId}`}
+                        to={`/admin-dashboard/users/${s.userId}`}
                         className="font-semibold text-green-700 hover:text-green-800"
                       >
                         Профіль
                       </Link>
                     ) : null}
                     <Link
-                      to={`/admin-dashboard/stations/${b.stationId}`}
+                      to={`/admin-dashboard/stations/${s.stationId}`}
                       className="font-semibold text-green-700 hover:text-green-800"
                     >
                       Станція
@@ -244,7 +253,7 @@ export default function GlobalBookingsPage() {
           <div className="border-t border-gray-100 px-4 py-4">
             <AdminListPagination
               page={page}
-              pageSize={BOOKING_PAGE_SIZE}
+              pageSize={SESSION_PAGE_SIZE}
               total={filtered.length}
               onPageChange={setPage}
             />

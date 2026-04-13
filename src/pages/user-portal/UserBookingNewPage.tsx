@@ -56,7 +56,7 @@ function dayLabel(d: Date) {
 
 export default function UserBookingNewPage() {
   const navigate = useNavigate();
-  const { stations: allStations } = useStations();
+  const { mapStations: allStations, registerMapViewportBounds } = useStations();
   const { cars, bookings, addBooking } = useUserPortal();
 
   const connectorOptions = useMemo(() => {
@@ -355,20 +355,15 @@ export default function UserBookingNewPage() {
               <p className="text-xs text-gray-500">Клік по маркеру — вибір станції</p>
             </div>
             <div className="p-3">
-              {mapStations.length === 0 ? (
-                <div className="flex h-[360px] items-center justify-center text-sm text-gray-500">
-                  Немає станцій з обраним типом порту.
-                </div>
-              ) : (
-                <StationMap
-                  stations={mapStations}
-                  selectedId={effectiveStationId ?? mapStations[0].id}
-                  onSelect={(id) => {
-                    setSelectedId(id);
-                    setSlotStartMs(null);
-                  }}
-                />
-              )}
+              <StationMap
+                stations={mapStations}
+                selectedId={effectiveStationId ?? mapStations[0]?.id ?? ''}
+                onSelect={(id) => {
+                  setSelectedId(id);
+                  setSlotStartMs(null);
+                }}
+                onViewportChange={registerMapViewportBounds}
+              />
             </div>
           </AppCard>
         </div>

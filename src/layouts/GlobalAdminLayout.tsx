@@ -1,9 +1,6 @@
-import { useEffect } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import SeedDemoDataButton from '../components/SeedDemoDataButton';
-import { useGlobalAdmin } from '../context/GlobalAdminContext';
-import { fetchAdminUsersList, mapEvUserPublicRowToEndUser } from '../api/adminUsers';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
@@ -90,6 +87,19 @@ function CalendarIcon({ className }: { className?: string }) {
   );
 }
 
+function SessionsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+      />
+    </svg>
+  );
+}
+
 function ChartIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -131,24 +141,7 @@ function UserIcon({ className }: { className?: string }) {
 
 export default function GlobalAdminLayout() {
   const { user, logout } = useAuth();
-  const { replaceEndUsers } = useGlobalAdmin();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const rows = await fetchAdminUsersList();
-        if (cancelled) return;
-        replaceEndUsers(rows.map(mapEvUserPublicRowToEndUser));
-      } catch {
-        if (!cancelled) replaceEndUsers([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [replaceEndUsers]);
 
   const handleLogout = () => {
     logout();
@@ -205,6 +198,10 @@ export default function GlobalAdminLayout() {
           <NavLink to="/admin-dashboard/bookings" className={navLinkClass}>
             <CalendarIcon className="h-5 w-5 shrink-0 opacity-90" />
             Бронювання
+          </NavLink>
+          <NavLink to="/admin-dashboard/sessions" className={navLinkClass}>
+            <SessionsIcon className="h-5 w-5 shrink-0 opacity-90" />
+            Сесії
           </NavLink>
           <NavLink to="/admin-dashboard/analytics" className={navLinkClass}>
             <ChartIcon className="h-5 w-5 shrink-0 opacity-90" />

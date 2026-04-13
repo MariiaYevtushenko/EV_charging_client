@@ -2,11 +2,15 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
 import type { EndUser, TariffPlan } from '../types/globalAdmin';
+import { fetchAdminUsersPage, mapEvUserPublicRowToEndUser } from '../api/adminUsers';
+
+const USERS_PAGE_SIZE = 50;
 
 export type PaymentRow = EndUser['payments'][number] & {
   userId: string;
@@ -20,8 +24,12 @@ export type BookingRow = EndUser['bookings'][number] & {
 
 type GlobalAdminContextValue = {
   endUsers: EndUser[];
-  /** true після першого завантаження списку з API (або після replaceEndUsers). */
+  /** true після першого успішного завантаження сторінки користувачів. */
   endUsersReady: boolean;
+  usersPage: number;
+  usersTotal: number;
+  usersPageSize: number;
+  setUsersPage: (page: number) => void;
   replaceEndUsers: (users: EndUser[]) => void;
   getEndUser: (id: string) => EndUser | undefined;
   updateEndUser: (id: string, patch: Partial<EndUser>) => void;
@@ -57,7 +65,40 @@ function buildBookingRows(users: EndUser[]): BookingRow[] {
 export function GlobalAdminProvider({ children }: { children: ReactNode }) {
   const [endUsers, setEndUsers] = useState<EndUser[]>([]);
   const [endUsersReady, setEndUsersReady] = useState(false);
+  const [usersPage, setUsersPageState] = useState(1);
+  const [usersTotal, setUsersTotal] = useState(0);
   const [tariffPlans, setTariffPlans] = useState<TariffPlan[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetchAdminUsersPage(usersPage, USERS_PAGE_SIZE);
+        if (cancelled) return;
+        setUsersTotal(res.total);
+        const maxPage = Math.max(1, Math.ceil(res.total / res.pageSize) || 1);
+        if (usersPage > maxPage) {
+          setUsersPageState(maxPage);
+          return;
+        }
+        setEndUsers(res.items.map(mapEvUserPublicRowToEndUser));
+        setEndUsersReady(true);
+      } catch {
+        if (!cancelled) {
+          setEndUsers([]);
+          setUsersTotal(0);
+          setEndUsersReady(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [usersPage]);
+
+  const setUsersPage = useCallback((page: number) => {
+    setUsersPageState(Math.max(1, page));
+  }, []);
 
   const replaceEndUsers = useCallback((users: EndUser[]) => {
     setEndUsers(users);
@@ -92,6 +133,10 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
     () => ({
       endUsers,
       endUsersReady,
+      usersPage,
+      usersTotal,
+      usersPageSize: USERS_PAGE_SIZE,
+      setUsersPage,
       replaceEndUsers,
       getEndUser,
       updateEndUser,
@@ -104,6 +149,9 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
     [
       endUsers,
       endUsersReady,
+      usersPage,
+      usersTotal,
+      setUsersPage,
       replaceEndUsers,
       getEndUser,
       updateEndUser,

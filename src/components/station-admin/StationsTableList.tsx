@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 
 
 
-export default function StationsTableList({ selected }: { selected: Station }) {
+export default function StationsTableList({ selected }: { selected?: Station }) {
   const navigate = useNavigate();
 
 

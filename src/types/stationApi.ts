@@ -1,4 +1,4 @@
-/** Відповідь GET /api/stations (масив StationDashboardDto з бекенду) */
+/** DTO станції з бекенду (GET /api/stations/..., dashboard). */
 
 export type StationPortDashboardDto = {
   id: number;
@@ -21,4 +21,20 @@ export type StationDashboardDto = {
   createdAt: string;
   updatedAt: string;
   ports: StationPortDashboardDto[];
+};
+
+/** GET /api/stations: пагінований список + cities для фільтрів. */
+export type PaginatedStationsResponse = {
+  items: StationDashboardDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+  cities: string[];
+};
+
+/** GET /api/stations/map?minLat&maxLat&minLng&maxLng — станції у видимому прямокутнику. */
+export type StationsMapResponse = {
+  items: StationDashboardDto[];
+  /** Верхня межа кількості точок за один запит (сервер обрізає при великому zoom-out). */
+  limit?: number;
 };

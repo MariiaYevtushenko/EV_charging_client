@@ -19,7 +19,7 @@ function portSelectable(p: StationPort): boolean {
 
 export default function UserSessionStartPage() {
   const navigate = useNavigate();
-  const { stations: allStations } = useStations();
+  const { mapStations: allStations, registerMapViewportBounds } = useStations();
   const { cars, currentSession, startSessionAtPort } = useUserPortal();
 
   const connectorOptions = useMemo(() => {
@@ -220,21 +220,16 @@ export default function UserSessionStartPage() {
               <p className="text-xs text-gray-500">Торкніться маркера, щоб обрати станцію</p>
             </div>
             <div className="p-3">
-              {mapStations.length === 0 ? (
-                <div className="flex h-[360px] items-center justify-center text-sm text-gray-500">
-                  Немає станцій з обраним типом порту.
-                </div>
-              ) : (
-                <StationMap
-                  stations={mapStations}
-                  selectedId={effectiveStationId ?? mapStations[0].id}
-                  onSelect={(id) => {
-                    setSelectedId(id);
-                    setPortId(null);
-                    setError(null);
-                  }}
-                />
-              )}
+              <StationMap
+                stations={mapStations}
+                selectedId={effectiveStationId ?? mapStations[0]?.id ?? ''}
+                onSelect={(id) => {
+                  setSelectedId(id);
+                  setPortId(null);
+                  setError(null);
+                }}
+                onViewportChange={registerMapViewportBounds}
+              />
             </div>
           </AppCard>
         </div>

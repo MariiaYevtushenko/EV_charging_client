@@ -253,7 +253,7 @@ export default function GlobalUserDetailPage() {
             <h2 className="text-sm font-semibold text-gray-900">Короткий огляд</h2>
             <p>Останній платіж: {user.payments[0] ? fmt(user.payments[0].createdAt) : '—'}</p>
             <p>Остання зарядка: {user.charges[0] ? user.charges[0].stationName : '—'}</p>
-            <p>Активні бронювання: {user.bookings.filter((b) => b.status === 'pending' || b.status === 'confirmed').length}</p>
+            <p>Активні бронювання: {user.bookings.filter((b) => b.status === 'pending').length}</p>
           </AppCard>
         </div>
       ) : null}

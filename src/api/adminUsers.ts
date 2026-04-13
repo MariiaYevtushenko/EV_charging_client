@@ -12,8 +12,24 @@ export type EvUserPublicRow = {
   createdAt: string;
 };
 
-export function fetchAdminUsersList(): Promise<EvUserPublicRow[]> {
-  return getJson<EvUserPublicRow[]>("/api/admin/users");
+export type PaginatedUsersResponse = {
+  items: EvUserPublicRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+const DEFAULT_ADMIN_USERS_PAGE_SIZE = 50;
+
+export function fetchAdminUsersPage(
+  page: number,
+  pageSize: number = DEFAULT_ADMIN_USERS_PAGE_SIZE
+): Promise<PaginatedUsersResponse> {
+  const params = new URLSearchParams({
+    page: String(Math.max(1, page)),
+    pageSize: String(pageSize),
+  });
+  return getJson<PaginatedUsersResponse>(`/api/admin/users?${params.toString()}`);
 }
 
 /** Повна картка користувача (GET /api/admin/users/:id) — авто, бронювання, сесії, рахунки. */

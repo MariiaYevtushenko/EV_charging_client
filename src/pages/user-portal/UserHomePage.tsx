@@ -42,10 +42,16 @@ function SessionRing({ pct }: { pct: number }) {
 }
 
 export default function UserHomePage() {
-  const { stations } = useStations();
+  const {
+    mapStations: mapStationsAll,
+    mapLoading,
+    mapFetchLimit,
+    registerMapViewportBounds,
+    stationsTotal,
+  } = useStations();
   const { currentSession, endCurrentSession } = useUserPortal();
 
-  const mapStations = useMemo(() => stations.filter((s) => !s.archived), [stations]);
+  const mapStations = useMemo(() => mapStationsAll.filter((s) => !s.archived), [mapStationsAll]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -77,20 +83,21 @@ export default function UserHomePage() {
         <AppCard className="flex min-h-[420px] flex-col overflow-hidden xl:col-span-3" padding={false}>
           <div className="border-b border-gray-100 px-5 py-3">
             <p className="text-sm font-semibold text-gray-900">Станції поруч</p>
-            <p className="text-xs text-gray-500">Активні на карті: {mapStations.length}</p>
+            <p className="text-xs text-gray-500">
+              {mapLoading
+                ? 'Завантаження видимої області…'
+                : mapFetchLimit != null && mapStations.length >= mapFetchLimit
+                  ? `У видимій області до ${mapFetchLimit} станцій · усього в БД: ${stationsTotal}`
+                  : `У видимій області: ${mapStations.length} · усього в БД: ${stationsTotal}`}
+            </p>
           </div>
           <div className="min-h-[360px] flex-1 p-3">
-            {mapStations.length === 0 ? (
-              <div className="flex h-[360px] items-center justify-center text-sm text-gray-500">
-                Немає доступних станцій.
-              </div>
-            ) : (
-              <StationMap
-                stations={mapStations}
-                selectedId={selectedId ?? mapStations[0].id}
-                onSelect={setSelectedId}
-              />
-            )}
+            <StationMap
+              stations={mapStations}
+              selectedId={selectedId ?? mapStations[0]?.id ?? ''}
+              onSelect={setSelectedId}
+              onViewportChange={registerMapViewportBounds}
+            />
           </div>
         </AppCard>
 

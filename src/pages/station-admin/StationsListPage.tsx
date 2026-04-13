@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useStations } from "../../context/StationsContext";
+import AdminListPagination from "../../components/admin/AdminListPagination";
 import { AppCard, OutlineButton, PrimaryButton, StatusPill } from "../../components/station-admin/Primitives";
 import { stationApiStatusLabel, stationApiStatusTone } from "../../utils/stationApiStatus";
 import {
@@ -9,7 +10,6 @@ import {
   appSelectFilterClass,
   appTabIdleClass,
 } from "../../components/station-admin/formStyles";
-import { useStationsFromApi } from "../../features/station-list/useStationsFromApi";
 import { sortApiStations } from "../../features/station-list/sortApiStations";
 import { parseStationSortValue, STATION_SORT_OPTIONS } from "../../features/station-list/stationSortOptions";
 
@@ -50,8 +50,15 @@ function XIcon({ className }: { className?: string }) {
 
 export default function StationsListPage() {
   const navigate = useNavigate();
-  const { stations, loading, error, reload } = useStationsFromApi();
   const {
+    stationDtos: stations,
+    loading,
+    error,
+    reload,
+    stationsPage,
+    stationsTotal,
+    stationsPageSize,
+    setStationsPage,
     uniqueCities,
     selectedCities,
     setSelectedCities,
@@ -389,6 +396,13 @@ export default function StationsListPage() {
           </table>
         </div>
       </AppCard>
+
+      <AdminListPagination
+        page={stationsPage}
+        pageSize={stationsPageSize}
+        total={stationsTotal}
+        onPageChange={setStationsPage}
+      />
     </div>
   );
 }

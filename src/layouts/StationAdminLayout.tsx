@@ -79,6 +79,32 @@ function ChartIcon({ className }: { className?: string }) {
   );
 }
 
+function CalendarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+      />
+    </svg>
+  );
+}
+
+function SessionsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+      />
+    </svg>
+  );
+}
+
 function UserIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -171,6 +197,14 @@ export default function StationAdminLayout() {
           <NavLink to="/station-dashboard/stations" className={navLinkClass}>
             <BuildingIcon className="h-5 w-5 shrink-0 opacity-90" />
             Список станцій
+          </NavLink>
+          <NavLink to="/station-dashboard/bookings" className={navLinkClass}>
+            <CalendarIcon className="h-5 w-5 shrink-0 opacity-90" />
+            Бронювання
+          </NavLink>
+          <NavLink to="/station-dashboard/sessions" className={navLinkClass}>
+            <SessionsIcon className="h-5 w-5 shrink-0 opacity-90" />
+            Сесії
           </NavLink>
           <NavLink to="/station-dashboard/analytics" className={navLinkClass}>
             <ChartIcon className="h-5 w-5 shrink-0 opacity-90" />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import L from 'leaflet';
 import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import type { Station, StationStatus } from '../../types/station';
@@ -12,6 +12,17 @@ const TILE = {
 };
 
 const LVIV_FALLBACK = L.latLngBounds([49.78, 23.92], [49.9, 24.22]);
+
+/** Межі видимої області Leaflet → query для /api/stations/map */
+export type MapViewportBounds = {
+  south: number;
+  north: number;
+  west: number;
+  east: number;
+};
+
+const DEFAULT_CENTER: L.LatLngTuple = [49.5, 31.5];
+const DEFAULT_ZOOM_VIEWPORT = 6;
 
 const STATUS_UI: Record<
   StationStatus,
@@ -51,7 +62,6 @@ const STATUS_UI: Record<
   },
 };
 
-/** Маркер: шпилька за статусом + мітка зверху; кінчик шпильки = координати станції. */
 function stationDivIcon(status: StationStatus, selected: boolean) {
   const u = STATUS_UI[status];
   const scale = selected ? 1.08 : 1;
@@ -92,6 +102,33 @@ function getIcon(status: StationStatus, selected: boolean) {
   return icon;
 }
 
+function ViewportReporter({ onViewportChange }: { onViewportChange: (b: MapViewportBounds) => void }) {
+  const map = useMap();
+
+  const report = useCallback(() => {
+    const b = map.getBounds();
+    onViewportChange({
+      south: b.getSouth(),
+      north: b.getNorth(),
+      west: b.getWest(),
+      east: b.getEast(),
+    });
+  }, [map, onViewportChange]);
+
+  useEffect(() => {
+    map.whenReady(() => {
+      report();
+    });
+    map.on('moveend', report);
+    map.on('zoomend', report);
+    return () => {
+      map.off('moveend', report);
+      map.off('zoomend', report);
+    };
+  }, [map, report]);
+
+  return null;
+}
 
 function FitStationsBounds({ stations }: { stations: Station[] }) {
   const map = useMap();
@@ -128,16 +165,43 @@ export default function StationMap({
   stations,
   selectedId,
   onSelect,
+  onViewportChange,
 }: {
   stations: Station[];
   selectedId: string;
   onSelect: (id: string) => void;
+  /** Якщо задано — підвантаження станцій по bbox; без підгонки карти під усі маркери при кожному оновленні даних. */
+  onViewportChange?: (bounds: MapViewportBounds) => void;
 }) {
+  const viewportMode = Boolean(onViewportChange);
+
   const initialBounds = useMemo(() => {
-    if (stations.length === 0) 
-      return LVIV_FALLBACK;
+    if (stations.length === 0) return LVIV_FALLBACK;
     return L.latLngBounds(stations.map((s) => [s.lat, s.lng] as L.LatLngTuple));
   }, [stations]);
+
+  if (viewportMode) {
+    return (
+      <MapContainer
+        center={DEFAULT_CENTER}
+        zoom={DEFAULT_ZOOM_VIEWPORT}
+        className="station-leaflet-map z-0 h-full min-h-[360px] w-full overflow-hidden rounded-2xl"
+        scrollWheelZoom
+      >
+        <TileLayer attribution={TILE.attribution} url={TILE.url} subdomains="abcd" maxZoom={20} />
+        <ViewportReporter onViewportChange={onViewportChange!} />
+        {stations.map((s) => (
+          <Marker
+            key={s.id}
+            position={[s.lat, s.lng]}
+            icon={getIcon(s.status, s.id === selectedId)}
+            zIndexOffset={s.id === selectedId ? 800 : 0}
+            eventHandlers={{ click: () => onSelect(s.id) }}
+          />
+        ))}
+      </MapContainer>
+    );
+  }
 
   return (
     <MapContainer
