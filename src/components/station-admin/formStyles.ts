@@ -13,6 +13,10 @@ export const appInputClass =
 export const appFormInputClass =
   `mt-1 w-full rounded-xl border border-emerald-100/90 bg-emerald-50/30 px-4 py-3 text-sm ${INPUT_FOCUS}`;
 
+/** Додати до `appFormInputClass`, якщо поле з помилкою валідації */
+export const appFormInputErrorModifier =
+  'border-red-300 bg-red-50/50 focus:border-red-500 focus:shadow-[0_0_0_3px_rgba(239,68,68,0.12)]';
+
 /** Компактне поле (фільтри, другорядні форми) */
 export const appInputCompactClass =
   `w-full rounded-xl border border-emerald-100/90 bg-emerald-50/30 px-3 py-2 text-sm ${INPUT_FOCUS}`;
