@@ -10,12 +10,12 @@ import {
   type ReactNode,
   type SetStateAction,
 } from 'react';
-import type { StationDashboardDto } from '../types/stationApi';
-import type { Station } from '../types/station';
-import { parseStationSortValue } from '../features/station-list/stationSortOptions';
+import type { StationDashboardDto, StationStatusCounts } from '../types/stationApi';
+import type { Station, StationStatus } from '../types/station';
 import {
   archiveStationApi,
   createStationApi,
+  deleteStationApi,
   fetchStationsMapBounds,
   fetchStationsPage,
   patchStationStatusApi,
@@ -29,26 +29,21 @@ export type StationSortKey = 'name' | 'city' | 'status' | 'todayRevenue' | 'toda
 export type StationSortDir = 'asc' | 'desc';
 
 const STATIONS_PAGE_SIZE = 50;
-/** Запит bbox-карти: 1000 станцій за раз (сервер без параметра — 2500, макс. 5000). */
 const MAP_VIEWPORT_FETCH_LIMIT = 1000;
 
 type StationsContextValue = {
   stations: Station[];
-  /** Станції у поточній видимій області карти (bbox-запит, не вся БД). */
   mapStations: Station[];
   mapLoading: boolean;
-  /** Останній ліміт від сервера для карти (обрізання при сильному віддаленні). */
   mapFetchLimit: number | null;
-  /** Викликати з Leaflet при зміні видимої області (debounce всередині контексту). */
   registerMapViewportBounds: (bounds: {
     south: number;
     north: number;
     west: number;
     east: number;
   }) => void;
-  /** Сирі DTO поточної сторінки (сортування у списку station-dashboard). */
+  
   stationDtos: StationDashboardDto[];
-  /** DTO для маркерів у поточному bbox. */
   mapStationDtos: StationDashboardDto[];
   loading: boolean;
   error: string | null;
@@ -56,52 +51,27 @@ type StationsContextValue = {
   stationsPage: number;
   stationsTotal: number;
   stationsPageSize: number;
+
+  stationStatusCounts: StationStatusCounts | null;
   setStationsPage: (page: number) => void;
   filteredStations: Station[];
-  /** Міста з усіх станцій у БД (для фільтра), не лише поточна сторінка. */
   uniqueCities: string[];
-  /** Порожній масив — показати всі міста. */
   selectedCities: string[];
   setSelectedCities: Dispatch<SetStateAction<string[]>>;
-  /** Одне поле: критерій і напрямок, напр. `name:asc`. */
   sortValue: string;
   setSortValue: (v: string) => void;
+  /** Фільтр списку станцій за статусом (null — усі; пагінація на сервері). */
+  stationListStatusFilter: StationStatus | null;
+  setStationListStatusFilter: (status: StationStatus | null) => void;
   addStation: (station: Omit<Station, 'id'>) => Promise<Station>;
   updateStation: (id: string, patch: Partial<Station>) => Promise<void>;
   archiveStation: (id: string) => Promise<void>;
   unarchiveStation: (id: string) => Promise<void>;
+  deleteStation: (id: string) => Promise<void>;
   getStation: (id: string) => Station | undefined;
 };
 
 const StationsContext = createContext<StationsContextValue | undefined>(undefined);
-
-function sortStations(list: Station[], sortKey: StationSortKey, sortDir: StationSortDir): Station[] {
-  const next = [...list];
-  const mul = sortDir === 'asc' ? 1 : -1;
-  const statusOrder: Record<Station['status'], number> = {
-    working: 0,
-    maintenance: 1,
-    offline: 2,
-    archived: 3,
-  };
-  next.sort((a, b) => {
-    switch (sortKey) {
-      case 'name':
-        return mul * a.name.localeCompare(b.name, 'uk');
-      case 'city':
-        return mul * a.city.localeCompare(b.city, 'uk');
-      case 'status':
-        return mul * (statusOrder[a.status] - statusOrder[b.status]);
-      case 'todayRevenue':
-        return mul * (a.todayRevenue - b.todayRevenue);
-      case 'todaySessions':
-        return mul * (a.todaySessions - b.todaySessions);
-      default:
-        return 0;
-    }
-  });
-  return next;
-}
 
 export function StationsProvider({ children }: { children: ReactNode }) {
   const [stationDtos, setStationDtos] = useState<StationDashboardDto[]>([]);
@@ -121,15 +91,35 @@ export function StationsProvider({ children }: { children: ReactNode }) {
   } | null>(null);
   const mapBoundsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
-  const [sortValue, setSortValue] = useState('name:asc');
+  const [sortValue, setSortValueState] = useState('name:asc');
+  const [stationStatusCounts, setStationStatusCounts] = useState<StationStatusCounts | null>(null);
+  const [stationListStatusFilter, setStationListStatusFilterState] = useState<StationStatus | null>(
+    null
+  );
+
+  const setSortValue = useCallback((v: string) => {
+    setSortValueState(v);
+    setStationsPageState(1);
+  }, []);
+
+  const setStationListStatusFilter = useCallback((status: StationStatus | null) => {
+    setStationListStatusFilterState(status);
+    setStationsPageState(1);
+  }, []);
 
   const loadPage = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchStationsPage(stationsPage, STATIONS_PAGE_SIZE);
+      const res = await fetchStationsPage(
+        stationsPage,
+        STATIONS_PAGE_SIZE,
+        sortValue,
+        stationListStatusFilter
+      );
       setStationsTotal(res.total);
       setFilterCities(res.cities);
+      setStationStatusCounts(res.statusCounts);
       const maxPage = Math.max(1, Math.ceil(res.total / res.pageSize) || 1);
       if (stationsPage > maxPage) {
         setStationsPageState(maxPage);
@@ -138,11 +128,12 @@ export function StationsProvider({ children }: { children: ReactNode }) {
       setStationDtos(res.items);
     } catch (e) {
       setStationDtos([]);
+      setStationStatusCounts(null);
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }, [stationsPage]);
+  }, [stationsPage, sortValue, stationListStatusFilter]);
 
   const loadMapBounds = useCallback(
     async (bounds: { south: number; north: number; west: number; east: number }) => {
@@ -204,16 +195,11 @@ export function StationsProvider({ children }: { children: ReactNode }) {
   );
 
   const uniqueCities = filterCities;
-
-  const { key: sortKey, dir: sortDir } = useMemo(() => parseStationSortValue(sortValue), [sortValue]);
-
+  
   const filteredStations = useMemo(() => {
-    const base =
-      selectedCities.length === 0
-        ? [...stations]
-        : stations.filter((s) => selectedCities.includes(s.city));
-    return sortStations(base, sortKey, sortDir);
-  }, [stations, selectedCities, sortKey, sortDir]);
+    if (selectedCities.length === 0) return stations;
+    return stations.filter((s) => selectedCities.includes(s.city));
+  }, [stations, selectedCities]);
 
   const addStation = useCallback(async (input: Omit<Station, 'id'>): Promise<Station> => {
     setError(null);
@@ -298,6 +284,23 @@ export function StationsProvider({ children }: { children: ReactNode }) {
     [reload]
   );
 
+  const deleteStation = useCallback(
+    async (id: string) => {
+      const numericId = Number(id);
+      if (!Number.isFinite(numericId)) return;
+      setError(null);
+      try {
+        await deleteStationApi(numericId);
+        await reload();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
+        throw e;
+      }
+    },
+    [reload]
+  );
+
   const getStation = useCallback(
     (id: string) =>
       stations.find((s) => s.id === id) ?? mapStations.find((s) => s.id === id),
@@ -319,6 +322,7 @@ export function StationsProvider({ children }: { children: ReactNode }) {
       stationsPage,
       stationsTotal,
       stationsPageSize: STATIONS_PAGE_SIZE,
+      stationStatusCounts,
       setStationsPage,
       filteredStations,
       uniqueCities,
@@ -326,10 +330,13 @@ export function StationsProvider({ children }: { children: ReactNode }) {
       setSelectedCities,
       sortValue,
       setSortValue,
+      stationListStatusFilter,
+      setStationListStatusFilter,
       addStation,
       updateStation,
       archiveStation,
       unarchiveStation,
+      deleteStation,
       getStation,
     }),
     [
@@ -345,15 +352,19 @@ export function StationsProvider({ children }: { children: ReactNode }) {
       reload,
       stationsPage,
       stationsTotal,
+      stationStatusCounts,
       setStationsPage,
       filteredStations,
       uniqueCities,
       selectedCities,
       sortValue,
+      stationListStatusFilter,
+      setStationListStatusFilter,
       addStation,
       updateStation,
       archiveStation,
       unarchiveStation,
+      deleteStation,
       getStation,
     ]
   );

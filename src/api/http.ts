@@ -75,3 +75,17 @@ export function patchJson<T>(path: string, payload: unknown): Promise<T> {
     body: JSON.stringify(payload),
   });
 }
+
+export async function deleteJson(path: string): Promise<void> {
+  const res = await fetch(buildUrl(path), { method: "DELETE" });
+  const text = await res.text();
+  let body: unknown = null;
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = text;
+    }
+  }
+  throwIfFailed(res, body);
+}

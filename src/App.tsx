@@ -28,7 +28,6 @@ import GlobalAdminLayout from './layouts/GlobalAdminLayout';
 import { GlobalAdminProvider } from './context/GlobalAdminContext';
 import GlobalAdminHome from './pages/global-admin/GlobalAdminHome';
 import GlobalStationsListPage from './pages/global-admin/GlobalStationsListPage';
-import GlobalStationDetailPage from './pages/global-admin/GlobalStationDetailPage';
 import GlobalUsersPage from './pages/global-admin/GlobalUsersPage';
 import GlobalUserDetailPage from './pages/global-admin/GlobalUserDetailPage';
 import GlobalUserEditPage from './pages/global-admin/GlobalUserEditPage';
@@ -133,7 +132,8 @@ function App() {
               <Route index element={<GlobalAdminHome />} />
               <Route path="stations" element={<GlobalStationsListPage />} />
               <Route path="stations/new" element={<StationNewPage />} />
-              <Route path="stations/:stationId" element={<GlobalStationDetailPage />} />
+              <Route path="stations/:stationId" element={<StationDetailPage />} />
+              <Route path="stations/:stationId/edit" element={<StationEditPage />} />
               <Route path="users" element={<GlobalUsersPage />} />
               <Route path="users/:userId" element={<GlobalUserDetailPage />} />
               <Route path="users/:userId/edit" element={<GlobalUserEditPage />} />

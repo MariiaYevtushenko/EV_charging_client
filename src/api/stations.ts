@@ -4,18 +4,26 @@ import type {
   StationsMapResponse,
 } from "../types/stationApi";
 import type { StationStatus } from "../types/station";
-import { getJson, patchJson, postJson, putJson } from "./http";
+import { deleteJson, getJson, patchJson, postJson, putJson } from "./http";
 
 const DEFAULT_STATION_PAGE_SIZE = 50;
 
+/** `sort` як у контексті: `name:asc`, `city:desc`, … — сортування на сервері по всій таблиці. */
 export function fetchStationsPage(
   page: number,
-  pageSize: number = DEFAULT_STATION_PAGE_SIZE
+  pageSize: number = DEFAULT_STATION_PAGE_SIZE,
+  sort: string = "name:asc",
+  /** Фільтр списку за статусом (узгоджено з `parseStationStatus` на сервері). */
+  status?: StationStatus | null
 ): Promise<PaginatedStationsResponse> {
   const params = new URLSearchParams({
     page: String(Math.max(1, page)),
     pageSize: String(pageSize),
+    sort,
   });
+  if (status != null) {
+    params.set("status", status);
+  }
   return getJson<PaginatedStationsResponse>(`/api/stations?${params.toString()}`);
 }
 
@@ -67,6 +75,10 @@ export function archiveStationApi(stationId: number): Promise<StationDashboardDt
 
 export function unarchiveStationApi(stationId: number): Promise<StationDashboardDto> {
   return postJson<StationDashboardDto>(`/api/stations/${stationId}/unarchive`, {});
+}
+
+export function deleteStationApi(stationId: number): Promise<void> {
+  return deleteJson(`/api/stations/${stationId}`);
 }
 
 function statusToApiPayload(status: StationStatus): string {

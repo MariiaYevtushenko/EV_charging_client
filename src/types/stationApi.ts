@@ -23,6 +23,14 @@ export type StationDashboardDto = {
   ports: StationPortDashboardDto[];
 };
 
+/** Кількості станцій по статусу (усі записи в БД), разом із пагінованим списком. */
+export type StationStatusCounts = {
+  working: number;
+  offline: number;
+  maintenance: number;
+  archived: number;
+};
+
 /** GET /api/stations: пагінований список + cities для фільтрів. */
 export type PaginatedStationsResponse = {
   items: StationDashboardDto[];
@@ -30,6 +38,7 @@ export type PaginatedStationsResponse = {
   page: number;
   pageSize: number;
   cities: string[];
+  statusCounts: StationStatusCounts;
 };
 
 /** GET /api/stations/map?minLat&maxLat&minLng&maxLng — станції у видимому прямокутнику. */

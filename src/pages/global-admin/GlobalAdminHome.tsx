@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { useStations } from '../../context/StationsContext';
 import { useGlobalAdmin } from '../../context/GlobalAdminContext';
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
-import DesignReferenceStrip from '../../components/global-admin/DesignReferenceStrip';
 
 export default function GlobalAdminHome() {
   const { stations } = useStations();
@@ -99,29 +98,10 @@ export default function GlobalAdminHome() {
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Успішні платежі</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">{paymentsOk}</p>
           </AppCard>
-        <AppCard className="!p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Швидкі посилання</p>
-          <ul className="mt-2 space-y-1.5 text-sm font-medium text-green-700">
-            <li>
-              <Link to="/admin-dashboard/users" className="hover:underline">
-                Користувачі
-              </Link>
-            </li>
-            <li>
-              <Link to="/admin-dashboard/analytics" className="hover:underline">
-                Аналітика
-              </Link>
-            </li>
-            <li>
-              <Link to="/admin-dashboard/tariffs" className="hover:underline">
-                Тарифні плани
-              </Link>
-            </li>
-          </ul>
-        </AppCard>
+      
       </div>
 
-      <DesignReferenceStrip />
+  
     </div>
   );
 }
