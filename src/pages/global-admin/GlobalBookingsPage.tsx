@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   fetchAdminNetworkBookings,
@@ -95,7 +95,7 @@ function cmpBookings(
       c = a.stationName.localeCompare(b.stationName, 'uk');
       break;
     case 'slot':
-      c = a.slotLabel.localeCompare(b.slotLabel, 'uk');
+      c = a.portNumber - b.portNumber;
       break;
     case 'status':
       c = a.status.localeCompare(b.status, 'uk');
@@ -226,11 +226,12 @@ export default function GlobalBookingsPage() {
                 onSort={onSort}
               />
               <SortableTableTh
-                label="Слот"
+                label="Порт"
                 columnKey="slot"
                 activeKey={sortKey}
                 dir={sortDir}
                 onSort={onSort}
+                align="right"
               />
               <SortableTableTh
                 label="Статус"
@@ -239,15 +240,12 @@ export default function GlobalBookingsPage() {
                 dir={sortDir}
                 onSort={onSort}
               />
-              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Дії
-              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading && filteredByStatus.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
                   Завантаження…
                 </td>
               </tr>
@@ -269,27 +267,9 @@ export default function GlobalBookingsPage() {
                 <td className="whitespace-nowrap px-4 py-3 text-gray-600">{fmt(b.start)}</td>
                 <td className="px-4 py-3 font-medium text-gray-900">{b.userName}</td>
                 <td className="px-4 py-3 text-gray-700">{b.stationName}</td>
-                <td className="px-4 py-3 text-xs text-gray-500">{b.slotLabel}</td>
+                <td className="px-4 py-3 text-right text-gray-800">Порт {b.portNumber}</td>
                 <td className="px-4 py-3">
                   <StatusPill tone={bookingTone(b.status)}>{bookingLabel(b.status)}</StatusPill>
-                </td>
-                <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex flex-wrap justify-end gap-2">
-                    {b.userId ? (
-                      <Link
-                        to={`/admin-dashboard/users/${b.userId}`}
-                        className="font-semibold text-green-700 hover:text-green-800"
-                      >
-                        Профіль
-                      </Link>
-                    ) : null}
-                    <Link
-                      to={`/admin-dashboard/stations/${b.stationId}`}
-                      className="font-semibold text-green-700 hover:text-green-800"
-                    >
-                      Станція
-                    </Link>
-                  </div>
                 </td>
               </tr>
             ))}

@@ -7,15 +7,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type {
-  UserBooking,
-  UserBookingPricingModel,
-  UserBookingStatus,
-  UserCar,
-  UserCurrentSession,
-  UserPaymentRow,
-  UserSessionRecord,
-} from '../types/userPortal';
+import { useAuth } from './AuthContext';
+import { deleteUserBooking, fetchUserBookings } from '../api/userReads';
+import { mapBookingApiToUserBooking } from '../api/userPortalMappers';
+import type { UserBooking, UserCar, UserCurrentSession, UserPaymentRow, UserSessionRecord } from '../types/userPortal';
 
 type UserPortalContextValue = {
   cars: UserCar[];
@@ -25,18 +20,10 @@ type UserPortalContextValue = {
   updateCar: (id: string, patch: Partial<Omit<UserCar, 'id'>>) => void;
   removeCar: (id: string) => void;
   sessions: UserSessionRecord[];
+  replaceSessions: (rows: UserSessionRecord[]) => void;
   bookings: UserBooking[];
-  addBooking: (input: {
-    stationId: string;
-    stationName: string;
-    slotLabel: string;
-    start: string;
-    end: string;
-    durationMin: number;
-    pricingModel: UserBookingPricingModel;
-    payNowAmount: number;
-  }) => void;
-  cancelBooking: (id: string) => void;
+  replaceBookings: (rows: UserBooking[]) => void;
+  cancelBooking: (id: string) => Promise<void>;
   currentSession: UserCurrentSession | null;
   endCurrentSession: () => void;
   /** Почати зарядку на обраному порту (якщо сесія вже є — ігнорується). */
@@ -47,19 +34,27 @@ type UserPortalContextValue = {
     dayTariff: number;
   }) => boolean;
   payments: UserPaymentRow[];
+  replacePayments: (rows: UserPaymentRow[]) => void;
 };
 
 const UserPortalContext = createContext<UserPortalContextValue | undefined>(undefined);
 
 export function UserPortalProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const sessionRef = useRef<UserCurrentSession | null>(null);
   const [cars, setCars] = useState<UserCar[]>([]);
 
   const replaceCars = useCallback((next: UserCar[]) => {
     setCars(next);
   }, []);
-  const [sessions] = useState<UserSessionRecord[]>([]);
+  const [sessions, setSessions] = useState<UserSessionRecord[]>([]);
+  const replaceSessions = useCallback((rows: UserSessionRecord[]) => {
+    setSessions(rows);
+  }, []);
   const [bookings, setBookings] = useState<UserBooking[]>([]);
+  const replaceBookings = useCallback((rows: UserBooking[]) => {
+    setBookings(rows);
+  }, []);
   const [currentSession, setCurrentSessionState] = useState<UserCurrentSession | null>(null);
 
   const setCurrentSession = useCallback((next: UserCurrentSession | null | ((prev: UserCurrentSession | null) => UserCurrentSession | null)) => {
@@ -69,7 +64,10 @@ export function UserPortalProvider({ children }: { children: ReactNode }) {
       return resolved;
     });
   }, []);
-  const [payments] = useState<UserPaymentRow[]>([]);
+  const [payments, setPayments] = useState<UserPaymentRow[]>([]);
+  const replacePayments = useCallback((rows: UserPaymentRow[]) => {
+    setPayments(rows);
+  }, []);
 
   const addCar = useCallback((car: Omit<UserCar, 'id'>) => {
     const id = `uc-${Date.now().toString(36)}`;
@@ -84,40 +82,20 @@ export function UserPortalProvider({ children }: { children: ReactNode }) {
     setCars((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
-  const addBooking = useCallback(
-    (input: {
-      stationId: string;
-      stationName: string;
-      slotLabel: string;
-      start: string;
-      end: string;
-      durationMin: number;
-      pricingModel: UserBookingPricingModel;
-      payNowAmount: number;
-    }) => {
-      const id = `ub-${Date.now().toString(36)}`;
-      const row: UserBooking = {
-        id,
-        stationId: input.stationId,
-        stationName: input.stationName,
-        slotLabel: input.slotLabel,
-        start: input.start,
-        end: input.end,
-        status: 'upcoming',
-        durationMin: input.durationMin,
-        pricingModel: input.pricingModel,
-        payNowAmount: input.payNowAmount,
-      };
-      setBookings((prev) => [row, ...prev]);
+  const cancelBooking = useCallback(
+    async (id: string) => {
+      const uid = Number(user?.id);
+      if (!Number.isFinite(uid)) return;
+      try {
+        await deleteUserBooking(uid, Number(id));
+        const rows = await fetchUserBookings(uid);
+        setBookings(rows.map((r) => mapBookingApiToUserBooking(r)));
+      } catch {
+        /* мережа / доступ */
+      }
     },
-    []
+    [user?.id]
   );
-
-  const cancelBooking = useCallback((id: string) => {
-    setBookings((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, status: 'cancelled' as UserBookingStatus } : b))
-    );
-  }, []);
 
   const endCurrentSession = useCallback(() => {
     setCurrentSession(null);
@@ -152,13 +130,15 @@ export function UserPortalProvider({ children }: { children: ReactNode }) {
       updateCar,
       removeCar,
       sessions,
+      replaceSessions,
       bookings,
-      addBooking,
+      replaceBookings,
       cancelBooking,
       currentSession,
       endCurrentSession,
       startSessionAtPort,
       payments,
+      replacePayments,
     }),
     [
       cars,
@@ -167,13 +147,15 @@ export function UserPortalProvider({ children }: { children: ReactNode }) {
       updateCar,
       removeCar,
       sessions,
+      replaceSessions,
       bookings,
-      addBooking,
+      replaceBookings,
       cancelBooking,
       currentSession,
       endCurrentSession,
       startSessionAtPort,
       payments,
+      replacePayments,
     ]
   );
 

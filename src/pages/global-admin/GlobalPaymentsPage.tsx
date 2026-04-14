@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useGlobalAdmin, type PaymentRow } from '../../context/GlobalAdminContext';
 import { fetchAdminNetworkSessionDetail, type AdminSessionDetailDto } from '../../api/adminNetwork';
@@ -228,22 +227,19 @@ export default function GlobalPaymentsPage() {
                 dir={sortDir}
                 onSort={onSort}
               />
-              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Дія
-              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {paymentsLoading && allPayments.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
                   Завантаження…
                 </td>
               </tr>
             ) : null}
             {!paymentsLoading && !paymentsError && allPayments.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
                   Платежів (bill) поки немає.
                 </td>
               </tr>
@@ -271,27 +267,6 @@ export default function GlobalPaymentsPage() {
                 </td>
                 <td className="px-4 py-3">
                   <StatusPill tone={paymentTone(p.status)}>{paymentLabel(p.status)}</StatusPill>
-                </td>
-                <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex flex-wrap justify-end gap-x-3 gap-y-1">
-                    <Link
-                      to={`/admin-dashboard/sessions/${p.sessionId}`}
-                      state={{ focusBill: true }}
-                      className="font-semibold text-green-700 hover:text-green-800"
-                    >
-                      Повна сесія
-                    </Link>
-                    {p.userId ? (
-                      <Link
-                        to={`/admin-dashboard/users/${p.userId}`}
-                        className="font-semibold text-green-700 hover:text-green-800"
-                      >
-                        Користувач
-                      </Link>
-                    ) : (
-                      <span className="text-xs text-gray-400">Без користувача</span>
-                    )}
-                  </div>
                 </td>
               </tr>
             ))}

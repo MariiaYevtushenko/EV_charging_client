@@ -22,7 +22,6 @@ import UserCarEditPage from './pages/user-portal/UserCarEditPage';
 import UserAnalyticsPage from './pages/user-portal/UserAnalyticsPage';
 import UserProfilePage from './pages/user-portal/UserProfilePage';
 import UserStationDetailPage from './pages/user-portal/UserStationDetailPage';
-import UserSessionStartPage from './pages/user-portal/UserSessionStartPage';
 import StationAdminLayout from './layouts/StationAdminLayout';
 import GlobalAdminLayout from './layouts/GlobalAdminLayout';
 import { GlobalAdminProvider } from './context/GlobalAdminContext';
@@ -41,6 +40,7 @@ import GlobalTariffsPage from './pages/global-admin/GlobalTariffsPage';
 import GlobalAdminProfilePage from './pages/global-admin/GlobalAdminProfilePage';
 import { StationAdminNetworkProvider } from './context/StationAdminNetworkContext';
 import StationAdminHome from './pages/station-admin/StationAdminHome';
+import StationMapPage from './pages/station-admin/StationMapPage';
 import StationsListPage from './pages/station-admin/StationsListPage';
 import StationDetailPage from './pages/station-admin/StationDetailPage';
 import StationEditPage from './pages/station-admin/StationEditPage';
@@ -73,7 +73,7 @@ function App() {
               }
             >
               <Route index element={<UserHomePage />} />
-              <Route path="session" element={<UserSessionStartPage />} />
+              <Route path="session" element={<Navigate to="/dashboard" replace />} />
               <Route path="cars/new" element={<UserCarNewPage />} />
               <Route path="cars/:carId/edit" element={<UserCarEditPage />} />
               <Route path="cars" element={<UserCarsPage />} />
@@ -103,6 +103,7 @@ function App() {
               }
             >
               <Route index element={<StationAdminHome />} />
+              <Route path="map" element={<StationMapPage />} />
               <Route path="stations" element={<StationsListPage />} />
               <Route path="stations/new" element={<StationNewPage />} />
               <Route path="stations/:stationId" element={<StationDetailPage />} />

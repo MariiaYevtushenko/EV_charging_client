@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import type { AdminNetworkSessionRow } from '../../api/adminNetwork';
 import { useStationAdminNetwork } from '../../context/StationAdminNetworkContext';
 import SortableTableTh, {
@@ -127,7 +127,6 @@ export default function StationSessionsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Сесії зарядки</h1>
-        <p className="mt-1 text-sm text-gray-500">Усі сесії по мережі станцій.</p>
       </div>
 
       {error ? (
@@ -189,15 +188,12 @@ export default function StationSessionsPage() {
                 onSort={onSort}
                 align="right"
               />
-              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Дія
-              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading && rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
                   Завантаження…
                 </td>
               </tr>
@@ -228,14 +224,6 @@ export default function StationSessionsPage() {
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums text-gray-800">
                   {s.cost != null ? `${s.cost.toLocaleString('uk-UA')} грн` : '—'}
-                </td>
-                <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                  <Link
-                    to={`/station-dashboard/stations/${s.stationId}`}
-                    className="font-semibold text-green-700 hover:text-green-800"
-                  >
-                    Станція
-                  </Link>
                 </td>
               </tr>
             ))}

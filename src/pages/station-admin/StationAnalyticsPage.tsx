@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStationAdminNetwork } from '../../context/StationAdminNetworkContext';
 import {
@@ -6,22 +6,21 @@ import {
   BarChart,
   CartesianGrid,
   Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
 import { useStations } from '../../context/StationsContext';
+import {
+  fetchAdminAnalyticsViews,
+  num,
+  str,
+  type AdminAnalyticsViewsResponse,
+} from '../../api/adminAnalytics';
+import { ApiError } from '../../api/http';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
 import { stationStatusLabel, stationStatusTone } from '../../utils/stationLabels';
-
-const WEEK = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'].map((day, i) => ({
-  day,
-  revenue: [8200, 9100, 7800, 11200, 12400, 15600, 13200][i],
-  sessions: [118, 124, 98, 142, 156, 188, 165][i],
-}));
 
 function shortLabel(name: string, max = 20) {
   if (name.length <= max) return name;
@@ -41,6 +40,54 @@ export default function StationAnalyticsPage() {
   const { stations } = useStations();
   const { bookings, sessions, loading: networkLoading } = useStationAdminNetwork();
   const [tab, setTab] = useState<AnalyticsTab>('trends');
+  const [analyticsData, setAnalyticsData] = useState<AdminAnalyticsViewsResponse | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setAnalyticsLoading(true);
+    setAnalyticsError(null);
+    void fetchAdminAnalyticsViews()
+      .then((d) => {
+        if (!cancelled) setAnalyticsData(d);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setAnalyticsData(null);
+          setAnalyticsError(e instanceof ApiError ? e.message : 'Не вдалося завантажити аналітику з БД');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setAnalyticsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const g = analyticsData?.globalDashboard ?? null;
+
+  const cityChart = useMemo(() => {
+    return [...(analyticsData?.cityPerformance ?? [])]
+      .map((r) => ({
+        city: str(r.city).slice(0, 22),
+        fullCity: str(r.city),
+        revenue: num(r.total_revenue),
+      }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 14);
+  }, [analyticsData?.cityPerformance]);
+
+  const growthBars = useMemo(() => {
+    if (!g) return [];
+    return [
+      { name: 'Виручка', pct: num(g.rev_growth_pct) },
+      { name: 'Енергія', pct: num(g.energy_growth_pct) },
+      { name: 'Авто (унік.)', pct: num(g.cars_growth_pct) },
+      { name: 'Сесії', pct: num(g.sessions_growth_pct) },
+    ];
+  }, [g]);
 
   const activeStations = useMemo(() => stations.filter((s) => !s.archived), [stations]);
 
@@ -100,10 +147,60 @@ export default function StationAnalyticsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Аналітика</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Дані з обліку станцій і з API мережі (бронювання та сесії).
-        </p>
       </div>
+
+      {analyticsLoading ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-100/80 bg-emerald-50/30 px-5 py-4 text-sm text-emerald-900">
+          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
+          Завантаження аналітики з БД…
+        </div>
+      ) : null}
+
+      {analyticsError ? (
+        <div className="rounded-2xl border border-amber-200/90 bg-amber-50 px-5 py-4 text-sm text-amber-950">
+          <p className="font-medium">{analyticsError}</p>
+          <p className="mt-2 text-amber-900/85">
+            Переконайтеся, що у PostgreSQL застосовано скрипт{' '}
+            <code className="rounded-md bg-white/80 px-1.5 py-0.5 text-xs font-mono">View.sql</code>.
+          </p>
+        </div>
+      ) : null}
+
+      {!analyticsLoading && g ? (
+        <AppCard className="!p-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Мережа (30 днів, VIEW)</p>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <p className="text-xs text-gray-500">Виручка</p>
+              <p className="mt-0.5 text-lg font-bold tabular-nums text-green-700">
+                {num(g.revenue_30d).toLocaleString('uk-UA', { maximumFractionDigits: 0 })} грн
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Сесії</p>
+              <p className="mt-0.5 text-lg font-bold tabular-nums text-gray-900">
+                {num(g.sessions_30d).toLocaleString('uk-UA')}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Енергія</p>
+              <p className="mt-0.5 text-lg font-bold tabular-nums text-gray-900">
+                {num(g.energy_30d).toLocaleString('uk-UA', { maximumFractionDigits: 1 })} кВт·год
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Унікальні авто</p>
+              <p className="mt-0.5 text-lg font-bold tabular-nums text-gray-900">
+                {num(g.unique_cars_30d).toLocaleString('uk-UA')}
+              </p>
+            </div>
+          </div>
+        </AppCard>
+      ) : null}
+
+      {analyticsData?.partial ? (
+        <p className="text-xs text-gray-500">Частина джерел могла бути недоступна — див. журнал сервера.</p>
+      ) : null}
 
       <section aria-labelledby="network-activity-heading">
         <h2 id="network-activity-heading" className="mb-3 text-sm font-semibold text-gray-900">
@@ -168,7 +265,7 @@ export default function StationAnalyticsPage() {
             <p className="mt-1 text-3xl font-bold text-green-700">
               {todayRev.toLocaleString('uk-UA')} грн
             </p>
-            <p className="mt-1 text-xs text-gray-500">За дашбордом станцій (сьогодні)</p>
+           
           </AppCard>
           <AppCard className="!p-5">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сесії сьогодні</p>
@@ -196,7 +293,7 @@ export default function StationAnalyticsPage() {
         aria-label="Детальна аналітика"
       >
         <button type="button" className={tabClass(tab === 'trends')} onClick={() => setTab('trends')}>
-          Тиждень  
+          Тиждень
         </button>
         <button type="button" className={tabClass(tab === 'stations')} onClick={() => setTab('stations')}>
           По станціях
@@ -206,46 +303,70 @@ export default function StationAnalyticsPage() {
       {tab === 'trends' ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <AppCard>
-            <h2 className="text-sm font-semibold text-gray-900">Дохід по днях тижня</h2>
-            <p className="mt-1 text-xs text-gray-500">грн, демо</p>
+            <h2 className="text-sm font-semibold text-gray-900">Виручка по містах</h2>
+            <p className="mt-1 text-xs text-gray-500">Дані з VIEW (агрегат по місту)</p>
             <div className="mt-4 h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={WEEK} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                  <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                  <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                  <Tooltip
-                    contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="revenue"
-                    name="Дохід"
-                    stroke="#16a34a"
-                    strokeWidth={3}
-                    dot={{ fill: '#16a34a', r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {cityChart.length === 0 ? (
+                <p className="flex h-full items-center justify-center text-sm text-gray-500">
+                  Немає даних для діаграми
+                </p>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    layout="vertical"
+                    data={cityChart}
+                    margin={{ top: 8, right: 16, left: 4, bottom: 8 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                    <YAxis
+                      type="category"
+                      dataKey="city"
+                      width={100}
+                      tick={{ fontSize: 10 }}
+                      stroke="#9ca3af"
+                    />
+                    <Tooltip
+                      contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
+                      formatter={(v) => {
+                        const n = typeof v === 'number' ? v : Number(v);
+                        return [`${(Number.isFinite(n) ? n : 0).toLocaleString('uk-UA')} грн`, 'Виручка'];
+                      }}
+                      labelFormatter={(_, p) => (p?.[0]?.payload?.fullCity as string) ?? ''}
+                    />
+                    <Bar dataKey="revenue" fill="#16a34a" name="Виручка" radius={[0, 8, 8, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </AppCard>
 
           <AppCard>
-            <h2 className="text-sm font-semibold text-gray-900">Кількість сесій</h2>
-            <p className="mt-1 text-xs text-gray-500">по днях тижня  </p>
+            <h2 className="text-sm font-semibold text-gray-900">Динаміка періоду</h2>
+            <p className="mt-1 text-xs text-gray-500">Поточні 30 днів vs попередні 30 днів, %</p>
             <div className="mt-4 h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={WEEK} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                  <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                  <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                  <Tooltip
-                    contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="sessions" name="Сесії" fill="#0ea5e9" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {growthBars.length === 0 ? (
+                <p className="flex h-full items-center justify-center text-sm text-gray-500">
+                  Немає зведення global dashboard
+                </p>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={growthBars} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 11 }} stroke="#94a3b8" tickFormatter={(v) => `${v}%`} />
+                    <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} stroke="#64748b" />
+                    <Tooltip
+                      contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
+                      formatter={(v) => {
+                        const n = typeof v === 'number' ? v : Number(v);
+                        return [`${(Number.isFinite(n) ? n : 0).toFixed(1)} %`, 'Δ'];
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Bar dataKey="pct" fill="#0ea5e9" name="Зміна, %" radius={[0, 8, 8, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </AppCard>
         </div>

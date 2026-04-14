@@ -128,9 +128,6 @@ export default function SeedDemoDataButton() {
     <>
       <div>
         <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-gray-400">SEED DATA</p>
-        <p className="mb-2 text-[10px] leading-snug text-gray-500">
-          Повний ланцюжок: користувачі, авто, станції (CSV), тарифи, бронювання та сесії.
-        </p>
         <button
           type="button"
           disabled={disabled}

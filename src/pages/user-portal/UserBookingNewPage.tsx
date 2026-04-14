@@ -1,8 +1,11 @@
-import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Station } from '../../types/station';
+import { useAuth } from '../../context/AuthContext';
 import { useStations } from '../../context/StationsContext';
 import { useUserPortal } from '../../context/UserPortalContext';
+import { createUserBooking, fetchUserBookings } from '../../api/userReads';
+import { mapBookingApiToUserBooking } from '../../api/userPortalMappers';
 import StationMap from '../../components/station-admin/StationMap';
 import { AppCard, PrimaryButton } from '../../components/station-admin/Primitives';
 import {
@@ -56,8 +59,10 @@ function dayLabel(d: Date) {
 
 export default function UserBookingNewPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const { mapStations: allStations, registerMapViewportBounds } = useStations();
-  const { cars, bookings, addBooking } = useUserPortal();
+  const { cars, bookings, replaceBookings } = useUserPortal();
 
   const connectorOptions = useMemo(() => {
     const fromCars = [...new Set(cars.map((c) => c.connector))];
@@ -76,6 +81,8 @@ export default function UserBookingNewPage() {
   const [slotStartMs, setSlotStartMs] = useState<number | null>(null);
   const [pricingModel, setPricingModel] = useState<UserBookingPricingModel>('reservation_fee');
 
+  const stationIdFromUrl = searchParams.get('stationId');
+
   const mapStations = useMemo(
     () =>
       allStations.filter(
@@ -89,6 +96,13 @@ export default function UserBookingNewPage() {
     if (selectedId && mapStations.some((s) => s.id === selectedId)) return selectedId;
     return mapStations[0].id;
   }, [mapStations, selectedId]);
+
+  useEffect(() => {
+    if (!stationIdFromUrl) return;
+    if (allStations.some((s) => s.id === stationIdFromUrl && !s.archived && s.status === 'working')) {
+      setSelectedId(stationIdFromUrl);
+    }
+  }, [stationIdFromUrl, allStations]);
 
   const selected = effectiveStationId
     ? mapStations.find((s) => s.id === effectiveStationId)
@@ -131,20 +145,28 @@ export default function UserBookingNewPage() {
 
   const handleConfirm = () => {
     if (!selected || slotStartMs === null || !canConfirm) return;
+    const uid = Number(user?.id);
+    if (!Number.isFinite(uid)) return;
     const endMs = slotStartMs + durationMin * 60 * 1000;
     const port = firstMatchingPort(selected, connector);
-    const slotLabel = port ? `${port.label} · ${port.connector}` : 'Слот';
-    addBooking({
-      stationId: selected.id,
-      stationName: selected.name,
-      slotLabel,
-      start: new Date(slotStartMs).toISOString(),
-      end: new Date(endMs).toISOString(),
-      durationMin,
-      pricingModel,
-      payNowAmount: payNow,
-    });
-    navigate('/dashboard/bookings');
+    const portNumber = port?.portNumber ?? 1;
+    void (async () => {
+      try {
+        await createUserBooking(uid, {
+          stationId: Number(selected.id),
+          portNumber,
+          startTime: new Date(slotStartMs).toISOString(),
+          endTime: new Date(endMs).toISOString(),
+          bookingType: pricingModel === 'reservation_fee' ? 'DEPOSIT' : 'CALC',
+          prepaymentAmount: payNow,
+        });
+        const rows = await fetchUserBookings(uid);
+        replaceBookings(rows.map((r) => mapBookingApiToUserBooking(r)));
+        navigate('/dashboard/bookings');
+      } catch {
+        /* помилка створення — залишаємося на формі */
+      }
+    })();
   };
 
   return (
@@ -324,12 +346,24 @@ export default function UserBookingNewPage() {
 
                   <div className="rounded-xl bg-gray-900 px-3 py-2.5 text-white shadow-md">
                     <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                      До сплати зараз  
+                      До сплати зараз
                     </p>
                     <p className="mt-0.5 text-xl font-bold tabular-nums">
                       {payNow.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
                       грн
                     </p>
+                    {pricingModel === 'reservation_fee' ? (
+                      <p className="mt-2 text-[11px] leading-snug text-gray-400">
+                        Фіксований резерв; енергію нарахують окремо після сесії за тарифом станції.
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-[11px] leading-snug text-gray-400">
+                        Демо: ~
+                        {(Math.round((durationMin / 60) * 7 * 10) / 10).toLocaleString('uk-UA')} кВт·год ×{' '}
+                        {selected.dayTariff} грн/кВт·год (денний тариф станції). Пізніше — прогноз тарифу та ваш
+                        алгоритм на бекенді.
+                      </p>
+                    )}
                   </div>
                 </div>
 

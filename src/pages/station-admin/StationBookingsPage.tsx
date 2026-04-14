@@ -7,7 +7,6 @@ import SortableTableTh, {
   type SortDir,
 } from '../../components/admin/SortableTableTh';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
-import { appInputClass } from '../../components/station-admin/formStyles';
 
 type BookingSortKey = 'start' | 'userName' | 'stationName' | 'slot' | 'status';
 
@@ -74,7 +73,7 @@ function cmpBookings(
       c = a.stationName.localeCompare(b.stationName, 'uk');
       break;
     case 'slot':
-      c = a.slotLabel.localeCompare(b.slotLabel, 'uk');
+      c = a.portNumber - b.portNumber;
       break;
     case 'status':
       c = a.status.localeCompare(b.status, 'uk');
@@ -87,7 +86,6 @@ function cmpBookings(
 
 export default function StationBookingsPage() {
   const { bookings, loading, error } = useStationAdminNetwork();
-  const [q, setQ] = useState('');
   const [sortKey, setSortKey] = useState<BookingSortKey>('start');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
@@ -104,44 +102,20 @@ export default function StationBookingsPage() {
     [sortKey]
   );
 
-  const rows = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    const filtered = !needle
-      ? bookings
-      : bookings.filter(
-          (b) =>
-            b.userName.toLowerCase().includes(needle) ||
-            b.stationName.toLowerCase().includes(needle) ||
-            b.id.toLowerCase().includes(needle)
-        );
-    return [...filtered].sort((a, b) => cmpBookings(a, b, sortKey, sortDir));
-  }, [bookings, q, sortKey, sortDir]);
+  const rows = useMemo(
+    () => [...bookings].sort((a, b) => cmpBookings(a, b, sortKey, sortDir)),
+    [bookings, sortKey, sortDir]
+  );
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Бронювання</h1>
-        <p className="mt-1 text-sm text-gray-500">Усі бронювання по мережі станцій.</p>
       </div>
 
       {error ? (
         <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>
       ) : null}
-
-      <div className="min-w-0">
-        <label className="sr-only" htmlFor="station-bookings-search">
-          Пошук
-        </label>
-        <input
-          id="station-bookings-search"
-          type="search"
-          placeholder="Користувач, станція, ID…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className={appInputClass}
-          disabled={loading}
-        />
-      </div>
 
       <AppCard className="overflow-x-auto !p-0" padding={false}>
         <table className="min-w-full text-left text-sm">
@@ -169,11 +143,12 @@ export default function StationBookingsPage() {
                 onSort={onSort}
               />
               <SortableTableTh
-                label="Слот"
+                label="Порт"
                 columnKey="slot"
                 activeKey={sortKey}
                 dir={sortDir}
                 onSort={onSort}
+                align="right"
               />
               <SortableTableTh
                 label="Статус"
@@ -200,7 +175,7 @@ export default function StationBookingsPage() {
                 <td className="whitespace-nowrap px-4 py-3 text-gray-600">{fmt(b.start)}</td>
                 <td className="px-4 py-3 font-medium text-gray-900">{b.userName}</td>
                 <td className="px-4 py-3 text-gray-700">{b.stationName}</td>
-                <td className="px-4 py-3 text-xs text-gray-500">{b.slotLabel}</td>
+                <td className="px-4 py-3 text-right text-gray-800">Порт {b.portNumber}</td>
                 <td className="px-4 py-3">
                   <StatusPill tone={bookingTone(b.status)}>{bookingLabel(b.status)}</StatusPill>
                 </td>

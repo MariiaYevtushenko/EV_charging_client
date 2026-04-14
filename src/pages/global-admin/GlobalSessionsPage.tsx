@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchAdminNetworkSessions, type AdminNetworkSessionRow } from '../../api/adminNetwork';
 import { ApiError } from '../../api/http';
@@ -262,15 +262,12 @@ export default function GlobalSessionsPage() {
                 onSort={onSort}
                 align="right"
               />
-              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Дії
-              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading && filteredByStatus.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
                   Завантаження…
                 </td>
               </tr>
@@ -303,24 +300,6 @@ export default function GlobalSessionsPage() {
                   {s.cost != null
                     ? `${s.cost.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} грн`
                     : '—'}
-                </td>
-                <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex flex-wrap justify-end gap-2">
-                    {s.userId ? (
-                      <Link
-                        to={`/admin-dashboard/users/${s.userId}`}
-                        className="font-semibold text-green-700 hover:text-green-800"
-                      >
-                        Профіль
-                      </Link>
-                    ) : null}
-                    <Link
-                      to={`/admin-dashboard/stations/${s.stationId}`}
-                      className="font-semibold text-green-700 hover:text-green-800"
-                    >
-                      Станція
-                    </Link>
-                  </div>
                 </td>
               </tr>
             ))}

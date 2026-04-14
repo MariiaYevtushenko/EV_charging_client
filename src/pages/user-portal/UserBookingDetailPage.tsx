@@ -105,8 +105,10 @@ export default function UserBookingDetailPage() {
             type="button"
             className="!text-xs"
             onClick={() => {
-              cancelBooking(booking.id);
-              navigate('/dashboard/bookings');
+              void (async () => {
+                await cancelBooking(booking.id);
+                navigate('/dashboard/bookings');
+              })();
             }}
           >
             Скасувати бронювання

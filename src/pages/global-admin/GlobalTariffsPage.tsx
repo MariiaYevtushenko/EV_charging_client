@@ -440,7 +440,6 @@ export default function GlobalTariffsPage() {
   const [todaySaving, setTodaySaving] = useState(false);
   const [todayError, setTodayError] = useState<string | null>(null);
   const [todayOk, setTodayOk] = useState(false);
-  const [gapSyncMessage, setGapSyncMessage] = useState<string | null>(null);
   const [syncGapError, setSyncGapError] = useState<string | null>(null);
   const [listPage, setListPage] = useState(1);
   const [tariffSortKey, setTariffSortKey] = useState<TariffSortKey>('effectiveDate');
@@ -488,19 +487,10 @@ export default function GlobalTariffsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    setGapSyncMessage(null);
     setSyncGapError(null);
     void (async () => {
       try {
-        const sync = await postTariffsSyncMissing();
-        if (cancelled) return;
-        if (sync.filledDays > 0) {
-          setGapSyncMessage(
-            sync.bootstrappedTodayOnly
-              ? 'У базі не було тарифів — з API додано денну та нічну ціну на сьогодні.'
-              : `Заповнено пропуск між останнім записом і сьогодні: ${sync.dates.join(', ')}.`
-          );
-        }
+        await postTariffsSyncMissing();
       } catch (e: unknown) {
         if (!cancelled) {
           setSyncGapError(
@@ -599,9 +589,6 @@ export default function GlobalTariffsPage() {
           ) : null}
           {syncGapError ? (
             <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">{syncGapError}</p>
-          ) : null}
-          {gapSyncMessage ? (
-            <p className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">{gapSyncMessage}</p>
           ) : null}
           {todayOk ? <p className="text-sm text-emerald-700">Тариф на сьогодні збережено в базі.</p> : null}
 

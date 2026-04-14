@@ -40,6 +40,19 @@ function BoltIcon({ className }: { className?: string }) {
   );
 }
 
+function HomeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+      />
+    </svg>
+  );
+}
+
 function MapIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -178,7 +191,7 @@ export default function StationAdminLayout() {
         <Link
           to="/station-dashboard"
           className="mb-10 flex items-center gap-3 rounded-xl px-2 py-1.5 -mx-1 transition hover:bg-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
-          title="На головну — карта"
+          title="Головна"
         >
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-green-600 text-white shadow-md shadow-green-600/25">
             <BoltIcon className="h-6 w-6" />
@@ -191,12 +204,16 @@ export default function StationAdminLayout() {
 
         <nav id="station-admin-nav" className="flex flex-1 flex-col gap-1" aria-label="Основна навігація">
           <NavLink to="/station-dashboard" end className={navLinkClass}>
+            <HomeIcon className="h-5 w-5 shrink-0 opacity-90" />
+            Головна
+          </NavLink>
+          <NavLink to="/station-dashboard/map" className={navLinkClass}>
             <MapIcon className="h-5 w-5 shrink-0 opacity-90" />
-            Карта та огляд
+            Карта
           </NavLink>
           <NavLink to="/station-dashboard/stations" className={navLinkClass}>
             <BuildingIcon className="h-5 w-5 shrink-0 opacity-90" />
-            Список станцій
+            Станції
           </NavLink>
           <NavLink to="/station-dashboard/bookings" className={navLinkClass}>
             <CalendarIcon className="h-5 w-5 shrink-0 opacity-90" />

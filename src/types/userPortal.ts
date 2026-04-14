@@ -56,8 +56,10 @@ export interface UserPaymentRow {
   method: string;
   description: string;
   status: 'success' | 'pending' | 'failed';
-  /** Демо: кількість кВт·год, якщо релевантно */
+  /** Кількість кВт·год з сесії, якщо є */
   energyKwh?: number;
-  /** Демо: назва станції */
+  /** Назва станції з сесії */
   stationName?: string;
+  /** Для посилання на історію сесій */
+  sessionId?: string;
 }

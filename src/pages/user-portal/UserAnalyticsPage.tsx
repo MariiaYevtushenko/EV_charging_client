@@ -33,14 +33,33 @@ export default function UserAnalyticsPage() {
       .sort((a, b) => b.kwh - a.kwh);
   }, [sessions]);
 
+  /** Агрегати по календарних місяцях (останні 12 місяців з даними). */
   const trend = useMemo(() => {
-    const months = ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер'];
-    return months.map((m, i) => ({
-      m,
-      spend: [120, 145, 186, 160, 210, 198][i] ?? 0,
-      kwh: [18, 21, 27, 23, 30, 28][i] ?? 0,
-    }));
-  }, []);
+    const buckets = new Map<string, { spend: number; kwh: number }>();
+    for (const s of sessions) {
+      const d = new Date(s.startedAt);
+      if (Number.isNaN(d.getTime())) continue;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const cur = buckets.get(key) ?? { spend: 0, kwh: 0 };
+      cur.spend += s.cost;
+      cur.kwh += s.kwh;
+      buckets.set(key, cur);
+    }
+    const sorted = [...buckets.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    const last = sorted.slice(-12);
+    return last.map(([ym, v]) => {
+      const [y, mo] = ym.split('-').map(Number);
+      const label = new Date(y, mo - 1, 1).toLocaleDateString('uk-UA', {
+        month: 'short',
+        year: 'numeric',
+      });
+      return {
+        m: label,
+        spend: Math.round(v.spend * 100) / 100,
+        kwh: Math.round(v.kwh * 10) / 10,
+      };
+    });
+  }, [sessions]);
 
   const totalKwh = useMemo(() => sessions.reduce((a, s) => a + s.kwh, 0), [sessions]);
   const totalPaid = useMemo(
@@ -74,34 +93,48 @@ export default function UserAnalyticsPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <AppCard>
-          <h2 className="text-sm font-semibold text-gray-900">Витрати по місяцях  </h2>
+          <h2 className="text-sm font-semibold text-gray-900">Витрати по місяцях</h2>
+          <p className="mt-1 text-xs text-gray-500">За датою початку сесії та сумою з рахунків</p>
           <div className="mt-4 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                <XAxis dataKey="m" tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                <Tooltip
-                  formatter={(v) => [`${Number(v ?? 0).toLocaleString('uk-UA')} грн`, 'Витрати']}
-                  contentStyle={{ borderRadius: 12, fontSize: 12 }}
-                />
-                <Line type="monotone" dataKey="spend" stroke="#16a34a" strokeWidth={2} dot />
-              </LineChart>
-            </ResponsiveContainer>
+            {trend.length === 0 ? (
+              <p className="flex h-full items-center justify-center text-sm text-gray-500">
+                Немає даних — з’являться після зарядок з оплаченими рахунками
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <XAxis dataKey="m" tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                  <Tooltip
+                    formatter={(v) => [`${Number(v ?? 0).toLocaleString('uk-UA')} грн`, 'Витрати']}
+                    contentStyle={{ borderRadius: 12, fontSize: 12 }}
+                  />
+                  <Line type="monotone" dataKey="spend" stroke="#16a34a" strokeWidth={2} dot />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </AppCard>
         <AppCard>
-          <h2 className="text-sm font-semibold text-gray-900">Енергія по місяцях  </h2>
+          <h2 className="text-sm font-semibold text-gray-900">Енергія по місяцях</h2>
+          <p className="mt-1 text-xs text-gray-500">Сума кВт·год за історією сесій</p>
           <div className="mt-4 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={trend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                <XAxis dataKey="m" tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-                <Bar dataKey="kwh" fill="#86efac" radius={[6, 6, 0, 0]} name="кВт·год" />
-              </BarChart>
-            </ResponsiveContainer>
+            {trend.length === 0 ? (
+              <p className="flex h-full items-center justify-center text-sm text-gray-500">
+                Немає даних за обраний період
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={trend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <XAxis dataKey="m" tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                  <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
+                  <Bar dataKey="kwh" fill="#86efac" radius={[6, 6, 0, 0]} name="кВт·год" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </AppCard>
       </div>

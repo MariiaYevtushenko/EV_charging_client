@@ -3,7 +3,17 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import SeedDemoDataButton from '../components/SeedDemoDataButton';
 import { useUserPortal } from '../context/UserPortalContext';
-import { fetchUserVehicles } from '../api/userReads';
+import {
+  fetchUserBookings,
+  fetchUserPayments,
+  fetchUserSessions,
+  fetchUserVehicles,
+} from '../api/userReads';
+import {
+  mapBillApiToPaymentRow,
+  mapBookingApiToUserBooking,
+  mapUserSessionApiToRecord,
+} from '../api/userPortalMappers';
 import { mapVehicleApiRowToUserCar } from '../api/userVehicles';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -119,7 +129,7 @@ function UserIcon({ className }: { className?: string }) {
 
 export default function UserPortalLayout() {
   const { user, logout } = useAuth();
-  const { replaceCars } = useUserPortal();
+  const { replaceCars, replaceSessions, replacePayments, replaceBookings } = useUserPortal();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -129,17 +139,30 @@ export default function UserPortalLayout() {
     let cancelled = false;
     void (async () => {
       try {
-        const rows = await fetchUserVehicles(uid);
+        const [vehRows, sessRows, payRows, bookRows] = await Promise.all([
+          fetchUserVehicles(uid),
+          fetchUserSessions(uid),
+          fetchUserPayments(uid),
+          fetchUserBookings(uid),
+        ]);
         if (cancelled) return;
-        replaceCars(rows.map((r) => mapVehicleApiRowToUserCar(r)));
+        replaceCars(vehRows.map((r) => mapVehicleApiRowToUserCar(r)));
+        replaceSessions(sessRows.map((r) => mapUserSessionApiToRecord(r)));
+        replacePayments(payRows.map((r) => mapBillApiToPaymentRow(r)));
+        replaceBookings(bookRows.map((r) => mapBookingApiToUserBooking(r)));
       } catch {
-        if (!cancelled) replaceCars([]);
+        if (!cancelled) {
+          replaceCars([]);
+          replaceSessions([]);
+          replacePayments([]);
+          replaceBookings([]);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [user?.id, replaceCars]);
+  }, [user?.id, replaceCars, replaceSessions, replacePayments, replaceBookings]);
 
   const handleLogout = () => {
     logout();
@@ -173,11 +196,7 @@ export default function UserPortalLayout() {
         <nav className="flex flex-1 flex-col gap-1">
           <NavLink to="/dashboard" end className={navLinkClass}>
             <MapIcon className="h-5 w-5 shrink-0 opacity-90" />
-            Карта та сесія
-          </NavLink>
-          <NavLink to="/dashboard/session" className={navLinkClass}>
-            <BoltIcon className="h-5 w-5 shrink-0 opacity-90" />
-            Почати зарядку
+            Карта
           </NavLink>
           <NavLink to="/dashboard/cars" className={navLinkClass}>
             <CarIcon className="h-5 w-5 shrink-0 opacity-90" />

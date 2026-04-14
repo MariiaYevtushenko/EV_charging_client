@@ -6,6 +6,8 @@ export type AdminNetworkBookingRow = {
   userName: string;
   stationId: string;
   stationName: string;
+  /** Номер порта на станції (для таблиць; повний `slotLabel` лишається для інших екранів). */
+  portNumber: number;
   slotLabel: string;
   status: "pending" | "confirmed" | "cancelled" | "completed";
   start: string;

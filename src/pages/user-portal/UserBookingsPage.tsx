@@ -115,7 +115,11 @@ export default function UserBookingsPage() {
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
                   <StatusPill tone={statusTone(b.status)}>{statusLabel(b.status)}</StatusPill>
                   {b.status === 'upcoming' ? (
-                    <OutlineButton type="button" className="!text-xs !py-2" onClick={() => cancelBooking(b.id)}>
+                    <OutlineButton
+                      type="button"
+                      className="!text-xs !py-2"
+                      onClick={() => void cancelBooking(b.id)}
+                    >
                       Скасувати
                     </OutlineButton>
                   ) : null}
