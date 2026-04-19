@@ -5,9 +5,11 @@ import StationFiltersBarCore from "./StationFiltersBarCore";
 export default function StationFiltersBar({
   showAddButton = false,
   drawerExtra,
+  dashboardBase = '/station-dashboard',
 }: {
   showAddButton?: boolean;
   drawerExtra?: ReactNode;
+  dashboardBase?: string;
 }) {
   const {
     uniqueCities,
@@ -33,6 +35,7 @@ export default function StationFiltersBar({
       setSortValue={setSortValue}
       showAddButton={showAddButton}
       drawerExtra={drawerExtra}
+      dashboardBase={dashboardBase}
     />
   );
 }

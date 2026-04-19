@@ -1,15 +1,13 @@
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useUserPortal } from '../../context/UserPortalContext';
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
-import { appFormInputClass, appSelectClass } from '../../components/station-admin/formStyles';
+import { appFormInputClass } from '../../components/station-admin/formStyles';
 import { DEFAULT_CAR_IMAGE, suggestCarImageByModel } from '../../utils/carImageSuggest';
 import { fetchUserVehicles } from '../../api/userReads';
 import { mapVehicleApiRowToUserCar, postUserVehicle } from '../../api/userVehicles';
 import { ApiError } from '../../api/http';
-
-const CONNECTORS = ['Type 2', 'CCS2', 'CHAdeMO'] as const;
 
 export default function UserCarNewPage() {
   const { user } = useAuth();
@@ -19,17 +17,11 @@ export default function UserCarNewPage() {
   const [vehicleModel, setVehicleModel] = useState('');
   const [plate, setPlate] = useState('');
   const [batteryCapacity, setBatteryCapacity] = useState('60');
-  const [connector, setConnector] = useState<string>('Type 2');
-  const [imageUrl, setImageUrl] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const previewSrc = imageUrl.trim() || DEFAULT_CAR_IMAGE;
-
-  const handleSuggest = () => {
-    const m = `${brand} ${vehicleModel}`.trim();
-    if (m) setImageUrl(suggestCarImageByModel(m));
-  };
+  const modelLine = useMemo(() => `${brand} ${vehicleModel}`.trim(), [brand, vehicleModel]);
+  const previewSrc = useMemo(() => suggestCarImageByModel(modelLine), [modelLine]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -65,7 +57,7 @@ export default function UserCarNewPage() {
         batteryCapacity: bat,
       });
       const rows = await fetchUserVehicles(uid);
-      replaceCars(rows.map((r) => mapVehicleApiRowToUserCar(r, connector)));
+      replaceCars(rows.map((r) => mapVehicleApiRowToUserCar(r)));
       navigate('/dashboard/cars');
     } catch (err) {
       const msg =
@@ -84,7 +76,9 @@ export default function UserCarNewPage() {
 
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Додати авто</h1>
-        <p className="mt-1 text-sm text-gray-500">Дані зберігаються у вашому профілі (user id).</p>
+        <p className="mt-1 text-sm text-gray-500">
+          Фото на картці підбирається автоматично за брендом і моделлю під час введення.
+        </p>
       </div>
 
       <AppCard>
@@ -157,41 +151,6 @@ export default function UserCarNewPage() {
               className={appFormInputClass}
               required
             />
-          </div>
-          <div>
-            <label htmlFor="new-car-conn" className="text-sm font-medium text-gray-700">
-              Конектор (для відображення в кабінеті)
-            </label>
-            <select
-              id="new-car-conn"
-              value={connector}
-              onChange={(e) => setConnector(e.target.value)}
-              className={`mt-1 ${appSelectClass}`}
-            >
-              {CONNECTORS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="new-car-img" className="text-sm font-medium text-gray-700">
-              URL фото (необов’язково)
-            </label>
-            <input
-              id="new-car-img"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://…"
-              type="url"
-              className={appFormInputClass}
-            />
-            <div className="mt-2">
-              <OutlineButton type="button" className="!text-xs" onClick={handleSuggest}>
-                Підібрати фото за брендом і моделлю
-              </OutlineButton>
-            </div>
           </div>
 
           <div className="flex flex-wrap gap-3 border-t border-gray-100 pt-6">

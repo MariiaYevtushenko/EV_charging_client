@@ -11,6 +11,7 @@ import {
   type TariffListItemDto,
 } from '../../api/tariffsAdmin';
 import AdminListPagination from '../../components/admin/AdminListPagination';
+import { globalAdminPageTitle } from '../../styles/globalAdminTheme';
 import SortableTableTh, {
   defaultDirForSortColumn,
   type SortDir,
@@ -199,12 +200,12 @@ function ForecastBiasCard() {
   return (
     <AppCard className="space-y-4 border border-violet-100 bg-violet-50/40">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-gray-900">Корекція прогнозу</h2>
+        <h2 className="text-lg font-bold text-slate-900">Корекція прогнозу</h2>
         {!editing && !loading ? (
           <button
             type="button"
             onClick={startEdit}
-            className="rounded-lg p-2 text-gray-500 transition hover:bg-violet-100/80 hover:text-gray-900"
+            className="rounded-lg p-2 text-gray-500 transition hover:bg-violet-100/80 hover:text-slate-900"
             aria-label="Редагувати корекцію прогнозу"
             title="Редагувати"
           >
@@ -245,7 +246,7 @@ function ForecastBiasCard() {
                 disabled={saving}
               />
             ) : (
-              <p className="mt-2 text-lg font-semibold tabular-nums text-gray-900">{dayBias}</p>
+              <p className="mt-2 text-lg font-semibold tabular-nums text-slate-900">{dayBias}</p>
             )}
             {updatedDay ? (
               <p className="mt-1 text-xs text-gray-500">Оновлено: {new Date(updatedDay).toLocaleString('uk-UA')}</p>
@@ -265,7 +266,7 @@ function ForecastBiasCard() {
                 disabled={saving}
               />
             ) : (
-              <p className="mt-2 text-lg font-semibold tabular-nums text-gray-900">{nightBias}</p>
+              <p className="mt-2 text-lg font-semibold tabular-nums text-slate-900">{nightBias}</p>
             )}
             {updatedNight ? (
               <p className="mt-1 text-xs text-gray-500">Оновлено: {new Date(updatedNight).toLocaleString('uk-UA')}</p>
@@ -275,7 +276,7 @@ function ForecastBiasCard() {
       )}
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {savedOk ? <p className="text-sm text-emerald-700">Збережено в базі.</p> : null}
+      {savedOk ? <p className="text-sm text-green-700">Збережено в базі.</p> : null}
 
       <div className="flex flex-wrap gap-2 border-t border-violet-100 pt-4">
         {editing ? (
@@ -345,13 +346,13 @@ function TodayTariffEditor({
   return (
     <AppCard className="space-y-4 border border-amber-100 bg-amber-50/50">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-gray-900">Тариф на сьогодні</h2>
+        <h2 className="text-lg font-bold text-slate-900">Тариф на сьогодні</h2>
         {!editing ? (
           <button
             type="button"
             disabled={!canEdit}
             onClick={startEdit}
-            className="rounded-lg p-2 text-gray-500 transition hover:bg-amber-100/80 hover:text-gray-900 disabled:opacity-40"
+            className="rounded-lg p-2 text-gray-500 transition hover:bg-amber-100/80 hover:text-slate-900 disabled:opacity-40"
             aria-label="Редагувати тариф"
             title="Редагувати"
           >
@@ -388,7 +389,7 @@ function TodayTariffEditor({
               disabled={loading || saving}
             />
           ) : (
-            <p className="mt-2 text-lg font-semibold tabular-nums text-gray-900">
+            <p className="mt-2 text-lg font-semibold tabular-nums text-slate-900">
               {formatUahPerKwh(parseFloat(dayPrice.replace(',', '.')))}
             </p>
           )}
@@ -564,7 +565,7 @@ export default function GlobalTariffsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Тарифи та прогноз</h1>
+        <h1 className={globalAdminPageTitle}>Тарифи та прогноз</h1>
         
       </div>
 
@@ -590,7 +591,7 @@ export default function GlobalTariffsPage() {
           {syncGapError ? (
             <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">{syncGapError}</p>
           ) : null}
-          {todayOk ? <p className="text-sm text-emerald-700">Тариф на сьогодні збережено в базі.</p> : null}
+          {todayOk ? <p className="text-sm text-green-700">Тариф на сьогодні збережено в базі.</p> : null}
 
           <TodayTariffEditor
             dayPrice={dayPrice}
@@ -602,7 +603,7 @@ export default function GlobalTariffsPage() {
 
           <AppCard padding={false} className="overflow-hidden">
             <div className="border-b border-gray-100 px-5 py-4">
-              <h2 className="text-sm font-semibold text-gray-900">Архів тарифів</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Архів тарифів</h2>
             </div>
 
             {listError ? (
@@ -655,16 +656,16 @@ export default function GlobalTariffsPage() {
                       <tr
                         key={r.effectiveDate}
                         className={
-                          isToday ? 'bg-emerald-50/80 hover:bg-emerald-50' : 'bg-white hover:bg-gray-50/80'
+                          isToday ? 'bg-green-50/80 hover:bg-green-50' : 'bg-white hover:bg-gray-50/80'
                         }
                       >
                         <td className="whitespace-nowrap px-5 py-3 text-gray-800">
                           {formatTariffCalendarDate(r.effectiveDate)}
                         </td>
-                        <td className="px-5 py-3 text-right tabular-nums font-medium text-gray-900">
+                        <td className="px-5 py-3 text-right tabular-nums font-medium text-slate-900">
                           {formatUahPerKwh(r.dayPrice)}
                         </td>
-                        <td className="px-5 py-3 text-right tabular-nums font-medium text-gray-900">
+                        <td className="px-5 py-3 text-right tabular-nums font-medium text-slate-900">
                           {formatUahPerKwh(r.nightPrice)}
                         </td>
                       </tr>

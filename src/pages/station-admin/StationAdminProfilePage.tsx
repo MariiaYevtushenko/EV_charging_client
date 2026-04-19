@@ -1,10 +1,11 @@
 import EditableAccountProfile from '../../components/account/EditableAccountProfile';
+import { stationAdminPageTitle } from '../../styles/stationAdminTheme';
 
 export default function StationAdminProfilePage() {
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Профіль</h1>
+        <h1 className={stationAdminPageTitle}>Профіль</h1>
       </div>
       <EditableAccountProfile
         roleLabel="Адміністратор станції"

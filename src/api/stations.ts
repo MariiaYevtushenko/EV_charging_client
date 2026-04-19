@@ -1,6 +1,9 @@
 import type {
   PaginatedStationsResponse,
   StationDashboardDto,
+  StationEnergyAnalyticsDto,
+  StationEnergyPeriod,
+  StationUpcomingBookingsResponse,
   StationsMapResponse,
 } from "../types/stationApi";
 import type { StationStatus } from "../types/station";
@@ -14,7 +17,9 @@ export function fetchStationsPage(
   pageSize: number = DEFAULT_STATION_PAGE_SIZE,
   sort: string = "name:asc",
   /** Фільтр списку за статусом (узгоджено з `parseStationStatus` на сервері). */
-  status?: StationStatus | null
+  status?: StationStatus | null,
+  /** Пошук за назвою станції або містом (query `q` на сервері). */
+  search?: string | null
 ): Promise<PaginatedStationsResponse> {
   const params = new URLSearchParams({
     page: String(Math.max(1, page)),
@@ -23,6 +28,10 @@ export function fetchStationsPage(
   });
   if (status != null) {
     params.set("status", status);
+  }
+  const s = search?.trim();
+  if (s) {
+    params.set("q", s);
   }
   return getJson<PaginatedStationsResponse>(`/api/stations?${params.toString()}`);
 }
@@ -53,6 +62,24 @@ export function fetchStationDashboard(
 ): Promise<StationDashboardDto> {
   return getJson<StationDashboardDto>(
     `/api/stations/${stationId}/dashboard`
+  );
+}
+
+export function fetchStationUpcomingBookings(
+  stationId: number
+): Promise<StationUpcomingBookingsResponse> {
+  return getJson<StationUpcomingBookingsResponse>(
+    `/api/stations/${stationId}/upcoming-bookings`
+  );
+}
+
+export function fetchStationEnergyAnalytics(
+  stationId: number,
+  period: StationEnergyPeriod
+): Promise<StationEnergyAnalyticsDto> {
+  const params = new URLSearchParams({ period });
+  return getJson<StationEnergyAnalyticsDto>(
+    `/api/stations/${stationId}/analytics-energy?${params.toString()}`
   );
 }
 

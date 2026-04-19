@@ -22,6 +22,8 @@ export function sortApiStations(
         return mul * a.name.localeCompare(b.name, "uk");
       case "city":
         return mul * a.city.localeCompare(b.city, "uk");
+      case "country":
+        return mul * a.country.localeCompare(b.country, "uk");
       case "status":
         return (
           mul *

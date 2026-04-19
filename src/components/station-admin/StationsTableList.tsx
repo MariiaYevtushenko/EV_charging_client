@@ -1,13 +1,23 @@
 import { AppCard } from "./Primitives";
 import type { Station } from "../../types/station";
 import { stationStatusLabel, stationStatusTone } from "../../utils/stationLabels";
+import { formatCountryLabel } from "../../utils/countryDisplay";
 import { PrimaryButton, StatusPill } from "./Primitives";
 import { OutlineButton } from "./Primitives";
 import { useNavigate } from "react-router-dom";
 
 
 
-export default function StationsTableList({ selected }: { selected?: Station }) {
+export default function StationsTableList({
+  selected,
+  dashboardBase = '/station-dashboard',
+  /** Якщо true — без переходу в режим редагування (напр. інформаційна карта для мережевого адміна). */
+  readOnly = false,
+}: {
+  selected?: Station;
+  dashboardBase?: string;
+  readOnly?: boolean;
+}) {
   const navigate = useNavigate();
 
 
@@ -20,7 +30,8 @@ export default function StationsTableList({ selected }: { selected?: Station }) 
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-              {selected.city}
+              {[selected.city, formatCountryLabel(selected.country)].filter(Boolean).join(' · ') ||
+                '—'}
             </p>
             <h2 className="text-lg font-bold text-gray-900">{selected.name}</h2>
             <p className="mt-1 flex items-start gap-1.5 text-sm text-gray-500">
@@ -68,16 +79,18 @@ export default function StationsTableList({ selected }: { selected?: Station }) 
         <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">
           <PrimaryButton
             type="button"
-            onClick={() => navigate(`/station-dashboard/stations/${selected.id}`)}
+            onClick={() => navigate(`${dashboardBase}/stations/${selected.id}`)}
           >
             Переглянути детально
           </PrimaryButton>
-          <OutlineButton
-            type="button"
-            onClick={() => navigate(`/station-dashboard/stations/${selected.id}/edit`)}
-          >
-            Редагувати
-          </OutlineButton>
+          {!readOnly ? (
+            <OutlineButton
+              type="button"
+              onClick={() => navigate(`${dashboardBase}/stations/${selected.id}/edit`)}
+            >
+              Редагувати
+            </OutlineButton>
+          ) : null}
         </div>
       </AppCard>
     ) : (

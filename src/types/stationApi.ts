@@ -47,3 +47,35 @@ export type StationsMapResponse = {
   /** Верхня межа кількості точок за один запит (сервер обрізає при великому zoom-out). */
   limit?: number;
 };
+
+/** GET /api/stations/:stationId/upcoming-bookings — майбутні BOOKED, від найближчого слоту. */
+export type StationUpcomingBookingDto = {
+  id: string;
+  portNumber: number;
+  connectorName: string | null;
+  start: string;
+  end: string;
+  userDisplayName: string | null;
+  userEmail: string | null;
+  vehicleLicensePlate: string | null;
+};
+
+export type StationUpcomingBookingsResponse = {
+  items: StationUpcomingBookingDto[];
+};
+
+/** GET /api/stations/:stationId/analytics-energy?period=1d|7d|30d */
+export type StationEnergyPeriod = '1d' | '7d' | '30d';
+
+export type StationEnergyAnalyticsPointDto = {
+  bucketStart: string;
+  kwh: number;
+};
+
+export type StationEnergyAnalyticsDto = {
+  period: StationEnergyPeriod;
+  bucket: 'hour' | 'day';
+  points: StationEnergyAnalyticsPointDto[];
+  totalKwh: number;
+  sessionCount: number;
+};

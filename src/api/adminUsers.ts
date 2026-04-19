@@ -28,18 +28,32 @@ export type PaginatedUsersResponse = {
 
 const DEFAULT_ADMIN_USERS_PAGE_SIZE = 50;
 
+/** Колонки сортування списку користувачів — узгоджено з GET /api/admin/users (`sort`, `order`). */
+export type AdminUsersSortKey = 'name' | 'email' | 'phone' | 'role';
+
 export function fetchAdminUsersPage(
   page: number,
   pageSize: number = DEFAULT_ADMIN_USERS_PAGE_SIZE,
   /** Фільтр списку за роллю; не передається — усі користувачі. */
-  role?: EvUserRole | null
+  role?: EvUserRole | null,
+  /** Пошук за ім’ям, прізвищем, email, телефоном (сервер). */
+  search?: string | null,
+  /** Сортування в БД по всій вибірці, потім пагінація. */
+  sort: AdminUsersSortKey = 'name',
+  order: 'asc' | 'desc' = 'asc'
 ): Promise<PaginatedUsersResponse> {
   const params = new URLSearchParams({
     page: String(Math.max(1, page)),
     pageSize: String(pageSize),
+    sort,
+    order,
   });
   if (role != null) {
     params.set("role", role);
+  }
+  const s = search?.trim();
+  if (s) {
+    params.set("q", s);
   }
   return getJson<PaginatedUsersResponse>(`/api/admin/users?${params.toString()}`);
 }

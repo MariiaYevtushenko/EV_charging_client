@@ -1,11 +1,35 @@
 import { Link, Navigate, useParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useGlobalAdmin } from '../../context/GlobalAdminContext';
 import { fetchAdminUserDetail } from '../../api/adminUsers';
-import type { EndUser } from '../../types/globalAdmin';
+import type { EndUser, EndUserCar } from '../../types/globalAdmin';
+import { getCarBrandLogoUrl } from '../../utils/carBrandLogo';
 import { AppCard, OutlineButton, StatusPill } from '../../components/station-admin/Primitives';
+import { globalAdminPageTitle } from '../../styles/globalAdminTheme';
 
-type UserTab = 'overview' | 'cars' | 'bookings' | 'sessions' | 'payments';
+type UserTab = 'cars' | 'bookings' | 'sessions' | 'payments';
+
+/** Фільтр списків історії на вкладках бронювань / сесій / платежів. */
+type HistoryTimeRange = '7d' | '30d' | 'all';
+
+const HISTORY_RANGE_OPTIONS: { id: HistoryTimeRange; label: string }[] = [
+  { id: '7d', label: '7 днів' },
+  { id: '30d', label: '30 днів' },
+  { id: 'all', label: 'Весь час' },
+];
+
+function historyRangeCutoffMs(range: HistoryTimeRange): number | null {
+  if (range === 'all') return null;
+  const days = range === '7d' ? 7 : 30;
+  return Date.now() - days * 24 * 60 * 60 * 1000;
+}
+
+function isOnOrAfterCutoff(isoDate: string, range: HistoryTimeRange): boolean {
+  const cutoff = historyRangeCutoffMs(range);
+  if (cutoff == null) return true;
+  const t = new Date(isoDate).getTime();
+  return Number.isFinite(t) && t >= cutoff;
+}
 
 const tabClass = (active: boolean) =>
   `relative shrink-0 border-b-2 px-1 pb-3 text-sm font-semibold transition ${
@@ -17,7 +41,7 @@ const tabClass = (active: boolean) =>
 function bookingTone(s: string): 'success' | 'warn' | 'muted' | 'danger' | 'info' {
   switch (s) {
     case 'confirmed':
-    case 'completed':
+    case 'paid':
       return 'success';
     case 'pending':
       return 'warn';
@@ -36,7 +60,7 @@ function bookingLabel(s: string) {
       return 'Очікує';
     case 'cancelled':
       return 'Скасовано';
-    case 'completed':
+    case 'paid':
       return 'Завершено';
     default:
       return s;
@@ -95,6 +119,67 @@ function sessionLabel(s: string) {
   }
 }
 
+function UserAvatarPlaceholderIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+      />
+    </svg>
+  );
+}
+
+function CarSilhouetteIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.25 2.25 0 00-1.227-1.294l-3.228-1.614A2.25 2.25 0 0012.75 6H9.75a2.25 2.25 0 00-2.023 1.256l-3.228 1.614A2.25 2.25 0 003.375 10.5V18.75m17.25 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.25 2.25 0 00-1.227-1.294l-3.228-1.614A2.25 2.25 0 0012.75 6H9.75a2.25 2.25 0 00-2.023 1.256l-3.228 1.614A2.25 2.25 0 003.375 10.5V18.75"
+      />
+    </svg>
+  );
+}
+
+function UserCarCard({ car }: { car: EndUserCar }) {
+  const [logoFailed, setLogoFailed] = useState(false);
+  const logoUrl = useMemo(() => getCarBrandLogoUrl(car.model), [car.model]);
+  const showLogo = Boolean(logoUrl) && !logoFailed;
+
+  return (
+    <div className="flex gap-4 rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-emerald-50/30 p-4 shadow-sm ring-1 ring-slate-900/[0.04] transition hover:border-emerald-200/80 hover:shadow-md">
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-inner">
+        {showLogo ? (
+          <img
+            src={logoUrl!}
+            alt=""
+            className="h-full w-full object-contain p-1.5"
+            onError={() => setLogoFailed(true)}
+          />
+        ) : (
+          <CarSilhouetteIcon className="h-9 w-9 text-emerald-700/40" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-lg font-semibold leading-snug text-slate-900">{car.model}</p>
+        <p className="mt-1 font-mono text-sm font-medium tracking-wide text-slate-800">{car.plate}</p>
+        <p className="mt-2 text-xs leading-relaxed text-slate-500">
+          <span className="font-medium text-slate-600">Роз’єм:</span> {car.connector}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function fmt(dt: string) {
   try {
     return new Date(dt).toLocaleString('uk-UA', {
@@ -113,12 +198,34 @@ export default function GlobalUserDetailPage() {
   const { userId } = useParams<{ userId: string }>();
   const { replaceEndUser } = useGlobalAdmin();
   const [user, setUser] = useState<EndUser | null>(null);
-  const [tab, setTab] = useState<UserTab>('overview');
+  const [tab, setTab] = useState<UserTab>('cars');
+  const [historyTimeRange, setHistoryTimeRange] = useState<HistoryTimeRange>('all');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const idNum = userId ? Number(userId) : NaN;
   const invalidId = !Number.isFinite(idNum) || idNum < 1;
+
+  const sortedBookingsForList = useMemo(() => {
+    if (!user) return [];
+    return [...user.bookings]
+      .filter((b) => isOnOrAfterCutoff(b.start, historyTimeRange))
+      .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime());
+  }, [user, historyTimeRange]);
+
+  const sortedSessionsForList = useMemo(() => {
+    if (!user) return [];
+    return [...user.sessions]
+      .filter((s) => isOnOrAfterCutoff(s.startedAt, historyTimeRange))
+      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+  }, [user, historyTimeRange]);
+
+  const sortedPaymentsForList = useMemo(() => {
+    if (!user) return [];
+    return [...user.payments]
+      .filter((p) => isOnOrAfterCutoff(p.createdAt, historyTimeRange))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [user, historyTimeRange]);
 
   useEffect(() => {
     if (invalidId) {
@@ -189,23 +296,16 @@ export default function GlobalUserDetailPage() {
         </Link>
         <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 items-start gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-green-600 text-xl font-bold text-white shadow-md">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-slate-50 to-slate-100/90 shadow-inner">
               {user.avatarUrl ? (
                 <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
               ) : (
-                <span aria-hidden>
-                  {user.name
-                    .split(/\s+/)
-                    .map((w) => w[0])
-                    .join('')
-                    .slice(0, 2)
-                    .toUpperCase()}
-                </span>
+                <UserAvatarPlaceholderIcon className="h-9 w-9 text-slate-400" aria-hidden />
               )}
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900">{user.name}</h1>
+                <h1 className={globalAdminPageTitle}>{user.name}</h1>
               </div>
               <p className="mt-1 text-sm text-gray-500">{user.email}</p>
               <p className="text-sm text-gray-500">{user.phone}</p>
@@ -218,24 +318,10 @@ export default function GlobalUserDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <AppCard className="!p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Авто</p>
-          <p className="mt-1 text-xl font-bold text-gray-900">{user.cars.length}</p>
-        </AppCard>
-        <AppCard className="!p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сесії</p>
-          <p className="mt-1 text-xl font-bold text-gray-900">{user.sessions.length}</p>
-        </AppCard>
-      </div>
-
       <nav
         className="-mx-1 flex gap-5 overflow-x-auto border-b border-gray-200 px-1"
         aria-label="Розділи користувача"
       >
-        <button type="button" className={tabClass(tab === 'overview')} onClick={() => setTab('overview')}>
-          Загалом
-        </button>
         <button type="button" className={tabClass(tab === 'cars')} onClick={() => setTab('cars')}>
           Авто ({user.cars.length})
         </button>
@@ -250,73 +336,89 @@ export default function GlobalUserDetailPage() {
         </button>
       </nav>
 
-      {tab === 'overview' ? (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <AppCard className="space-y-2 text-sm text-gray-600">
-            <h2 className="text-sm font-semibold text-gray-900">Контакти</h2>
-            <p>
-              Email: <span className="font-medium text-gray-900">{user.email}</span>
-            </p>
-            <p>
-              Телефон: <span className="font-medium text-gray-900">{user.phone}</span>
-            </p>
-            <p className="text-xs text-gray-500">
-              Повна історія — у вкладках «Бронювання», «Сесії» та «Платежі».
-            </p>
-          </AppCard>
-          <AppCard className="space-y-2 text-sm text-gray-600">
-            <h2 className="text-sm font-semibold text-gray-900">Короткий огляд</h2>
-            <p>Останній платіж: {user.payments[0] ? fmt(user.payments[0].createdAt) : '—'}</p>
-            <p>Остання сесія: {user.sessions[0] ? user.sessions[0].stationName : '—'}</p>
-            <p>Активні бронювання: {user.bookings.filter((b) => b.status === 'pending').length}</p>
-          </AppCard>
+      {tab === 'bookings' || tab === 'sessions' || tab === 'payments' ? (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Період</p>
+          <div
+            className="inline-flex max-w-full flex-wrap rounded-xl border border-slate-200 bg-slate-50/90 p-1 shadow-inner shadow-slate-900/5"
+            role="group"
+            aria-label="Період відображення історії"
+          >
+            {HISTORY_RANGE_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setHistoryTimeRange(opt.id)}
+                aria-pressed={historyTimeRange === opt.id}
+                className={`rounded-lg px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/50 ${
+                  historyTimeRange === opt.id
+                    ? 'bg-white text-green-900 shadow-sm ring-1 ring-slate-200/90'
+                    : 'text-slate-600 hover:bg-white/60 hover:text-slate-900'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       ) : null}
 
       {tab === 'cars' ? (
-        <AppCard className="space-y-3">
-          {user.cars.map((c) => (
-            <div key={c.id} className="rounded-xl border border-gray-100 bg-gray-50/90 px-4 py-3">
-              <p className="font-semibold text-gray-900">{c.model}</p>
-              <p className="text-sm text-gray-600">
-                {c.plate} · {c.connector}
-              </p>
-            </div>
-          ))}
-          {user.cars.length === 0 ? <p className="text-sm text-gray-500">Немає збережених авто.</p> : null}
+        <AppCard className="space-y-4 !p-5">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Збережені автомобілі</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Логотип за брендом (перше слово латиницею) або нейтральна іконка.
+            </p>
+          </div>
+          <div className="space-y-3">
+            {user.cars.map((c) => (
+              <UserCarCard key={c.id} car={c} />
+            ))}
+          </div>
+          {user.cars.length === 0 ? (
+            <p className="text-sm text-slate-500">Немає збережених авто.</p>
+          ) : null}
         </AppCard>
       ) : null}
 
       {tab === 'bookings' ? (
         <AppCard className="space-y-3">
-          {user.bookings.map((b) => (
-            <div
+          {sortedBookingsForList.map((b) => (
+            <Link
               key={b.id}
-              className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+              to={`/admin-dashboard/bookings/${encodeURIComponent(b.id)}`}
+              className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm transition hover:border-green-200 hover:bg-green-50/40 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div>
-                <p className="font-semibold text-gray-900">{b.stationName}</p>
+              <div className="min-w-0">
+                <p className="font-semibold text-slate-900">{b.stationName}</p>
                 <p className="text-xs text-gray-500">{b.slotLabel}</p>
                 <p className="mt-1 text-xs text-gray-500">
                   {fmt(b.start)} — {fmt(b.end)}
                 </p>
               </div>
               <StatusPill tone={bookingTone(b.status)}>{bookingLabel(b.status)}</StatusPill>
-            </div>
+            </Link>
           ))}
-          {user.bookings.length === 0 ? <p className="text-sm text-gray-500">Бронювань немає.</p> : null}
+          {user.bookings.length === 0 ? (
+            <p className="text-sm text-gray-500">Бронювань немає.</p>
+          ) : sortedBookingsForList.length === 0 ? (
+            <p className="text-sm text-gray-500">За обраний період бронювань немає.</p>
+          ) : null}
         </AppCard>
       ) : null}
 
       {tab === 'sessions' ? (
         <AppCard className="space-y-3">
-          {user.sessions.map((s) => (
-            <div
+          {sortedSessionsForList.map((s) => (
+            <Link
               key={s.id}
-              className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-start sm:justify-between"
+              to={`/admin-dashboard/sessions/${encodeURIComponent(s.id)}`}
+              state={{ fromUserId: user.id }}
+              className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm transition hover:border-green-200 hover:bg-green-50/40 sm:flex-row sm:items-start sm:justify-between"
             >
               <div className="min-w-0">
-                <p className="font-semibold text-gray-900">{s.stationName}</p>
+                <p className="font-semibold text-slate-900">{s.stationName}</p>
                 <p className="text-xs text-gray-500">
                   {s.portLabel} · {fmt(s.startedAt)}
                   {s.endedAt ? ` — ${fmt(s.endedAt)}` : ''}
@@ -325,69 +427,48 @@ export default function GlobalUserDetailPage() {
                   {s.kwh} кВт·год · {s.cost.toLocaleString('uk-UA')} грн
                 </p>
                 {s.bookingId ? (
-                  <p className="mt-1 text-xs">
-                    <Link
-                      to={`/admin-dashboard/bookings/${s.bookingId}`}
-                      className="font-medium text-green-600 hover:text-green-700"
-                    >
-                      Бронювання #{s.bookingId}
-                    </Link>
-                    {' · '}
-                    <Link
-                      to={`/admin-dashboard/sessions/${s.id}`}
-                      className="font-medium text-green-600 hover:text-green-700"
-                    >
-                      Сесія #{s.id}
-                    </Link>
-                  </p>
-                ) : (
-                  <p className="mt-1 text-xs">
-                    <Link
-                      to={`/admin-dashboard/sessions/${s.id}`}
-                      className="font-medium text-green-600 hover:text-green-700"
-                    >
-                      Сесія #{s.id}
-                    </Link>
-                  </p>
-                )}
+                  <p className="mt-1 text-xs text-gray-500">Бронювання #{s.bookingId}</p>
+                ) : null}
               </div>
               <StatusPill tone={sessionTone(s.status)}>{sessionLabel(s.status)}</StatusPill>
-            </div>
+            </Link>
           ))}
           {user.sessions.length === 0 ? (
             <p className="text-sm text-gray-500">Сесій немає.</p>
+          ) : sortedSessionsForList.length === 0 ? (
+            <p className="text-sm text-gray-500">За обраний період сесій немає.</p>
           ) : null}
         </AppCard>
       ) : null}
 
       {tab === 'payments' ? (
         <AppCard className="space-y-3">
-          {user.payments.map((p) => (
-            <div
+          {sortedPaymentsForList.map((p) => (
+            <Link
               key={p.id}
-              className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+              to={`/admin-dashboard/sessions/${encodeURIComponent(p.sessionId)}`}
+              state={{ fromUserId: user.id }}
+              className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm transition hover:border-green-200 hover:bg-green-50/40 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div>
-                <p className="font-semibold text-gray-900">{p.description}</p>
+              <div className="min-w-0">
+                <p className="font-semibold text-slate-900">{p.description}</p>
                 <p className="text-xs text-gray-500">
                   {fmt(p.createdAt)} · {p.method}
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <p className="text-sm font-bold tabular-nums text-gray-900">
+              <div className="flex flex-wrap items-center gap-3 sm:shrink-0">
+                <p className="text-sm font-bold tabular-nums text-slate-900">
                   {p.amount.toLocaleString('uk-UA')} {p.currency}
                 </p>
                 <StatusPill tone={paymentTone(p.status)}>{paymentLabel(p.status)}</StatusPill>
-                <Link
-                  to={`/admin-dashboard/sessions/${p.sessionId}`}
-                  className="text-sm font-semibold text-green-700 hover:text-green-800"
-                >
-                  Рахунок (сесія)
-                </Link>
               </div>
-            </div>
+            </Link>
           ))}
-          {user.payments.length === 0 ? <p className="text-sm text-gray-500">Платежів немає.</p> : null}
+          {user.payments.length === 0 ? (
+            <p className="text-sm text-gray-500">Платежів немає.</p>
+          ) : sortedPaymentsForList.length === 0 ? (
+            <p className="text-sm text-gray-500">За обраний період платежів немає.</p>
+          ) : null}
         </AppCard>
       ) : null}
     </div>

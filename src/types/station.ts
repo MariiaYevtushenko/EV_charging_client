@@ -18,7 +18,7 @@ export interface StationPort {
 export interface Station {
   id: string;
   name: string;
-  /** Код або назва країни (узгоджено з location.country) */
+  /** ISO 3166-1 alpha-2 (UA, FR…) або повна назва — у UI показ через `formatCountryLabel` */
   country: string;
   /** Місто для фільтрації та сортування */
   city: string;

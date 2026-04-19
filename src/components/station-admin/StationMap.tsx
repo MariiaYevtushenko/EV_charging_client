@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import L from 'leaflet';
-import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import type { Station, StationStatus } from '../../types/station';
+import { formatCountryLabel } from '../../utils/countryDisplay';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -166,12 +168,15 @@ export default function StationMap({
   selectedId,
   onSelect,
   onViewportChange,
+  stationDetailPath,
 }: {
   stations: Station[];
   selectedId: string;
   onSelect: (id: string) => void;
   /** Якщо задано — підвантаження станцій по bbox; без підгонки карти під усі маркери при кожному оновленні даних. */
   onViewportChange?: (bounds: MapViewportBounds) => void;
+  /** Посилання в спливаючій підказці маркера (наприклад `/station-dashboard/stations/:id`). */
+  stationDetailPath?: (stationId: string) => string;
 }) {
   const viewportMode = Boolean(onViewportChange);
 
@@ -197,7 +202,25 @@ export default function StationMap({
             icon={getIcon(s.status, s.id === selectedId)}
             zIndexOffset={s.id === selectedId ? 800 : 0}
             eventHandlers={{ click: () => onSelect(s.id) }}
-          />
+          >
+            <Popup>
+              <div className="min-w-[200px] max-w-[260px]">
+                <p className="text-sm font-semibold text-gray-900">{s.name}</p>
+                <p className="mt-0.5 text-xs text-gray-600">
+                  {[s.city, formatCountryLabel(s.country)].filter(Boolean).join(' · ') || '—'}
+                </p>
+                {stationDetailPath ? (
+                  <Link
+                    to={stationDetailPath(s.id)}
+                    className="mt-2 inline-block text-sm font-semibold text-emerald-700 hover:text-emerald-900"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Відкрити станцію
+                  </Link>
+                ) : null}
+              </div>
+            </Popup>
+          </Marker>
         ))}
       </MapContainer>
     );
@@ -219,7 +242,25 @@ export default function StationMap({
           icon={getIcon(s.status, s.id === selectedId)}
           zIndexOffset={s.id === selectedId ? 800 : 0}
           eventHandlers={{ click: () => onSelect(s.id) }}
-        />
+        >
+          <Popup>
+            <div className="min-w-[200px] max-w-[260px]">
+              <p className="text-sm font-semibold text-gray-900">{s.name}</p>
+              <p className="mt-0.5 text-xs text-gray-600">
+                {[s.city, formatCountryLabel(s.country)].filter(Boolean).join(' · ') || '—'}
+              </p>
+              {stationDetailPath ? (
+                <Link
+                  to={stationDetailPath(s.id)}
+                  className="mt-2 inline-block text-sm font-semibold text-emerald-700 hover:text-emerald-900"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Відкрити станцію
+                </Link>
+              ) : null}
+            </div>
+          </Popup>
+        </Marker>
       ))}
     </MapContainer>
   );

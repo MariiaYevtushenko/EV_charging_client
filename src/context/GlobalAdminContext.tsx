@@ -11,17 +11,11 @@ import type { EndUser, EvUserRole, TariffPlan } from '../types/globalAdmin';
 import {
   fetchAdminUsersPage,
   mapEvUserPublicRowToEndUser,
+  type AdminUsersSortKey,
   type UsersRoleCounts,
 } from '../api/adminUsers';
-import { fetchAdminNetworkPayments } from '../api/adminNetwork';
-import { ApiError } from '../api/http';
 
 const USERS_PAGE_SIZE = 50;
-
-export type PaymentRow = EndUser['payments'][number] & {
-  userId: string | null;
-  userName: string;
-};
 
 export type BookingRow = EndUser['bookings'][number] & {
   userId: string;
@@ -39,6 +33,13 @@ type GlobalAdminContextValue = {
   /** null — усі ролі в списку; інакше фільтр на сервері (пагінація узгоджена). */
   usersRoleFilter: EvUserRole | null;
   setUsersRoleFilter: (role: EvUserRole | null) => void;
+  /** Текст пошуку для списку користувачів (ім’я, прізвище, email, телефон) — запит `q` на сервері. */
+  usersSearchQuery: string;
+  setUsersSearchQuery: (q: string) => void;
+  /** Сортування списку в БД (до пагінації). */
+  usersSortKey: AdminUsersSortKey;
+  usersSortDir: 'asc' | 'desc';
+  setUsersSort: (key: AdminUsersSortKey, dir: 'asc' | 'desc') => void;
   usersRoleCounts: UsersRoleCounts | null;
   replaceEndUsers: (users: EndUser[]) => void;
   getEndUser: (id: string) => EndUser | undefined;
@@ -46,11 +47,6 @@ type GlobalAdminContextValue = {
   replaceEndUser: (user: EndUser) => void;
   tariffPlans: TariffPlan[];
   updateTariffPlan: (id: string, patch: Partial<TariffPlan>) => void;
-  /** Усі платежі (bill) з `/api/admin/network/payments`. */
-  allPayments: PaymentRow[];
-  paymentsLoading: boolean;
-  paymentsError: string | null;
-  reloadPayments: () => void;
   allBookings: BookingRow[];
 };
 
@@ -72,49 +68,24 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
   const [usersPage, setUsersPageState] = useState(1);
   const [usersTotal, setUsersTotal] = useState(0);
   const [usersRoleFilter, setUsersRoleFilterState] = useState<EvUserRole | null>(null);
+  const [usersSearchQuery, setUsersSearchQueryState] = useState('');
+  const [usersSortKey, setUsersSortKeyState] = useState<AdminUsersSortKey>('name');
+  const [usersSortDir, setUsersSortDirState] = useState<'asc' | 'desc'>('asc');
   const [usersRoleCounts, setUsersRoleCounts] = useState<UsersRoleCounts | null>(null);
   const [tariffPlans, setTariffPlans] = useState<TariffPlan[]>([]);
-
-  const [allPayments, setAllPayments] = useState<PaymentRow[]>([]);
-  const [paymentsLoading, setPaymentsLoading] = useState(true);
-  const [paymentsError, setPaymentsError] = useState<string | null>(null);
-
-  const reloadPayments = useCallback(() => {
-    setPaymentsLoading(true);
-    setPaymentsError(null);
-    void fetchAdminNetworkPayments()
-      .then((rows) => {
-        setAllPayments(
-          rows.map((r) => ({
-            id: r.id,
-            sessionId: r.sessionId,
-            amount: r.amount,
-            currency: r.currency,
-            method: r.method,
-            status: r.status,
-            createdAt: r.createdAt,
-            description: r.description,
-            userId: r.userId,
-            userName: r.userName,
-          }))
-        );
-      })
-      .catch((e: unknown) => {
-        setAllPayments([]);
-        setPaymentsError(e instanceof ApiError ? e.message : 'Не вдалося завантажити платежі');
-      })
-      .finally(() => setPaymentsLoading(false));
-  }, []);
-
-  useEffect(() => {
-    void reloadPayments();
-  }, [reloadPayments]);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetchAdminUsersPage(usersPage, USERS_PAGE_SIZE, usersRoleFilter);
+        const res = await fetchAdminUsersPage(
+          usersPage,
+          USERS_PAGE_SIZE,
+          usersRoleFilter,
+          usersSearchQuery,
+          usersSortKey,
+          usersSortDir
+        );
         if (cancelled) return;
         setUsersTotal(res.total);
         setUsersRoleCounts(res.roleCounts);
@@ -137,7 +108,7 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [usersPage, usersRoleFilter]);
+  }, [usersPage, usersRoleFilter, usersSearchQuery, usersSortKey, usersSortDir]);
 
   const setUsersPage = useCallback((page: number) => {
     setUsersPageState(Math.max(1, page));
@@ -146,6 +117,24 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
   const setUsersRoleFilter = useCallback((role: EvUserRole | null) => {
     setUsersRoleFilterState(role);
     setUsersPageState(1);
+  }, []);
+
+  const setUsersSearchQuery = useCallback((q: string) => {
+    setUsersSearchQueryState((prev) => {
+      if (prev === q) return prev;
+      setUsersPageState(1);
+      return q;
+    });
+  }, []);
+
+  const setUsersSort = useCallback((key: AdminUsersSortKey, dir: 'asc' | 'desc') => {
+    setUsersSortKeyState((prevKey) => {
+      if (prevKey !== key) {
+        setUsersPageState(1);
+      }
+      return key;
+    });
+    setUsersSortDirState(dir);
   }, []);
 
   const replaceEndUsers = useCallback((users: EndUser[]) => {
@@ -186,6 +175,11 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
       setUsersPage,
       usersRoleFilter,
       setUsersRoleFilter,
+      usersSearchQuery,
+      setUsersSearchQuery,
+      usersSortKey,
+      usersSortDir,
+      setUsersSort,
       usersRoleCounts,
       replaceEndUsers,
       getEndUser,
@@ -193,10 +187,6 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
       replaceEndUser,
       tariffPlans,
       updateTariffPlan,
-      allPayments,
-      paymentsLoading,
-      paymentsError,
-      reloadPayments,
       allBookings,
     }),
     [
@@ -207,6 +197,11 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
       setUsersPage,
       usersRoleFilter,
       setUsersRoleFilter,
+      usersSearchQuery,
+      setUsersSearchQuery,
+      usersSortKey,
+      usersSortDir,
+      setUsersSort,
       usersRoleCounts,
       replaceEndUsers,
       getEndUser,
@@ -214,10 +209,6 @@ export function GlobalAdminProvider({ children }: { children: ReactNode }) {
       replaceEndUser,
       tariffPlans,
       updateTariffPlan,
-      allPayments,
-      paymentsLoading,
-      paymentsError,
-      reloadPayments,
       allBookings,
     ]
   );

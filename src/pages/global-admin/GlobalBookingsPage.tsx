@@ -1,9 +1,13 @@
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  fetchAdminNetworkBookingStatusCounts,
   fetchAdminNetworkBookings,
   type AdminNetworkBookingRow,
+  type AdminNetworkBookingStatusCounts,
+  type NetworkListPeriod,
 } from '../../api/adminNetwork';
+import NetworkListPeriodControl from '../../components/admin/NetworkListPeriodControl';
 import { ApiError } from '../../api/http';
 import AdminListPagination from '../../components/admin/AdminListPagination';
 import SortableTableTh, {
@@ -11,24 +15,34 @@ import SortableTableTh, {
   type SortDir,
 } from '../../components/admin/SortableTableTh';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
+import { formatCountryLabel } from '../../utils/countryDisplay';
+import { globalAdminPageSubtitle, globalAdminPageTitle, globalAdminSearchInput } from '../../styles/globalAdminTheme';
 
-const BOOKING_PAGE_SIZE = 50;
+const LIST_SEARCH_DEBOUNCE_MS = 350;
+const BOOKINGS_PAGE_SIZE = 50;
 
-type StatusTab = 'all' | AdminNetworkBookingRow['status'];
+/** Порядок «вкладок» за статусом (як на списку станцій). Без `confirmed` — у БД окремого статусу немає. */
+const BOOKING_STATUS_TAB_ORDER: AdminNetworkBookingRow['status'][] = ['pending', 'paid', 'cancelled'];
 
 type BookingSortKey = 'start' | 'userName' | 'stationName' | 'slot' | 'status';
 
-const tabClass = (active: boolean) =>
-  `relative shrink-0 border-b-2 px-1 pb-3 text-sm font-semibold transition ${
-    active
-      ? 'border-green-600 text-green-800'
-      : 'border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800'
-  }`;
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+      />
+    </svg>
+  );
+}
 
 function bookingTone(s: string): 'success' | 'warn' | 'muted' | 'danger' | 'info' {
   switch (s) {
     case 'confirmed':
-    case 'completed':
+    case 'paid':
       return 'success';
     case 'pending':
       return 'warn';
@@ -47,7 +61,7 @@ function bookingLabel(s: string) {
       return 'Очікує';
     case 'cancelled':
       return 'Скасовано';
-    case 'completed':
+    case 'paid':
       return 'Завершено';
     default:
       return s;
@@ -70,55 +84,44 @@ function fmt(dt: string) {
   }
 }
 
-const STATUS_TABS: { id: StatusTab; label: string }[] = [
-  { id: 'all', label: 'Усі' },
-  { id: 'pending', label: 'Очікує' },
-  { id: 'completed', label: 'Завершено' },
-  { id: 'cancelled', label: 'Скасовано' },
-];
-
-function cmpBookings(
-  a: AdminNetworkBookingRow,
-  b: AdminNetworkBookingRow,
-  sortKey: BookingSortKey,
-  sortDir: SortDir
-): number {
-  let c = 0;
-  switch (sortKey) {
-    case 'start':
-      c = new Date(a.start).getTime() - new Date(b.start).getTime();
-      break;
-    case 'userName':
-      c = a.userName.localeCompare(b.userName, 'uk');
-      break;
-    case 'stationName':
-      c = a.stationName.localeCompare(b.stationName, 'uk');
-      break;
-    case 'slot':
-      c = a.portNumber - b.portNumber;
-      break;
-    case 'status':
-      c = a.status.localeCompare(b.status, 'uk');
-      break;
-    default:
-      c = new Date(a.start).getTime() - new Date(b.start).getTime();
-  }
-  return sortDir === 'desc' ? -c : c;
-}
-
 export default function GlobalBookingsPage() {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<AdminNetworkBookingRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<BookingSortKey>('start');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
-  const [statusTab, setStatusTab] = useState<StatusTab>('all');
-  const [page, setPage] = useState(1);
+  const [searchDraft, setSearchDraft] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<AdminNetworkBookingRow['status'] | null>(null);
+  const [statusCounts, setStatusCounts] = useState<AdminNetworkBookingStatusCounts | null>(null);
+  const [period, setPeriod] = useState<NetworkListPeriod>('all');
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setSearchQuery(searchDraft.trim()), LIST_SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
+  }, [searchDraft]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter, period]);
+
+  useEffect(() => {
+    void fetchAdminNetworkBookingStatusCounts(searchQuery || undefined, period)
+      .then(setStatusCounts)
+      .catch(() => setStatusCounts(null));
+  }, [searchQuery, period]);
+
+  const toggleStatusFilter = useCallback((s: AdminNetworkBookingRow['status']) => {
+    setStatusFilter((prev) => (prev === s ? null : s));
+  }, []);
 
   const onSort = useCallback(
     (key: string) => {
       const k = key as BookingSortKey;
+      setPage(1);
       if (sortKey === k) {
         setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
       } else {
@@ -132,73 +135,102 @@ export default function GlobalBookingsPage() {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    void fetchAdminNetworkBookings()
-      .then(setBookings)
+    void fetchAdminNetworkBookings({
+      page,
+      pageSize: BOOKINGS_PAGE_SIZE,
+      q: searchQuery || undefined,
+      status: statusFilter ?? undefined,
+      sort: sortKey,
+      order: sortDir,
+      period,
+    })
+      .then((data) => {
+        setBookings(data.items);
+        setTotal(data.total);
+      })
       .catch((e: unknown) => {
         setBookings([]);
+        setTotal(0);
         setError(e instanceof ApiError ? e.message : 'Не вдалося завантажити бронювання');
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [page, searchQuery, statusFilter, sortKey, sortDir, period]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const sortedBase = useMemo(
-    () => [...bookings].sort((a, b) => cmpBookings(a, b, sortKey, sortDir)),
-    [bookings, sortKey, sortDir]
-  );
+  const rows = bookings;
 
-  const filteredByStatus = useMemo(() => {
-    if (statusTab === 'all') return sortedBase;
-    return sortedBase.filter((b) => b.status === statusTab);
-  }, [sortedBase, statusTab]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [statusTab, sortKey, sortDir]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredByStatus.length / BOOKING_PAGE_SIZE) || 1);
-  useEffect(() => {
-    setPage((p) => Math.min(Math.max(1, p), totalPages));
-  }, [filteredByStatus.length, totalPages]);
-
-  const pagedRows = useMemo(() => {
-    const start = (page - 1) * BOOKING_PAGE_SIZE;
-    return filteredByStatus.slice(start, start + BOOKING_PAGE_SIZE);
-  }, [filteredByStatus, page]);
-
-  const openDetail = (id: string) => {
-    navigate(`/admin-dashboard/bookings/${id}`);
+  const openDetail = (bookingId: string) => {
+    navigate(`/admin-dashboard/bookings/${encodeURIComponent(bookingId)}`);
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Бронювання</h1>
-        <p className="mt-1 text-sm text-gray-500">Усі бронювання з бази. Рядок — відкрити деталі.</p>
+      <div className="min-w-0">
+        <h1 className={globalAdminPageTitle}>Бронювання</h1>
+        
+        <div className="mt-3 max-w-xl">
+          <label htmlFor="global-bookings-search" className="sr-only">
+            Пошук бронювань
+          </label>
+          <div className="relative">
+            <span
+              className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"
+              aria-hidden
+            >
+              <SearchIcon className="h-5 w-5" />
+            </span>
+            <input
+              id="global-bookings-search"
+              type="search"
+              value={searchDraft}
+              onChange={(e) => setSearchDraft(e.target.value)}
+              placeholder="Користувач, станція, місто, країна…"
+              className={globalAdminSearchInput}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+        </div>
+        <div className="mt-4">
+          <NetworkListPeriodControl value={period} onChange={setPeriod} />
+        </div>
       </div>
 
       {error ? (
         <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>
       ) : null}
 
-      <nav
-        className="-mx-1 flex gap-4 overflow-x-auto border-b border-gray-200 px-1 sm:gap-6"
-        aria-label="Фільтр за статусом"
-      >
-        {STATUS_TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            className={tabClass(statusTab === t.id)}
-            onClick={() => setStatusTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
+      {statusCounts ? (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">За статусом</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {BOOKING_STATUS_TAB_ORDER.map((st) => {
+              const selected = statusFilter === st;
+              return (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => toggleStatusFilter(st)}
+                  aria-pressed={selected}
+                  className={`flex flex-col items-center gap-2 rounded-2xl border p-4 text-center shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/45 ${
+                    selected
+                      ? 'border-green-600 bg-green-50/95 ring-2 ring-green-600/80 ring-offset-1 ring-offset-white'
+                      : 'border-slate-200 bg-white/95 ring-1 ring-slate-950/[0.04] hover:border-slate-300 hover:bg-green-50/40'
+                  }`}
+                >
+                  <StatusPill tone={bookingTone(st)}>{bookingLabel(st)}</StatusPill>
+                  <p className="text-2xl font-bold tabular-nums text-gray-900">
+                    {statusCounts[st].toLocaleString('uk-UA')}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       <AppCard className="overflow-x-auto !p-0" padding={false}>
         <table className="min-w-full text-left text-sm">
@@ -243,19 +275,19 @@ export default function GlobalBookingsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {loading && filteredByStatus.length === 0 ? (
+            {loading && rows.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
                   Завантаження…
                 </td>
               </tr>
             ) : null}
-            {pagedRows.map((b) => (
+            {rows.map((b) => (
               <tr
                 key={b.id}
-                role="button"
+                role="link"
                 tabIndex={0}
-                className="cursor-pointer bg-white hover:bg-emerald-50/70"
+                className="cursor-pointer bg-white transition hover:bg-green-50/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/35"
                 onClick={() => openDetail(b.id)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -265,8 +297,14 @@ export default function GlobalBookingsPage() {
                 }}
               >
                 <td className="whitespace-nowrap px-4 py-3 text-gray-600">{fmt(b.start)}</td>
-                <td className="px-4 py-3 font-medium text-gray-900">{b.userName}</td>
-                <td className="px-4 py-3 text-gray-700">{b.stationName}</td>
+                <td className="px-4 py-3 font-medium text-slate-900">{b.userName}</td>
+                <td className="px-4 py-3">
+                  <div className="font-medium text-slate-900">{b.stationName}</div>
+                  <div className="text-xs text-gray-500">
+                    {[b.stationCity, formatCountryLabel(b.stationCountry)].filter(Boolean).join(' · ') ||
+                      '—'}
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-right text-gray-800">Порт {b.portNumber}</td>
                 <td className="px-4 py-3">
                   <StatusPill tone={bookingTone(b.status)}>{bookingLabel(b.status)}</StatusPill>
@@ -275,20 +313,23 @@ export default function GlobalBookingsPage() {
             ))}
           </tbody>
         </table>
-        {!loading && filteredByStatus.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-gray-500">Нічого не знайдено.</p>
-        ) : null}
-        {filteredByStatus.length > 0 ? (
-          <div className="border-t border-gray-100 px-4 py-4">
-            <AdminListPagination
-              page={page}
-              pageSize={BOOKING_PAGE_SIZE}
-              total={filteredByStatus.length}
-              onPageChange={setPage}
-            />
-          </div>
+        {!loading && rows.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-gray-500">
+            {total === 0 && !searchQuery && !statusFilter
+              ? 'Нічого не знайдено.'
+              : searchQuery || statusFilter
+                ? 'Нічого не знайдено за цим запитом. Спробуйте змінити пошук або фільтр статусу.'
+                : 'Нічого не знайдено.'}
+          </p>
         ) : null}
       </AppCard>
+
+      <AdminListPagination
+        page={page}
+        pageSize={BOOKINGS_PAGE_SIZE}
+        total={total}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

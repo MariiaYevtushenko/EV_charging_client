@@ -21,6 +21,14 @@ import {
 import { ApiError } from '../../api/http';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
 import { stationStatusLabel, stationStatusTone } from '../../utils/stationLabels';
+import {
+  stationAdminLinkAccent,
+  stationAdminLoadingBanner,
+  stationAdminLoadingSpinner,
+  stationAdminPageTitle,
+  stationAdminUnderlineTabActive,
+  stationAdminUnderlineTabIdle,
+} from '../../styles/stationAdminTheme';
 
 function shortLabel(name: string, max = 20) {
   if (name.length <= max) return name;
@@ -30,15 +38,11 @@ function shortLabel(name: string, max = 20) {
 type AnalyticsTab = 'trends' | 'stations';
 
 const tabClass = (active: boolean) =>
-  `relative shrink-0 border-b-2 px-1 pb-3 text-sm font-semibold transition ${
-    active
-      ? 'border-green-600 text-green-800'
-      : 'border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800'
-  }`;
+  active ? stationAdminUnderlineTabActive : stationAdminUnderlineTabIdle;
 
 export default function StationAnalyticsPage() {
   const { stations } = useStations();
-  const { bookings, sessions, loading: networkLoading } = useStationAdminNetwork();
+  const { bookingsTotal, sessions, loading: networkLoading } = useStationAdminNetwork();
   const [tab, setTab] = useState<AnalyticsTab>('trends');
   const [analyticsData, setAnalyticsData] = useState<AdminAnalyticsViewsResponse | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
@@ -146,12 +150,12 @@ export default function StationAnalyticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Аналітика</h1>
+        <h1 className={stationAdminPageTitle}>Аналітика</h1>
       </div>
 
       {analyticsLoading ? (
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-100/80 bg-emerald-50/30 px-5 py-4 text-sm text-emerald-900">
-          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
+        <div className={stationAdminLoadingBanner}>
+          <span className={stationAdminLoadingSpinner} />
           Завантаження аналітики з БД…
         </div>
       ) : null}
@@ -178,19 +182,19 @@ export default function StationAnalyticsPage() {
             </div>
             <div>
               <p className="text-xs text-gray-500">Сесії</p>
-              <p className="mt-0.5 text-lg font-bold tabular-nums text-gray-900">
+              <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">
                 {num(g.sessions_30d).toLocaleString('uk-UA')}
               </p>
             </div>
             <div>
               <p className="text-xs text-gray-500">Енергія</p>
-              <p className="mt-0.5 text-lg font-bold tabular-nums text-gray-900">
+              <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">
                 {num(g.energy_30d).toLocaleString('uk-UA', { maximumFractionDigits: 1 })} кВт·год
               </p>
             </div>
             <div>
               <p className="text-xs text-gray-500">Унікальні авто</p>
-              <p className="mt-0.5 text-lg font-bold tabular-nums text-gray-900">
+              <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">
                 {num(g.unique_cars_30d).toLocaleString('uk-UA')}
               </p>
             </div>
@@ -203,37 +207,22 @@ export default function StationAnalyticsPage() {
       ) : null}
 
       <section aria-labelledby="network-activity-heading">
-        <h2 id="network-activity-heading" className="mb-3 text-sm font-semibold text-gray-900">
+        <h2 id="network-activity-heading" className="mb-3 text-sm font-semibold text-slate-900">
           Активність мережі (БД)
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <AppCard className="!p-5">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Бронювання</p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">
-              {networkLoading ? '…' : bookings.length}
+            <p className="mt-1 text-2xl font-bold text-slate-900">
+              {networkLoading ? '…' : bookingsTotal.toLocaleString('uk-UA')}
             </p>
-            <Link
-              to="/station-dashboard/bookings"
-              className="mt-2 inline-block text-sm font-semibold text-green-700 hover:text-green-800"
-            >
+            <Link to="/station-dashboard/bookings" className={`mt-2 inline-block ${stationAdminLinkAccent}`}>
               Список бронювань
             </Link>
           </AppCard>
           <AppCard className="!p-5">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сесії</p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">
-              {networkLoading ? '…' : sessions.length}
-            </p>
-            <Link
-              to="/station-dashboard/sessions"
-              className="mt-2 inline-block text-sm font-semibold text-green-700 hover:text-green-800"
-            >
-              Список сесій
-            </Link>
-          </AppCard>
-          <AppCard className="!p-5">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Енергія (усі сесії)</p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">
+            <p className="mt-1 text-2xl font-bold text-slate-900">
               {networkLoading
                 ? '…'
                 : `${sessionEnergyTotal.toLocaleString('uk-UA', { maximumFractionDigits: 1 })} кВт·год`}
@@ -241,7 +230,7 @@ export default function StationAnalyticsPage() {
           </AppCard>
           <AppCard className="!p-5">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сума по рахунках</p>
-            <p className="mt-1 text-2xl font-bold text-green-800">
+            <p className="mt-1 text-2xl font-bold text-green-700">
               {networkLoading
                 ? '…'
                 : `${sessionCostTotal.toLocaleString('uk-UA', { maximumFractionDigits: 2 })} грн`}
@@ -252,13 +241,13 @@ export default function StationAnalyticsPage() {
       </section>
 
       <section aria-labelledby="analytics-overview-heading">
-        <h2 id="analytics-overview-heading" className="mb-3 text-sm font-semibold text-gray-900">
+        <h2 id="analytics-overview-heading" className="mb-3 text-sm font-semibold text-slate-900">
           Огляд мережі
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <AppCard className="!p-5">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Станцій у мережі</p>
-            <p className="mt-1 text-3xl font-bold text-gray-900">{totalStations}</p>
+            <p className="mt-1 text-3xl font-bold text-slate-900">{totalStations}</p>
           </AppCard>
           <AppCard className="!p-5">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Дохід сьогодні</p>
@@ -269,7 +258,7 @@ export default function StationAnalyticsPage() {
           </AppCard>
           <AppCard className="!p-5">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сесії сьогодні</p>
-            <p className="mt-1 text-3xl font-bold text-gray-900">{todaySess}</p>
+            <p className="mt-1 text-3xl font-bold text-slate-900">{todaySess}</p>
           </AppCard>
           <AppCard className="!p-5">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Статуси</p>
@@ -303,7 +292,7 @@ export default function StationAnalyticsPage() {
       {tab === 'trends' ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <AppCard>
-            <h2 className="text-sm font-semibold text-gray-900">Виручка по містах</h2>
+            <h2 className="text-sm font-semibold text-slate-900">Виручка по містах</h2>
             <p className="mt-1 text-xs text-gray-500">Дані з VIEW (агрегат по місту)</p>
             <div className="mt-4 h-72">
               {cityChart.length === 0 ? (
@@ -342,7 +331,7 @@ export default function StationAnalyticsPage() {
           </AppCard>
 
           <AppCard>
-            <h2 className="text-sm font-semibold text-gray-900">Динаміка періоду</h2>
+            <h2 className="text-sm font-semibold text-slate-900">Динаміка періоду</h2>
             <p className="mt-1 text-xs text-gray-500">Поточні 30 днів vs попередні 30 днів, %</p>
             <div className="mt-4 h-72">
               {growthBars.length === 0 ? (
@@ -375,7 +364,7 @@ export default function StationAnalyticsPage() {
       {tab === 'stations' ? (
       <AppCard padding={false} className="overflow-hidden">
         <div className="border-b border-gray-100 px-6 py-4">
-          <h2 className="text-sm font-semibold text-gray-900">По кожній станції сьогодні</h2>
+          <h2 className="text-sm font-semibold text-slate-900">По кожній станції сьогодні</h2>
          
         </div>
         <div className="grid gap-6 p-4 lg:grid-cols-2 lg:p-6">
@@ -456,7 +445,7 @@ export default function StationAnalyticsPage() {
             <tbody className="divide-y divide-gray-100">
               {perStation.map((row) => (
                 <tr key={row.id} className="bg-white hover:bg-gray-50/60">
-                  <td className="px-6 py-3 font-medium text-gray-900" title={row.fullName}>
+                  <td className="px-6 py-3 font-medium text-slate-900" title={row.fullName}>
                     {row.fullName}
                   </td>
                   <td className="px-6 py-3 text-gray-600">{row.city}</td>
@@ -466,7 +455,7 @@ export default function StationAnalyticsPage() {
                     </StatusPill>
                   </td>
                   <td className="px-6 py-3 tabular-nums text-gray-800">{row.sessions}</td>
-                  <td className="px-6 py-3 tabular-nums font-medium text-gray-900">
+                  <td className="px-6 py-3 tabular-nums font-medium text-slate-900">
                     {row.revenue.toLocaleString('uk-UA')} грн
                   </td>
                   <td className="px-6 py-3 tabular-nums text-gray-700">
@@ -474,10 +463,7 @@ export default function StationAnalyticsPage() {
                   </td>
                   <td className="px-6 py-3 text-gray-600">{row.ports}</td>
                   <td className="px-6 py-3 text-right">
-                    <Link
-                      to={`/station-dashboard/stations/${row.id}`}
-                      className="text-sm font-semibold text-green-600 hover:text-green-700"
-                    >
+                    <Link to={`/station-dashboard/stations/${row.id}`} className={stationAdminLinkAccent}>
                       Деталі
                     </Link>
                   </td>

@@ -25,7 +25,13 @@ import {
 import { stationFromDashboardDto } from '../utils/stationFromDashboardDto';
 import { stationToCreateBody, stationToUpdateBody } from '../utils/stationApiPayload';
 
-export type StationSortKey = 'name' | 'city' | 'status' | 'todayRevenue' | 'todaySessions';
+export type StationSortKey =
+  | 'name'
+  | 'city'
+  | 'country'
+  | 'status'
+  | 'todayRevenue'
+  | 'todaySessions';
 export type StationSortDir = 'asc' | 'desc';
 
 const STATIONS_PAGE_SIZE = 50;
@@ -63,6 +69,9 @@ type StationsContextValue = {
   /** Фільтр списку станцій за статусом (null — усі; пагінація на сервері). */
   stationListStatusFilter: StationStatus | null;
   setStationListStatusFilter: (status: StationStatus | null) => void;
+  /** Пошук за назвою станції або містом (параметр `q` на сервері). */
+  stationsSearchQuery: string;
+  setStationsSearchQuery: (q: string) => void;
   addStation: (station: Omit<Station, 'id'>) => Promise<Station>;
   updateStation: (id: string, patch: Partial<Station>) => Promise<void>;
   archiveStation: (id: string) => Promise<void>;
@@ -96,6 +105,7 @@ export function StationsProvider({ children }: { children: ReactNode }) {
   const [stationListStatusFilter, setStationListStatusFilterState] = useState<StationStatus | null>(
     null
   );
+  const [stationsSearchQuery, setStationsSearchQueryState] = useState('');
 
   const setSortValue = useCallback((v: string) => {
     setSortValueState(v);
@@ -107,6 +117,14 @@ export function StationsProvider({ children }: { children: ReactNode }) {
     setStationsPageState(1);
   }, []);
 
+  const setStationsSearchQuery = useCallback((q: string) => {
+    setStationsSearchQueryState((prev) => {
+      if (prev === q) return prev;
+      setStationsPageState(1);
+      return q;
+    });
+  }, []);
+
   const loadPage = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -115,7 +133,8 @@ export function StationsProvider({ children }: { children: ReactNode }) {
         stationsPage,
         STATIONS_PAGE_SIZE,
         sortValue,
-        stationListStatusFilter
+        stationListStatusFilter,
+        stationsSearchQuery
       );
       setStationsTotal(res.total);
       setFilterCities(res.cities);
@@ -133,7 +152,7 @@ export function StationsProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [stationsPage, sortValue, stationListStatusFilter]);
+  }, [stationsPage, sortValue, stationListStatusFilter, stationsSearchQuery]);
 
   const loadMapBounds = useCallback(
     async (bounds: { south: number; north: number; west: number; east: number }) => {
@@ -332,6 +351,8 @@ export function StationsProvider({ children }: { children: ReactNode }) {
       setSortValue,
       stationListStatusFilter,
       setStationListStatusFilter,
+      stationsSearchQuery,
+      setStationsSearchQuery,
       addStation,
       updateStation,
       archiveStation,
@@ -360,6 +381,8 @@ export function StationsProvider({ children }: { children: ReactNode }) {
       sortValue,
       stationListStatusFilter,
       setStationListStatusFilter,
+      stationsSearchQuery,
+      setStationsSearchQuery,
       addStation,
       updateStation,
       archiveStation,

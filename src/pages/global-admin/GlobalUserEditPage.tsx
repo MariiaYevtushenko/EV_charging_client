@@ -5,6 +5,7 @@ import { fetchAdminUserDetail } from '../../api/adminUsers';
 import type { EndUser } from '../../types/globalAdmin';
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
 import { appFormInputClass } from '../../components/station-admin/formStyles';
+import { globalAdminPageTitle } from '../../styles/globalAdminTheme';
 
 function splitDisplayName(full: string): { firstName: string; surname: string } {
   const t = full.trim();
@@ -129,7 +130,7 @@ export default function GlobalUserEditPage() {
         >
           ← До картки користувача
         </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-gray-900">Редагування</h1>
+        <h1 className={`mt-2 ${globalAdminPageTitle}`}>Редагування</h1>
         <p className="mt-1 text-sm text-gray-500">{base.name}</p>
       </div>
 
@@ -195,7 +196,7 @@ export default function GlobalUserEditPage() {
           </label>
 
           {saved ? (
-            <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800 ring-1 ring-emerald-100">
+            <p className="rounded-xl bg-green-50 px-3 py-2 text-sm text-green-800 ring-1 ring-green-100">
               Збережено в пам&apos;яті застосунку.
             </p>
           ) : null}

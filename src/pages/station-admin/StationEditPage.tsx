@@ -13,6 +13,7 @@ import {
   PrimaryButton,
 } from '../../components/station-admin/Primitives';
 import { appSelectClass } from '../../components/station-admin/formStyles';
+import { stationAdminPageTitle } from '../../styles/stationAdminTheme';
 
 const inputClass =
   'mt-1 w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-3 text-sm outline-none transition hover:border-gray-300 focus:border-green-500 focus:ring-4 focus:ring-green-500/15';
@@ -188,9 +189,7 @@ export default function StationEditPage() {
           ← Назад до станції
         </Link>
         <h1
-          className={`mt-2 text-2xl font-bold tracking-tight ${
-            base.archived ? 'text-amber-950' : 'text-gray-900'
-          }`}
+          className={`mt-2 ${stationAdminPageTitle} ${base.archived ? 'text-amber-950' : ''}`}
         >
           Редагування станції
         </h1>

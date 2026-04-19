@@ -7,6 +7,7 @@ import { geocodeAddressParts, reverseGeocode } from '../../lib/nominatimGeocode'
 import StationLocationPicker from '../../components/station-admin/StationLocationPicker';
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
 import { appSelectClass } from '../../components/station-admin/formStyles';
+import { stationAdminPageTitle } from '../../styles/stationAdminTheme';
 
 const inputClass =
   'mt-1 w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-3 text-sm outline-none transition hover:border-gray-300 focus:border-green-500 focus:ring-4 focus:ring-green-500/15';
@@ -126,7 +127,7 @@ export default function StationNewPage() {
         >
           ← До списку станцій
         </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-gray-900">Нова станція</h1>
+        <h1 className={`mt-2 ${stationAdminPageTitle}`}>Нова станція</h1>
        
       </div>
 

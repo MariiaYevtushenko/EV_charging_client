@@ -13,6 +13,8 @@ export type StationFiltersBarCoreProps = {
   setSortValue: (v: string) => void;
   showAddButton?: boolean;
   drawerExtra?: ReactNode;
+  /** Базовий шлях дашборду (напр. `/station-dashboard` або `/admin-dashboard`). */
+  dashboardBase?: string;
 };
 
 function FilterIcon({ className }: { className?: string }) {
@@ -45,6 +47,7 @@ export default function StationFiltersBarCore({
   setSortValue,
   showAddButton = false,
   drawerExtra,
+  dashboardBase = '/station-dashboard',
 }: StationFiltersBarCoreProps) {
   const [open, setOpen] = useState(false);
 
@@ -72,7 +75,7 @@ export default function StationFiltersBarCore({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
           {showAddButton ? (
             <Link
-              to="/station-dashboard/stations/new"
+              to={`${dashboardBase}/stations/new`}
               className={`order-2 w-full whitespace-nowrap sm:order-1 sm:w-auto ${appPrimaryCtaMdClass}`}
             >
               + Нова станція

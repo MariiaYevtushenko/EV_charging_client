@@ -23,8 +23,8 @@ export function postUserVehicle(userId: number, body: CreateVehicleBody) {
   return postJson<VehicleApiRow>(`/api/user/${userId}/vehicle`, body);
 }
 
-/** Мапінг у модель кабінету (конектор у БД немає — з форми або дефолт). */
-export function mapVehicleApiRowToUserCar(row: VehicleApiRow, connectorLabel = "—"): UserCar {
+/** Мапінг у модель кабінету (конектор у БД немає — дефолт для фільтрів бронювання/головної). */
+export function mapVehicleApiRowToUserCar(row: VehicleApiRow, connectorLabel = 'Type 2'): UserCar {
   return {
     id: String(row.id),
     plate: row.licensePlate,

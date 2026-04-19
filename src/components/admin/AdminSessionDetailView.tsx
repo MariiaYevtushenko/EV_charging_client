@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { AdminSessionDetailDto } from '../../api/adminNetwork';
 import { AppCard, StatusPill } from '../station-admin/Primitives';
@@ -37,7 +37,7 @@ function bookingStatusLabel(s: string) {
       return 'Очікує';
     case 'cancelled':
       return 'Скасовано';
-    case 'completed':
+    case 'paid':
       return 'Завершено';
     default:
       return s;
@@ -114,18 +114,31 @@ export type AdminSessionDetailLinkConfig = {
   bookingHref?: (bookingId: string) => string | undefined;
 };
 
+type SessionControlProps = {
+  onComplete: (opts: { kwhConsumed?: number }) => Promise<void>;
+  completing: boolean;
+  error: string | null;
+};
+
 type Props = {
   data: AdminSessionDetailDto;
   links: AdminSessionDetailLinkConfig;
+  /** Глобальний адмін: завершити активну сесію та створити bill */
+  sessionControl?: SessionControlProps;
 };
 
-export default function AdminSessionDetailView({ data, links }: Props) {
+export default function AdminSessionDetailView({ data, links, sessionControl }: Props) {
   const booking = data.booking;
   const userLink = data.userId && links.userHref ? links.userHref(data.userId) : undefined;
   const bookingLink = booking && links.bookingHref ? links.bookingHref(booking.id) : undefined;
 
   const bookingSameCalendarDay =
     booking && fmtDateShort(booking.start) === fmtDateShort(booking.end);
+
+  const [kwhDraft, setKwhDraft] = useState(() => String(data.kwh));
+  useEffect(() => {
+    setKwhDraft(String(data.kwh));
+  }, [data.id, data.kwh, data.status]);
 
   return (
     <div className="space-y-6">
@@ -164,6 +177,49 @@ export default function AdminSessionDetailView({ data, links }: Props) {
             ) : null}
           </div>
         </div>
+
+        {data.status === 'active' && sessionControl ? (
+          <div className="border-b border-emerald-100/80 bg-amber-50/40 px-5 py-4 sm:px-6">
+            <p className="text-sm font-semibold text-gray-900">Керування сесією</p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-600">
+              Завершити зарядку: фіксується кінець сесії, статус «Завершено», у базі створюється рахунок
+              (bill) за поточними правилами тарифікації.
+            </p>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
+              <label className="block min-w-0 flex-1 text-sm">
+                <span className="text-gray-600">Спожито кВт·год (підсумок)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.001}
+                  value={kwhDraft}
+                  onChange={(e) => setKwhDraft(e.target.value)}
+                  disabled={sessionControl.completing}
+                  className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm tabular-nums text-gray-900 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25 disabled:opacity-60"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={sessionControl.completing}
+                onClick={async () => {
+                  const normalized = kwhDraft.replace(',', '.').trim();
+                  const parsed = Number(normalized);
+                  const kwhConsumed =
+                    normalized !== '' && Number.isFinite(parsed) && parsed >= 0 ? parsed : data.kwh;
+                  await sessionControl.onComplete({ kwhConsumed });
+                }}
+                className="inline-flex shrink-0 items-center justify-center rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:pointer-events-none disabled:opacity-50"
+              >
+                {sessionControl.completing ? 'Завершення…' : 'Завершити сесію'}
+              </button>
+            </div>
+            {sessionControl.error ? (
+              <p className="mt-3 text-sm text-red-700" role="alert">
+                {sessionControl.error}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="space-y-8 p-5 sm:p-6">
           <section aria-labelledby="session-time-heading">
@@ -247,7 +303,7 @@ export default function AdminSessionDetailView({ data, links }: Props) {
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Статус</span>
               <StatusPill
                 tone={
-                  booking.status === 'confirmed' || booking.status === 'completed'
+                  booking.status === 'confirmed' || booking.status === 'paid'
                     ? 'success'
                     : booking.status === 'cancelled'
                       ? 'danger'
@@ -302,9 +358,7 @@ export default function AdminSessionDetailView({ data, links }: Props) {
         <div className="border-b border-sky-100 bg-gradient-to-r from-sky-50/90 to-white px-5 py-4 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-gray-900">Рахунок</h2>
-            {data.bill ? (
-              <span className="font-mono text-xs text-gray-500">ID {data.bill.id}</span>
-            ) : null}
+
           </div>
         </div>
 
@@ -362,10 +416,23 @@ export default function AdminSessionDetailView({ data, links }: Props) {
           </div>
         ) : (
           <div className="p-5 sm:p-6">
-            <p className="text-sm text-amber-900">
-              Рахунок ще не сформовано. Для завершених сесій очікується запис у таблиці{' '}
-              <code className="rounded bg-amber-50 px-1.5 py-0.5 text-xs">bill</code>.
-            </p>
+            {data.status === 'failed' ? (
+              <p className="text-sm text-slate-600">
+                Рахунок для цієї сесії не показується: при статусі «Помилка» запис у таблиці{' '}
+                <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">bill</code> не
+                створюється.
+              </p>
+            ) : data.status === 'active' ? (
+              <p className="text-sm text-slate-600">
+                Рахунок ще не сформовано — сесія активна. Після завершення тут з’явиться підсумок
+                оплати.
+              </p>
+            ) : (
+              <p className="text-sm text-amber-900">
+                Рахунок ще не сформовано. Для завершених сесій очікується запис у таблиці{' '}
+                <code className="rounded bg-amber-50 px-1.5 py-0.5 text-xs">bill</code>.
+              </p>
+            )}
           </div>
         )}
       </AppCard>

@@ -175,9 +175,17 @@ export default function PaymentDetailModal({
                 </div>
               </dl>
             </div>
+          ) : !data ? (
+            <p className="text-sm text-gray-500">Дані сесії недоступні.</p>
+          ) : data.status === 'failed' ? (
+            <p className="text-sm text-slate-600">
+              Для сесії зі статусом «Помилка» рахунок (bill) не створюється.
+            </p>
+          ) : data.status === 'active' ? (
+            <p className="text-sm text-slate-600">Рахунок з’явиться після завершення сесії.</p>
           ) : (
             <p className="text-sm text-amber-900">
-              Для цієї сесії рахунок (bill) ще не знайдено або не сформовано.
+              Для цієї сесії рахунок (bill) ще не знайдено. Для завершених сесій очікується запис у БД.
             </p>
           )}
         </div>

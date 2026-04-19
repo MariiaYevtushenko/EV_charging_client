@@ -9,6 +9,8 @@ export const STATION_SORT_OPTIONS: {
   { value: "name:desc", label: "Назва (Я → А)" },
   { value: "city:asc", label: "Місто (А → Я)" },
   { value: "city:desc", label: "Місто (Я → А)" },
+  { value: "country:asc", label: "Країна (А → Я)" },
+  { value: "country:desc", label: "Країна (Я → А)" },
   { value: "status:asc", label: "Статус (спочатку активні)" },
   { value: "status:desc", label: "Статус (зворотний порядок)" },
   { value: "todayRevenue:asc", label: "Дохід сьогодні (зростання)" },

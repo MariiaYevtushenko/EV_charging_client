@@ -20,8 +20,13 @@ import {
   type AdminAnalyticsViewsResponse,
 } from '../../api/adminAnalytics';
 import { ApiError } from '../../api/http';
+import {
+  globalAdminLoadingBanner,
+  globalAdminLoadingSpinner,
+  globalAdminPageTitle,
+} from '../../styles/globalAdminTheme';
 
-const PIE_COLORS = ['#059669', '#64748b', '#d97706', '#0284c7', '#7c3aed', '#e11d48'];
+const PIE_COLORS = ['#16a34a', '#64748b', '#d97706', '#0284c7', '#7c3aed', '#e11d48'];
 
 type TabId = 'pulse' | 'network' | 'users' | 'live';
 
@@ -58,7 +63,7 @@ function SegmentedTabs({
       role="tablist"
       aria-label="Розділи аналітики"
     >
-      <div className="inline-flex flex-wrap gap-1 rounded-2xl border border-emerald-100/90 bg-gradient-to-b from-emerald-50/50 to-slate-50/40 p-1.5 shadow-inner shadow-emerald-900/5">
+      <div className="inline-flex flex-wrap gap-1 rounded-2xl border border-green-100/90 bg-gradient-to-b from-green-50/50 to-slate-50/40 p-1.5 shadow-inner shadow-green-900/5">
         {items.map((item) => {
           const active = value === item.id;
           return (
@@ -70,12 +75,12 @@ function SegmentedTabs({
               onClick={() => onChange(item.id)}
               className={`rounded-xl px-4 py-2.5 text-left transition ${
                 active
-                  ? 'bg-white text-gray-900 shadow-md shadow-emerald-900/10 ring-1 ring-emerald-200/80'
-                  : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'
+                  ? 'bg-white text-slate-900 shadow-md shadow-green-900/10 ring-1 ring-green-200/80'
+                  : 'text-slate-600 hover:bg-white/60 hover:text-slate-900'
               }`}
             >
               <span className="block text-sm font-semibold">{item.label}</span>
-              <span className={`mt-0.5 block text-xs ${active ? 'text-emerald-700/90' : 'text-gray-500'}`}>
+              <span className={`mt-0.5 block text-xs ${active ? 'text-green-700/90' : 'text-slate-500'}`}>
                 {item.hint}
               </span>
             </button>
@@ -95,11 +100,11 @@ function KpiStat({
   label: string;
   value: string;
   sub?: string;
-  accent?: 'emerald' | 'sky' | 'slate' | 'amber';
+  accent?: 'green' | 'sky' | 'slate' | 'amber';
 }) {
   const ring =
-    accent === 'emerald'
-      ? 'ring-emerald-500/20'
+    accent === 'green'
+      ? 'ring-green-500/20'
       : accent === 'sky'
         ? 'ring-sky-500/20'
         : accent === 'amber'
@@ -110,7 +115,7 @@ function KpiStat({
       className={`rounded-2xl border border-gray-100/90 bg-white p-5 shadow-sm ring-1 ${ring} transition hover:shadow-md`}
     >
       <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</p>
-      <p className="mt-2 text-2xl font-bold tracking-tight text-gray-900 tabular-nums">{value}</p>
+      <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{value}</p>
       {sub ? <p className="mt-1 text-xs text-gray-500">{sub}</p> : null}
     </div>
   );
@@ -129,10 +134,10 @@ function Panel({
 }) {
   return (
     <section
-      className={`rounded-2xl border border-gray-100/90 bg-white/95 shadow-sm shadow-gray-200/40 ring-1 ring-gray-900/[0.03] ${className}`}
+      className={`rounded-2xl border border-gray-100/90 bg-white/95 shadow-sm shadow-gray-200/40 ring-1 ring-slate-900/[0.03] ${className}`}
     >
       <div className="border-b border-gray-100/80 px-5 py-4 sm:px-6">
-        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        <h2 className="text-base font-semibold text-slate-900">{title}</h2>
         {subtitle ? <p className="mt-1 text-sm text-gray-500">{subtitle}</p> : null}
       </div>
       <div className="p-5 sm:p-6">{children}</div>
@@ -267,17 +272,13 @@ export default function GlobalAnalyticsPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 pb-10">
-      <header className="space-y-2 border-b border-emerald-100/80 pb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">Аналітика мережі</h1>
-        <p className="max-w-2xl text-sm leading-relaxed text-gray-600">
-          Показники збираються з представлень у базі даних (агрегати за періодами згідно з вашою схемою). Оновіть
-          сторінку, щоб отримати актуальні значення.
-        </p>
+      <header className="space-y-2 border-b border-slate-200 pb-6">
+        <h1 className={`${globalAdminPageTitle} sm:text-3xl`}>Аналітика мережі</h1>
       </header>
 
       {loading ? (
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-100/80 bg-emerald-50/30 px-5 py-4 text-sm text-emerald-900">
-          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
+        <div className={globalAdminLoadingBanner}>
+          <span className={globalAdminLoadingSpinner} />
           Завантаження показників…
         </div>
       ) : null}
@@ -305,7 +306,7 @@ export default function GlobalAnalyticsPage() {
               label="Дохід сьогодні"
               value={`${todayRev.toLocaleString('uk-UA', { maximumFractionDigits: 0 })} грн`}
               sub="Зведення по станціях у кабінеті"
-              accent="emerald"
+              accent="green"
             />
             <KpiStat
               label="Виручка (30 днів)"
@@ -347,7 +348,7 @@ export default function GlobalAnalyticsPage() {
                       className="rounded-xl border border-gray-100 bg-gradient-to-br from-white to-slate-50/50 px-4 py-3"
                     >
                       <p className="text-xs font-medium text-gray-500">{x.k}</p>
-                      <p className="mt-1 text-lg font-semibold tabular-nums text-gray-900">{x.v}</p>
+                      <p className="mt-1 text-lg font-semibold tabular-nums text-slate-900">{x.v}</p>
                     </div>
                   ))}
                 </div>
@@ -434,15 +435,15 @@ export default function GlobalAnalyticsPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
                     {stationAgg.map((s) => (
-                      <tr key={s.label} className="hover:bg-emerald-50/40">
-                        <td className="px-4 py-2.5 font-medium text-gray-900">{s.label}</td>
+                      <tr key={s.label} className="hover:bg-green-50/40">
+                        <td className="px-4 py-2.5 font-medium text-slate-900">{s.label}</td>
                         <td className="px-4 py-2.5 text-right tabular-nums text-gray-700">
                           {s.total_sessions.toLocaleString('uk-UA')}
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums text-gray-700">
                           {s.total_energy.toLocaleString('uk-UA')}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-900">
+                        <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-slate-900">
                           {s.total_revenue.toLocaleString('uk-UA', { maximumFractionDigits: 2 })} грн
                         </td>
                       </tr>
@@ -521,9 +522,9 @@ export default function GlobalAnalyticsPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
                     {(data?.userStationLoyalty ?? []).slice(0, 35).map((r, i) => (
-                      <tr key={`${r.user_id}-${r.station_id}-${i}`} className="hover:bg-emerald-50/30">
+                      <tr key={`${r.user_id}-${r.station_id}-${i}`} className="hover:bg-green-50/30">
                         <td className="px-3 py-2 font-mono text-xs text-gray-600">{str(r.user_id)}</td>
-                        <td className="max-w-[200px] truncate px-3 py-2 text-gray-900">{str(r.station_name)}</td>
+                        <td className="max-w-[200px] truncate px-3 py-2 text-slate-900">{str(r.station_name)}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{num(r.visit_count)}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{num(r.total_energy).toFixed(1)}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{num(r.total_spent).toFixed(2)}</td>
@@ -549,7 +550,7 @@ export default function GlobalAnalyticsPage() {
                       {(data?.userVehicleStats ?? []).slice(0, 25).map((r, i) => (
                         <tr key={i} className="hover:bg-slate-50/80">
                           <td className="px-3 py-2">
-                            <span className="font-medium text-gray-900">{str(r.car_name)}</span>
+                            <span className="font-medium text-slate-900">{str(r.car_name)}</span>
                             <span className="text-gray-400"> · </span>
                             <span className="font-mono text-xs text-gray-600">{str(r.license_plate)}</span>
                           </td>
@@ -575,15 +576,15 @@ export default function GlobalAnalyticsPage() {
                     <tbody className="divide-y divide-gray-100 bg-white">
                       {(data?.userSegments ?? []).slice(0, 30).map((r) => (
                         <tr key={str(r.user_id)} className="hover:bg-slate-50/80">
-                          <td className="px-3 py-2 text-gray-900">{str(r.full_name)}</td>
+                          <td className="px-3 py-2 text-slate-900">{str(r.full_name)}</td>
                           <td className="px-3 py-2">
-                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                            <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-800">
                               {str(r.user_segment)}
                             </span>
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums">{num(r.total_sessions)}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{num(r.total_kwh).toFixed(1)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums font-medium text-gray-900">
+                          <td className="px-3 py-2 text-right tabular-nums font-medium text-slate-900">
                             {num(r.total_spent).toFixed(2)}
                           </td>
                         </tr>
@@ -612,7 +613,7 @@ export default function GlobalAnalyticsPage() {
                     {(data?.activeSessions ?? []).map((r) => (
                       <tr key={str(r.session_id)} className="hover:bg-sky-50/50">
                         <td className="px-3 py-2 font-mono text-xs text-gray-600">{str(r.session_id)}</td>
-                        <td className="max-w-[140px] truncate px-3 py-2 text-gray-900">{str(r.station_name)}</td>
+                        <td className="max-w-[140px] truncate px-3 py-2 text-slate-900">{str(r.station_name)}</td>
                         <td className="px-3 py-2 text-center tabular-nums">{num(r.port_number)}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{num(r.kwh_consumed).toFixed(3)}</td>
                         <td className="px-3 py-2 text-xs text-gray-600">{fmtDate(r.start_time)}</td>

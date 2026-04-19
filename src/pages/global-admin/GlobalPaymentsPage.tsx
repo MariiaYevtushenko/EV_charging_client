@@ -1,16 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useGlobalAdmin, type PaymentRow } from '../../context/GlobalAdminContext';
-import { fetchAdminNetworkSessionDetail, type AdminSessionDetailDto } from '../../api/adminNetwork';
+import {
+  fetchAdminNetworkPaymentStatusCounts,
+  fetchAdminNetworkPayments,
+  fetchAdminNetworkSessionDetail,
+  type AdminNetworkPaymentRow,
+  type AdminNetworkPaymentStatusCounts,
+  type AdminSessionDetailDto,
+  type NetworkListPeriod,
+} from '../../api/adminNetwork';
 import { ApiError } from '../../api/http';
 import PaymentDetailModal from '../../components/admin/PaymentDetailModal';
 import AdminListPagination from '../../components/admin/AdminListPagination';
+import NetworkListPeriodControl from '../../components/admin/NetworkListPeriodControl';
 import SortableTableTh, {
   defaultDirForSortColumn,
   type SortDir,
 } from '../../components/admin/SortableTableTh';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
+import { globalAdminPageTitle, globalAdminSearchInput } from '../../styles/globalAdminTheme';
 
 const PAYMENT_PAGE_SIZE = 50;
+const LIST_SEARCH_DEBOUNCE_MS = 350;
+
+const PAYMENT_STATUS_TAB_ORDER: AdminNetworkPaymentRow['status'][] = ['success', 'pending', 'failed'];
 
 type PaymentSortKey = 'createdAt' | 'userName' | 'description' | 'method' | 'amount' | 'status';
 
@@ -54,38 +66,61 @@ function fmt(dt: string) {
   }
 }
 
-function cmpPayments(a: PaymentRow, b: PaymentRow, sortKey: PaymentSortKey, sortDir: SortDir): number {
-  let c = 0;
-  switch (sortKey) {
-    case 'createdAt':
-      c = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      break;
-    case 'userName':
-      c = a.userName.localeCompare(b.userName, 'uk');
-      break;
-    case 'description':
-      c = a.description.localeCompare(b.description, 'uk');
-      break;
-    case 'method':
-      c = a.method.localeCompare(b.method, 'uk');
-      break;
-    case 'amount':
-      c = a.amount - b.amount;
-      break;
-    case 'status':
-      c = a.status.localeCompare(b.status, 'uk');
-      break;
-    default:
-      c = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-  }
-  return sortDir === 'desc' ? -c : c;
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+      />
+    </svg>
+  );
 }
 
 export default function GlobalPaymentsPage() {
-  const { allPayments, paymentsLoading, paymentsError, reloadPayments } = useGlobalAdmin();
   const [sortKey, setSortKey] = useState<PaymentSortKey>('createdAt');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(1);
+  const [searchDraft, setSearchDraft] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<AdminNetworkPaymentRow['status'] | null>(null);
+  const [period, setPeriod] = useState<NetworkListPeriod>('all');
+  const [rows, setRows] = useState<AdminNetworkPaymentRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [statusCounts, setStatusCounts] = useState<AdminNetworkPaymentStatusCounts | null>(null);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setSearchQuery(searchDraft.trim());
+    }, LIST_SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
+  }, [searchDraft]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter, period]);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(total / PAYMENT_PAGE_SIZE) || 1),
+    [total]
+  );
+  useEffect(() => {
+    setPage((p) => Math.min(Math.max(1, p), totalPages));
+  }, [total, totalPages]);
+
+  useEffect(() => {
+    void fetchAdminNetworkPaymentStatusCounts(searchQuery || undefined, period)
+      .then(setStatusCounts)
+      .catch(() => setStatusCounts(null));
+  }, [searchQuery, period]);
+
+  const toggleStatusFilter = useCallback((s: AdminNetworkPaymentRow['status']) => {
+    setStatusFilter((prev) => (prev === s ? null : s));
+  }, []);
 
   const [paymentModalSessionId, setPaymentModalSessionId] = useState<string | null>(null);
   const [paymentModalDetail, setPaymentModalDetail] = useState<AdminSessionDetailDto | null>(null);
@@ -95,6 +130,7 @@ export default function GlobalPaymentsPage() {
   const onSort = useCallback(
     (key: string) => {
       const k = key as PaymentSortKey;
+      setPage(1);
       if (sortKey === k) {
         setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
       } else {
@@ -105,29 +141,33 @@ export default function GlobalPaymentsPage() {
     [sortKey]
   );
 
-  const rows = useMemo(
-    () => [...allPayments].sort((a, b) => cmpPayments(a, b, sortKey, sortDir)),
-    [allPayments, sortKey, sortDir]
-  );
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    void fetchAdminNetworkPayments({
+      page,
+      pageSize: PAYMENT_PAGE_SIZE,
+      q: searchQuery || undefined,
+      status: statusFilter ?? undefined,
+      sort: sortKey,
+      order: sortDir,
+      period,
+    })
+      .then((data) => {
+        setRows(data.items);
+        setTotal(data.total);
+      })
+      .catch((e: unknown) => {
+        setRows([]);
+        setTotal(0);
+        setError(e instanceof ApiError ? e.message : 'Не вдалося завантажити платежі');
+      })
+      .finally(() => setLoading(false));
+  }, [page, searchQuery, statusFilter, sortKey, sortDir, period]);
 
   useEffect(() => {
-    setPage(1);
-  }, [allPayments, sortKey, sortDir]);
-
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAYMENT_PAGE_SIZE) || 1);
-  useEffect(() => {
-    setPage((p) => Math.min(Math.max(1, p), totalPages));
-  }, [rows.length, totalPages]);
-
-  const pagedRows = useMemo(() => {
-    const start = (page - 1) * PAYMENT_PAGE_SIZE;
-    return rows.slice(start, start + PAYMENT_PAGE_SIZE);
-  }, [rows, page]);
-
-  const totalSuccess = useMemo(
-    () => allPayments.filter((p) => p.status === 'success').reduce((a, p) => a + p.amount, 0),
-    [allPayments]
-  );
+    void load();
+  }, [load]);
 
   const openPaymentModal = useCallback((sessionId: string) => {
     setPaymentModalSessionId(sessionId);
@@ -151,34 +191,68 @@ export default function GlobalPaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Платежі</h1>
-        <button
-          type="button"
-          onClick={() => reloadPayments()}
-          disabled={paymentsLoading}
-          className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-green-800 shadow-sm transition hover:bg-emerald-50 disabled:opacity-50"
-        >
-          {paymentsLoading ? 'Оновлення…' : 'Оновити'}
-        </button>
+      <div className="min-w-0">
+        <h1 className={globalAdminPageTitle}>Платежі</h1>
+        <div className="mt-3 max-w-xl">
+          <label htmlFor="global-payments-search" className="sr-only">
+            Пошук платежів
+          </label>
+          <div className="relative">
+            <span
+              className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"
+              aria-hidden
+            >
+              <SearchIcon className="h-5 w-5" />
+            </span>
+            <input
+              id="global-payments-search"
+              type="search"
+              value={searchDraft}
+              onChange={(e) => setSearchDraft(e.target.value)}
+              placeholder="Пошук за ID, сесією, користувачем, описом, методом, сумою…"
+              className={globalAdminSearchInput}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+        </div>
+        <div className="mt-4">
+          <NetworkListPeriodControl value={period} onChange={setPeriod} />
+        </div>
       </div>
 
-      {paymentsError ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{paymentsError}</p>
+      {error ? (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <AppCard className="!p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Успішні</p>
-          <p className="mt-1 text-xl font-bold tabular-nums text-green-700">
-            {totalSuccess.toLocaleString('uk-UA', { minimumFractionDigits: 2 })} грн
-          </p>
-        </AppCard>
-        <AppCard className="!p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Записів</p>
-          <p className="mt-1 text-xl font-bold text-gray-900">{allPayments.length}</p>
-        </AppCard>
-      </div>
+      {statusCounts ? (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">За статусом</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {PAYMENT_STATUS_TAB_ORDER.map((st) => {
+              const selected = statusFilter === st;
+              return (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => toggleStatusFilter(st)}
+                  aria-pressed={selected}
+                  className={`flex flex-col items-center gap-2 rounded-2xl border p-4 text-center shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/45 ${
+                    selected
+                      ? 'border-green-600 bg-green-50/95 ring-2 ring-green-600/80 ring-offset-1 ring-offset-white'
+                      : 'border-slate-200 bg-white/95 ring-1 ring-slate-950/[0.04] hover:border-slate-300 hover:bg-green-50/40'
+                  }`}
+                >
+                  <StatusPill tone={paymentTone(st)}>{paymentLabel(st)}</StatusPill>
+                  <p className="text-2xl font-bold tabular-nums text-gray-900">
+                    {statusCounts[st].toLocaleString('uk-UA')}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       <AppCard className="overflow-x-auto !p-0" padding={false}>
         <table className="min-w-full text-left text-sm">
@@ -230,26 +304,28 @@ export default function GlobalPaymentsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {paymentsLoading && allPayments.length === 0 ? (
+            {loading && rows.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
                   Завантаження…
                 </td>
               </tr>
             ) : null}
-            {!paymentsLoading && !paymentsError && allPayments.length === 0 ? (
+            {!loading && !error && total === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
-                  Платежів (bill) поки немає.
+                  {searchQuery || statusFilter
+                    ? 'Нічого не знайдено за цим запитом. Спробуйте змінити пошук або фільтр статусу.'
+                    : 'Платежів (bill) поки немає.'}
                 </td>
               </tr>
             ) : null}
-            {pagedRows.map((p) => (
+            {rows.map((p) => (
               <tr
                 key={p.id}
                 role="button"
                 tabIndex={0}
-                className="cursor-pointer bg-white hover:bg-emerald-50/70"
+                className="cursor-pointer bg-white hover:bg-green-50/70"
                 onClick={() => openPaymentModal(p.sessionId)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -259,10 +335,10 @@ export default function GlobalPaymentsPage() {
                 }}
               >
                 <td className="whitespace-nowrap px-4 py-3 text-gray-600">{fmt(p.createdAt)}</td>
-                <td className="px-4 py-3 font-medium text-gray-900">{p.userName}</td>
+                <td className="px-4 py-3 font-medium text-slate-900">{p.userName}</td>
                 <td className="max-w-[200px] truncate px-4 py-3 text-gray-600">{p.description}</td>
                 <td className="px-4 py-3 text-gray-600">{p.method}</td>
-                <td className="px-4 py-3 text-right font-semibold tabular-nums text-gray-900">
+                <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">
                   {p.amount.toLocaleString('uk-UA')} {p.currency}
                 </td>
                 <td className="px-4 py-3">
@@ -272,12 +348,12 @@ export default function GlobalPaymentsPage() {
             ))}
           </tbody>
         </table>
-        {rows.length > 0 ? (
+        {total > 0 ? (
           <div className="border-t border-gray-100 px-4 py-4">
             <AdminListPagination
               page={page}
               pageSize={PAYMENT_PAGE_SIZE}
-              total={rows.length}
+              total={total}
               onPageChange={setPage}
             />
           </div>

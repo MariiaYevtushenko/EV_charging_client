@@ -73,44 +73,43 @@ export default function UserSessionsPage() {
                 <div className="absolute left-0 top-2 z-[1] flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-green-600 shadow-sm shadow-green-600/20" />
                 <div className="ml-10">
                   <div className="rounded-2xl border border-gray-100 bg-white px-4 py-4 shadow-sm">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <Link
-                          to={`/dashboard/sessions/${s.id}`}
-                          className="text-lg font-semibold text-gray-900 underline-offset-2 hover:text-green-800 hover:underline"
-                        >
-                          {s.stationName}
-                        </Link>
-                        <p className="mt-0.5 text-sm text-gray-600">{s.portLabel}</p>
-                        <p className="mt-1 text-xs text-gray-500">{fmt(s.startedAt)}</p>
-                        <dl className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 sm:gap-x-6">
-                          <div>
-                            <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
-                              Тривалість
-                            </dt>
-                            <dd className="mt-0.5 font-semibold tabular-nums text-gray-900">{s.durationMin} хв</dd>
-                          </div>
-                          <div>
-                            <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
-                              Енергія
-                            </dt>
-                            <dd className="mt-0.5 font-semibold tabular-nums text-gray-900">
-                              {s.kwh.toLocaleString('uk-UA', { maximumFractionDigits: 3 })} кВт·год
-                            </dd>
-                          </div>
-                          <div className="col-span-2 sm:col-span-1">
-                            <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Сума</dt>
-                            <dd className="mt-0.5 font-bold tabular-nums text-green-800">
-                              {s.cost.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} грн
-                            </dd>
-                          </div>
-                        </dl>
-                        <p className="mt-3 text-xs font-semibold text-green-700">
-                          <Link to={`/dashboard/sessions/${s.id}`} className="hover:underline">
-                            Деталі сесії →
-                          </Link>
-                        </p>
-                      </div>
+                    <div className="min-w-0">
+                      <Link
+                        to={`/dashboard/sessions/${s.id}`}
+                        className="text-lg font-semibold text-gray-900 underline-offset-2 hover:text-green-800 hover:underline"
+                      >
+                        {s.stationName}
+                      </Link>
+                      <p className="mt-0.5 text-sm text-gray-600">{s.portLabel}</p>
+                      <p className="mt-1 text-xs text-gray-500">{fmt(s.startedAt)}</p>
+                      <p className="mt-3 flex flex-wrap items-baseline gap-x-1 gap-y-1 text-sm">
+                        <span className="inline-flex flex-wrap items-baseline gap-1">
+                          <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                            Тривалість
+                          </span>
+                          <span className="font-semibold tabular-nums text-gray-900">{s.durationMin} хв</span>
+                        </span>
+                        <span className="px-1 text-gray-300" aria-hidden>
+                          ·
+                        </span>
+                        <span className="inline-flex flex-wrap items-baseline gap-1">
+                          <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                            Енергія
+                          </span>
+                          <span className="font-semibold tabular-nums text-gray-900">
+                            {s.kwh.toLocaleString('uk-UA', { maximumFractionDigits: 3 })} кВт·год
+                          </span>
+                        </span>
+                        <span className="px-1 text-gray-300" aria-hidden>
+                          ·
+                        </span>
+                        <span className="inline-flex flex-wrap items-baseline gap-1">
+                          <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Сума</span>
+                          <span className="font-bold tabular-nums text-green-800">
+                            {s.cost.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} грн
+                          </span>
+                        </span>
+                      </p>
                     </div>
                   </div>
                 </div>

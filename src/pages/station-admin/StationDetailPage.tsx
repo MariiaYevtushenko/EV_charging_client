@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
+  fetchStationDashboard,
+  fetchStationEnergyAnalytics,
+  fetchStationUpcomingBookings,
+} from '../../api/stations';
+import type {
+  StationEnergyAnalyticsDto,
+  StationEnergyPeriod,
+  StationUpcomingBookingDto,
+} from '../../types/stationApi';
+import {
   Bar,
   BarChart,
   CartesianGrid,
@@ -9,8 +19,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { StationPort, StationStatus } from '../../types/station';
+import type { Station, StationPort, StationStatus } from '../../types/station';
 import { useStations } from '../../context/StationsContext';
+import { stationFromDashboardDto } from '../../utils/stationFromDashboardDto';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import StationPortsEditor from '../../components/station-admin/StationPortsEditor';
 import StationMiniMap from '../../components/station-admin/StationMiniMap';
@@ -22,20 +33,62 @@ import {
   StatusPill,
 } from '../../components/station-admin/Primitives';
 import { portStatusLabel, portStatusTone } from '../../utils/stationLabels';
+import { countryIsoTooltip, formatCountryLabel } from '../../utils/countryDisplay';
+import {
+  stationAdminPageTitle,
+  stationAdminUnderlineTabActive,
+  stationAdminUnderlineTabIdle,
+} from '../../styles/stationAdminTheme';
 
-type DetailTab = 'overview' | 'analytics' | 'ports';
+type DetailTab = 'overview' | 'analytics' | 'bookings' | 'ports';
 
 const tabClass = (active: boolean) =>
-  `relative shrink-0 border-b-2 px-1 pb-3 text-sm font-semibold transition ${
-    active
-      ? 'border-green-600 text-green-800'
-      : 'border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800'
-  }`;
+  active ? stationAdminUnderlineTabActive : stationAdminUnderlineTabIdle;
 
 function tabFromHash(hash: string): DetailTab {
   if (hash === '#station-analytics') return 'analytics';
+  if (hash === '#station-bookings') return 'bookings';
   if (hash === '#station-ports') return 'ports';
   return 'overview';
+}
+
+function formatChartAxisLabel(iso: string, period: StationEnergyPeriod): string {
+  const d = new Date(iso);
+  if (period === '1d') {
+    return d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+  }
+  if (period === '7d') {
+    return d.toLocaleDateString('uk-UA', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+  return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+}
+
+function fmtBookingRange(startIso: string, endIso: string) {
+  try {
+    const s = new Date(startIso);
+    const e = new Date(endIso);
+    const sameDay =
+      s.getFullYear() === e.getFullYear() &&
+      s.getMonth() === e.getMonth() &&
+      s.getDate() === e.getDate();
+    const dateStr = s.toLocaleDateString('uk-UA', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    const t1 = s.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+    const t2 = e.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+    if (sameDay) {
+      return { dateLine: dateStr, timeLine: `${t1} — ${t2}` };
+    }
+    return {
+      dateLine: `${s.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })} ${t1}`,
+      timeLine: `→ ${e.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' })}, ${t2}`,
+    };
+  } catch {
+    return { dateLine: startIso, timeLine: '' };
+  }
 }
 
 const STATION_STATUS_OPTIONS: { value: StationStatus; label: string }[] = [
@@ -50,9 +103,18 @@ export default function StationDetailPage() {
   const dashBase = location.pathname.startsWith('/admin-dashboard')
     ? '/admin-dashboard'
     : '/station-dashboard';
+  const isGlobalAdminDash = location.pathname.startsWith('/admin-dashboard');
   const { getStation, unarchiveStation, updateStation, archiveStation } = useStations();
   const { stationId } = useParams<{ stationId: string }>();
-  const station = stationId ? getStation(stationId) : undefined;
+  const stationFromCtx = stationId ? getStation(stationId) : undefined;
+  const [stationFallback, setStationFallback] = useState<Station | null>(null);
+  /** Поки true — не редіректити на список; на першому рендері true, якщо картку треба тягнути з API (станції немає в контексті). */
+  const [stationResolveLoading, setStationResolveLoading] = useState(() => {
+    if (!stationId) return false;
+    if (!Number.isFinite(Number(stationId))) return false;
+    return !getStation(stationId);
+  });
+  const station = stationFromCtx ?? stationFallback ?? undefined;
 
   const [tab, setTab] = useState<DetailTab>(() =>
     typeof window !== 'undefined' ? tabFromHash(window.location.hash) : 'overview'
@@ -60,17 +122,23 @@ export default function StationDetailPage() {
   const [portsModalOpen, setPortsModalOpen] = useState(false);
   const [portsDraft, setPortsDraft] = useState<StationPort[]>([]);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  const [upcomingBookings, setUpcomingBookings] = useState<StationUpcomingBookingDto[]>([]);
+  const [upcomingLoading, setUpcomingLoading] = useState(false);
+  const [upcomingError, setUpcomingError] = useState<string | null>(null);
 
-  const hourly = useMemo(
-    () =>
-      station
-        ? station.energyByHour.map((kwh, i) => ({
-            t: `${String(i).padStart(2, '0')}:00`,
-            kwh,
-          }))
-        : [],
-    [station]
-  );
+  const [energyPeriod, setEnergyPeriod] = useState<StationEnergyPeriod>('1d');
+  const [energyAnalytics, setEnergyAnalytics] = useState<StationEnergyAnalyticsDto | null>(null);
+  const [energyLoading, setEnergyLoading] = useState(false);
+  const [energyError, setEnergyError] = useState<string | null>(null);
+
+  const chartRows = useMemo(() => {
+    if (!energyAnalytics?.points.length) return [];
+    return energyAnalytics.points.map((p) => ({
+      t: formatChartAxisLabel(p.bucketStart, energyAnalytics.period),
+      kwh: p.kwh,
+      fullLabel: new Date(p.bucketStart).toLocaleString('uk-UA'),
+    }));
+  }, [energyAnalytics]);
 
   const energyDayTotal = useMemo(
     () => (station ? station.energyByHour.reduce((a, b) => a + b, 0) : 0),
@@ -80,6 +148,84 @@ export default function StationDetailPage() {
   useEffect(() => {
     setTab(tabFromHash(location.hash));
   }, [station?.id, location.hash]);
+
+  useEffect(() => {
+    if (!stationId) {
+      setStationFallback(null);
+      return;
+    }
+    if (getStation(stationId)) {
+      setStationFallback(null);
+      return;
+    }
+    const nid = Number(stationId);
+    if (!Number.isFinite(nid)) {
+      setStationFallback(null);
+      return;
+    }
+    let cancelled = false;
+    setStationResolveLoading(true);
+    fetchStationDashboard(nid)
+      .then((dto) => {
+        if (!cancelled) setStationFallback(stationFromDashboardDto(dto));
+      })
+      .catch(() => {
+        if (!cancelled) setStationFallback(null);
+      })
+      .finally(() => {
+        if (!cancelled) setStationResolveLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [stationId, getStation]);
+
+  useEffect(() => {
+    if (!station || tab !== 'bookings') return;
+    const sid = Number(station.id);
+    if (!Number.isFinite(sid)) return;
+    let cancelled = false;
+    setUpcomingLoading(true);
+    setUpcomingError(null);
+    fetchStationUpcomingBookings(sid)
+      .then((res) => {
+        if (!cancelled) setUpcomingBookings(res.items);
+      })
+      .catch(() => {
+        if (!cancelled) setUpcomingError('Не вдалося завантажити бронювання');
+      })
+      .finally(() => {
+        if (!cancelled) setUpcomingLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [station?.id, tab]);
+
+  useEffect(() => {
+    if (!station || tab !== 'analytics') return;
+    const sid = Number(station.id);
+    if (!Number.isFinite(sid)) return;
+    let cancelled = false;
+    setEnergyLoading(true);
+    setEnergyError(null);
+    fetchStationEnergyAnalytics(sid, energyPeriod)
+      .then((data) => {
+        if (!cancelled) setEnergyAnalytics(data);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setEnergyAnalytics(null);
+          setEnergyError('Не вдалося завантажити аналітику');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setEnergyLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [station?.id, tab, energyPeriod]);
 
   const openPortsEditor = () => {
     if (!station) return;
@@ -97,6 +243,22 @@ export default function StationDetailPage() {
     }
   };
 
+  const numericStationId = stationId != null ? Number(stationId) : NaN;
+  if (!stationId || !Number.isFinite(numericStationId)) {
+    return <Navigate to={`${dashBase}/stations`} replace />;
+  }
+
+  if (stationResolveLoading && !station) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 text-center">
+        <p className="text-sm font-medium text-gray-700">Завантаження картки станції…</p>
+        <p className="max-w-sm text-xs text-gray-500">
+          Якщо ви перейшли з іншого розділу, дані підвантажуються напряму з сервера.
+        </p>
+      </div>
+    );
+  }
+
   if (!station) {
     return <Navigate to={`${dashBase}/stations`} replace />;
   }
@@ -105,7 +267,13 @@ export default function StationDetailPage() {
     setTab(t);
     const pathname = `${dashBase}/stations/${station.id}`;
     const hash =
-      t === 'analytics' ? 'station-analytics' : t === 'ports' ? 'station-ports' : '';
+      t === 'analytics'
+        ? 'station-analytics'
+        : t === 'bookings'
+          ? 'station-bookings'
+          : t === 'ports'
+            ? 'station-ports'
+            : '';
     navigate({ pathname, hash }, { replace: true });
   };
 
@@ -189,7 +357,7 @@ export default function StationDetailPage() {
         <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{station.city}</p>
-            <h1 className="mt-0.5 text-2xl font-bold tracking-tight text-gray-900">{station.name}</h1>
+            <h1 className={`mt-0.5 ${stationAdminPageTitle}`}>{station.name}</h1>
             <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-500">
               <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -246,6 +414,9 @@ export default function StationDetailPage() {
           <button type="button" className={tabClass(tab === 'analytics')} onClick={() => goTab('analytics')}>
             Аналітика
           </button>
+          <button type="button" className={tabClass(tab === 'bookings')} onClick={() => goTab('bookings')}>
+            Бронювання
+          </button>
           <button type="button" className={tabClass(tab === 'ports')} onClick={() => goTab('ports')}>
             Порти ({station.ports.length})
           </button>
@@ -260,7 +431,7 @@ export default function StationDetailPage() {
               className={`inline-flex rounded-xl border p-0.5 shadow-sm ${
                 station.archived
                   ? 'border-amber-200/80 bg-amber-100/50'
-                  : 'border-emerald-100/90 bg-emerald-50/40'
+                  : 'border-slate-200 bg-green-50/35'
               }`}
               role="group"
               aria-label="Зміна статусу станції"
@@ -312,51 +483,220 @@ export default function StationDetailPage() {
       </div>
 
       {tab === 'overview' ? (
-        <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-          <AppCard className="space-y-3">
-            <h2 className="text-sm font-semibold text-gray-900">Про станцію</h2>
-            <p className="text-sm text-gray-600">
-              Адреса: <span className="font-medium text-gray-900">{station.address}</span>
-            </p>
-            <p className="text-sm text-gray-600">
-              Місто: <span className="font-medium text-gray-900">{station.city}</span>
-            </p>
-            <p className="text-sm text-gray-600">
-              Країна: <span className="font-medium text-gray-900">{station.country}</span>
-            </p>
-            <p className="text-sm text-gray-600">
-              Координати:{' '}
-              <span className="font-mono text-xs text-gray-800">
-                {station.lat.toFixed(5)}, {station.lng.toFixed(5)}
-              </span>
-            </p>
-            <p className="text-xs text-gray-500">
-              Аналітика та порти — у вкладках вище. Показники за добу — у рядку статистики під заголовком.
-            </p>
-          </AppCard>
-          <div>
-            <h2 className="mb-2 text-sm font-semibold text-gray-900">На карті</h2>
-            <StationMiniMap
-              lat={station.lat}
-              lng={station.lng}
-              status={station.status}
-              label={station.name}
-            />
+        <div className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+            <AppCard className="space-y-3">
+              <h2 className="text-sm font-semibold text-gray-900">Про станцію</h2>
+              <p className="text-sm text-gray-600">
+                Адреса: <span className="font-medium text-gray-900">{station.address}</span>
+              </p>
+              <p className="text-sm text-gray-600">
+                Місто: <span className="font-medium text-gray-900">{station.city}</span>
+              </p>
+              <p className="text-sm text-gray-600">
+                Країна:{' '}
+                <span
+                  className="font-medium text-gray-900"
+                  title={countryIsoTooltip(station.country)}
+                >
+                  {formatCountryLabel(station.country)}
+                </span>
+              </p>
+              <p className="text-sm text-gray-600">
+                Координати:{' '}
+                <span className="font-mono text-xs text-gray-800">
+                  {station.lat.toFixed(5)}, {station.lng.toFixed(5)}
+                </span>
+              </p>
+             
+            </AppCard>
+            <div>
+              <h2 className="mb-2 text-sm font-semibold text-gray-900">На карті</h2>
+              <StationMiniMap
+                lat={station.lat}
+                lng={station.lng}
+                status={station.status}
+                label={station.name}
+              />
+            </div>
           </div>
         </div>
       ) : null}
 
+      {tab === 'bookings' ? (
+        <AppCard className="overflow-hidden border-slate-200 bg-gradient-to-br from-white to-green-50/35 p-0 shadow-sm">
+          <div className="border-b border-slate-200 bg-green-50/50 px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Заплановані бронювання</h2>
+                <p className="mt-0.5 text-xs text-gray-600">
+                  Майбутні слоти на цій станції зі статусом «підтверджено», від найближчого до найпізнішого
+                </p>
+              </div>
+              {!upcomingLoading && !upcomingError ? (
+                <span className="inline-flex items-center rounded-full bg-green-600/10 px-3 py-1 text-xs font-semibold tabular-nums text-green-900">
+                  {upcomingBookings.length}{' '}
+                  {upcomingBookings.length === 1
+                    ? 'запис'
+                    : upcomingBookings.length < 5
+                      ? 'записи'
+                      : 'записів'}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="px-5 py-4">
+            {upcomingLoading ? (
+              <p className="text-sm text-gray-500">Завантаження списку…</p>
+            ) : upcomingError ? (
+              <p className="text-sm text-red-600">{upcomingError}</p>
+            ) : upcomingBookings.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/80 px-4 py-8 text-center">
+                <p className="text-sm font-medium text-gray-700">Немає запланованих бронювань</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Коли з’являться нові підтверджені слоти, вони з’являться тут автоматично.
+                </p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {upcomingBookings.map((b) => {
+                  const { dateLine, timeLine } = fmtBookingRange(b.start, b.end);
+                  const portLabel = `Порт ${b.portNumber}`;
+                  const connectorBit = b.connectorName ? ` · ${b.connectorName}` : '';
+                  const inner = (
+                    <>
+                      <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-green-600/10 text-green-900">
+                        <span className="text-[10px] font-bold uppercase leading-none opacity-80">
+                          {new Date(b.start).toLocaleDateString('uk-UA', { month: 'short' })}
+                        </span>
+                        <span className="text-lg font-bold leading-tight tabular-nums">
+                          {new Date(b.start).getDate()}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-gray-900">{dateLine}</p>
+                        <p className="mt-0.5 text-sm tabular-nums text-gray-600">{timeLine}</p>
+                        <p className="mt-2 text-xs text-gray-500">
+                          <span className="font-semibold text-gray-700">{portLabel}</span>
+                          {connectorBit}
+                        </p>
+                      </div>
+                      <div className="min-w-0 text-right text-sm sm:max-w-[min(100%,280px)]">
+                        <p className="truncate font-medium text-gray-900">
+                          {b.userDisplayName ?? 'Користувач не вказаний'}
+                        </p>
+                        {b.userEmail ? (
+                          <p className="truncate text-xs text-gray-500">{b.userEmail}</p>
+                        ) : null}
+                        {b.vehicleLicensePlate ? (
+                          <p className="mt-1 inline-flex rounded-md bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-800">
+                            {b.vehicleLicensePlate}
+                          </p>
+                        ) : null}
+                      </div>
+                    </>
+                  );
+                  const rowClass =
+                    'flex flex-col gap-4 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:gap-5';
+                  if (isGlobalAdminDash) {
+                    return (
+                      <li key={b.id}>
+                        <Link
+                          to={`${dashBase}/bookings/${b.id}`}
+                          className={`${rowClass} -mx-2 rounded-xl px-2 transition hover:bg-green-50/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/35`}
+                        >
+                          {inner}
+                        </Link>
+                      </li>
+                    );
+                  }
+                  return (
+                    <li key={b.id} className={rowClass}>
+                      {inner}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </AppCard>
+      ) : null}
+
       {tab === 'analytics' ? (
-        <AppCard>
-          <h2 className="text-sm font-semibold text-gray-900">Споживання енергії за добу</h2>
-          <p className="mt-1 text-xs text-gray-500">
-            кВт·год по годинах  . Суму за добу дивіться у рядку статистики під заголовком сторінки.
-          </p>
-          <div className="mt-4 h-72 w-full">
+        <AppCard className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Споживання енергії</h2>
+              <p className="mt-1 text-xs text-gray-500">
+                Накопичене споживання за сесіями (час початку сесії потрапляє у відрізок). Останні 24 години —
+                по годинах; 7 і 30 днів — по календарних добах відрізка.
+              </p>
+              {energyLoading ? (
+                <p className="mt-2 text-xs text-gray-400">Завантаження…</p>
+              ) : energyError ? (
+                <p className="mt-2 text-xs text-red-600">{energyError}</p>
+              ) : energyAnalytics ? (
+                <p className="mt-2 text-xs text-gray-600">
+                  Усього за період:{' '}
+                  <span className="font-semibold text-gray-900">
+                    {energyAnalytics.totalKwh.toLocaleString('uk-UA')} кВт·год
+                  </span>
+                  <span className="text-gray-500">
+                    {' '}
+                    · сесій у відрізку: {energyAnalytics.sessionCount}
+                  </span>
+                </p>
+              ) : null}
+            </div>
+            <div
+              className="flex shrink-0 flex-wrap gap-1.5 rounded-xl border border-gray-200/90 bg-gray-50/80 p-1"
+              role="group"
+              aria-label="Період аналітики"
+            >
+              {(
+                [
+                  { id: '1d' as const, label: '24 год' },
+                  { id: '7d' as const, label: '7 днів' },
+                  { id: '30d' as const, label: '30 днів' },
+                ] as const
+              ).map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setEnergyPeriod(id)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                    energyPeriod === id
+                      ? 'bg-green-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:bg-white hover:text-gray-900'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={hourly} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+              <BarChart
+                data={chartRows}
+                margin={{
+                  top: 8,
+                  right: 8,
+                  left: -8,
+                  bottom: energyAnalytics?.period === '30d' ? 32 : 6,
+                }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                <XAxis dataKey="t" tick={{ fontSize: 10 }} stroke="#9ca3af" interval={3} />
+                <XAxis
+                  dataKey="t"
+                  tick={{ fontSize: 9 }}
+                  stroke="#9ca3af"
+                  interval={energyAnalytics?.period === '1d' ? 3 : energyAnalytics?.period === '30d' ? 2 : 0}
+                  angle={energyAnalytics?.period === '30d' ? -30 : 0}
+                  textAnchor={energyAnalytics?.period === '30d' ? 'end' : 'middle'}
+                  height={energyAnalytics?.period === '30d' ? 48 : undefined}
+                />
                 <YAxis tick={{ fontSize: 10 }} stroke="#9ca3af" />
                 <Tooltip
                   contentStyle={{
@@ -364,6 +704,15 @@ export default function StationDetailPage() {
                     border: '1px solid #e5e7eb',
                     fontSize: 12,
                   }}
+                  formatter={(value) => {
+                    const n = typeof value === 'number' ? value : Number(value);
+                    return [`${Number.isFinite(n) ? n.toLocaleString('uk-UA') : '—'} кВт·год`, 'Споживання'];
+                  }}
+                  labelFormatter={(_label, payload) =>
+                    payload?.[0]?.payload?.fullLabel != null
+                      ? String(payload[0].payload.fullLabel)
+                      : ''
+                  }
                 />
                 <Bar dataKey="kwh" fill="#22c55e" radius={[6, 6, 0, 0]} name="кВт·год" />
               </BarChart>

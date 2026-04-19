@@ -10,7 +10,7 @@ export interface EndUserBooking {
   stationId: string;
   stationName: string;
   slotLabel: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'paid';
   start: string;
   end: string;
 }

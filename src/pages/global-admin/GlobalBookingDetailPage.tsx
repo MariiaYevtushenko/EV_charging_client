@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { fetchAdminNetworkBookingDetail, type AdminBookingDetailDto } from '../../api/adminNetwork';
 import { ApiError } from '../../api/http';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
+import { globalAdminPageTitle } from '../../styles/globalAdminTheme';
 
 function bookingTone(s: string): 'success' | 'warn' | 'muted' | 'danger' | 'info' {
   switch (s) {
     case 'confirmed':
-    case 'completed':
+    case 'paid':
       return 'success';
     case 'pending':
       return 'warn';
@@ -26,7 +27,7 @@ function bookingLabel(s: string) {
       return 'Очікує';
     case 'cancelled':
       return 'Скасовано';
-    case 'completed':
+    case 'paid':
       return 'Завершено';
     default:
       return s;
@@ -99,6 +100,11 @@ function BackArrowIcon({ className }: { className?: string }) {
 }
 
 export default function GlobalBookingDetailPage() {
+  const { pathname } = useLocation();
+  const dashBase = pathname.startsWith('/station-dashboard') ? '/station-dashboard' : '/admin-dashboard';
+  const showGlobalUserLinks = dashBase === '/admin-dashboard';
+  const showSessionDetailLinks = dashBase === '/admin-dashboard';
+
   const { bookingId } = useParams<{ bookingId: string }>();
   const [data, setData] = useState<AdminBookingDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,13 +131,13 @@ export default function GlobalBookingDetailPage() {
     <div className="space-y-6">
       <div>
         <Link
-          to="/admin-dashboard/bookings"
+          to={`${dashBase}/bookings`}
           className="inline-flex items-center gap-2 text-sm font-semibold text-green-700 hover:text-green-800"
         >
           <BackArrowIcon className="h-5 w-5" />
           Назад до списку бронювань
         </Link>
-        <h1 className="mt-4 text-2xl font-bold tracking-tight text-gray-900">Бронювання #{bookingId}</h1>
+        <h1 className={`mt-4 ${globalAdminPageTitle}`}>Бронювання #{bookingId}</h1>
       </div>
 
       {loading ? <p className="text-sm text-gray-500">Завантаження…</p> : null}
@@ -141,18 +147,6 @@ export default function GlobalBookingDetailPage() {
 
       {!loading && data ? (
         <div className="space-y-4">
-          {data.status === 'completed' &&
-          (!(data.sessions ?? []).length ||
-            (data.sessions ?? []).some((s) => s.paymentStatus == null)) ? (
-            <AppCard className="border border-red-200 bg-red-50/90">
-              <p className="text-sm font-medium text-red-900">
-                Для завершеного бронювання (оплачено) у моделі даних очікується хоча б одна{' '}
-                <strong>сесія зарядки</strong> з пов’язаним <strong>рахунком (bill)</strong>. У цьому записі немає
-                сесії або відсутній/неповний bill — перевірте дані в БД та бізнес-процес.
-              </p>
-            </AppCard>
-          ) : null}
-
           <AppCard className="space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -169,33 +163,33 @@ export default function GlobalBookingDetailPage() {
             <div className="grid gap-4 border-t border-gray-100 pt-4 sm:grid-cols-2">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Початок</p>
-                <p className="mt-1 font-medium text-gray-900">{fmtLong(data.start)}</p>
+                <p className="mt-1 font-medium text-slate-900">{fmtLong(data.start)}</p>
               </div>
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Кінець</p>
-                <p className="mt-1 font-medium text-gray-900">{fmtLong(data.end)}</p>
+                <p className="mt-1 font-medium text-slate-900">{fmtLong(data.end)}</p>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Станція</p>
-                <p className="mt-1 font-medium text-gray-900">{data.stationName}</p>
+                <p className="mt-1 font-medium text-slate-900">{data.stationName}</p>
                 <p className="mt-1 text-sm text-gray-600">
                   Порт №{data.portNumber} · {data.slotLabel}
                 </p>
                 <Link
-                  to={`/admin-dashboard/stations/${data.stationId}`}
+                  to={`${dashBase}/stations/${encodeURIComponent(data.stationId)}`}
                   className="mt-2 inline-block text-sm font-semibold text-green-700 hover:text-green-800"
                 >
-                  Картка станції
+                  Детальна інформація про станцію
                 </Link>
               </div>
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Користувач</p>
-                <p className="mt-1 font-medium text-gray-900">{data.userName}</p>
+                <p className="mt-1 font-medium text-slate-900">{data.userName}</p>
                 {data.userEmail ? <p className="mt-1 text-sm text-gray-600">{data.userEmail}</p> : null}
-                {data.userId ? (
+                {data.userId && showGlobalUserLinks ? (
                   <Link
                     to={`/admin-dashboard/users/${data.userId}`}
                     className="mt-2 inline-block text-sm font-semibold text-green-700 hover:text-green-800"
@@ -209,11 +203,11 @@ export default function GlobalBookingDetailPage() {
             <div className="grid gap-4 border-t border-gray-100 pt-4 sm:grid-cols-2">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Тип бронювання</p>
-                <p className="mt-1 text-gray-900">{bookingTypeLabel(data.bookingType)}</p>
+                <p className="mt-1 text-slate-900">{bookingTypeLabel(data.bookingType)}</p>
               </div>
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Передоплата</p>
-                <p className="mt-1 tabular-nums text-gray-900">
+                <p className="mt-1 tabular-nums text-slate-900">
                   {data.prepaymentAmount.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
                   грн
                 </p>
@@ -223,7 +217,7 @@ export default function GlobalBookingDetailPage() {
             {data.vehicle ? (
               <div className="border-t border-gray-100 pt-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Авто</p>
-                <p className="mt-1 text-gray-900">
+                <p className="mt-1 text-slate-900">
                   {data.vehicle.model} · {data.vehicle.plate}
                 </p>
               </div>
@@ -234,7 +228,7 @@ export default function GlobalBookingDetailPage() {
 
           {(data.sessions ?? []).length > 0 ? (
             <AppCard className="space-y-4">
-              <h2 className="text-base font-semibold text-gray-900">Сесії зарядки за бронюванням</h2>
+              <h2 className="text-base font-semibold text-slate-900">Сесії зарядки за бронюванням</h2>
               <ul className="space-y-4">
                 {(data.sessions ?? []).map((s) => (
                   <li
@@ -245,34 +239,36 @@ export default function GlobalBookingDetailPage() {
                       <p className="font-mono text-xs text-gray-500">Сесія #{s.id}</p>
                       <div className="flex flex-wrap items-center gap-2">
                         <StatusPill tone={sessionTone(s.status)}>{sessionLabel(s.status)}</StatusPill>
-                        <Link
-                          to={`/admin-dashboard/sessions/${s.id}`}
-                          className="text-sm font-semibold text-green-700 hover:text-green-800"
-                        >
-                          Деталі сесії
-                        </Link>
+                        {showSessionDetailLinks ? (
+                          <Link
+                            to={`${dashBase}/sessions/${s.id}`}
+                            className="text-sm font-semibold text-green-700 hover:text-green-800"
+                          >
+                            Деталі сесії
+                          </Link>
+                        ) : null}
                       </div>
                     </div>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       <div>
                         <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Початок</p>
-                        <p className="mt-0.5 text-gray-900">{fmtLong(s.startedAt)}</p>
+                        <p className="mt-0.5 text-slate-900">{fmtLong(s.startedAt)}</p>
                       </div>
                       <div>
                         <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Кінець</p>
-                        <p className="mt-0.5 text-gray-900">
+                        <p className="mt-0.5 text-slate-900">
                           {s.endedAt ? fmtLong(s.endedAt) : '— (активна)'}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Енергія</p>
-                        <p className="mt-0.5 tabular-nums text-gray-900">
+                        <p className="mt-0.5 tabular-nums text-slate-900">
                           {s.kwh.toLocaleString('uk-UA', { maximumFractionDigits: 3 })} кВт·год
                         </p>
                       </div>
                       <div>
                         <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сума (bill)</p>
-                        <p className="mt-0.5 tabular-nums text-gray-900">
+                        <p className="mt-0.5 tabular-nums text-slate-900">
                           {s.cost != null
                             ? `${s.cost.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} грн`
                             : '—'}
@@ -280,7 +276,7 @@ export default function GlobalBookingDetailPage() {
                       </div>
                       <div>
                         <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Оплата</p>
-                        <p className="mt-0.5 text-gray-900">
+                        <p className="mt-0.5 text-slate-900">
                           {s.paymentStatus ? (
                             <span className="inline-flex items-center gap-2">
                               <span>{payStatusLabel(s.paymentStatus)}</span>

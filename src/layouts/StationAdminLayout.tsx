@@ -2,6 +2,16 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import SeedDemoDataButton from '../components/SeedDemoDataButton';
+import {
+  stationAdminHeaderBar,
+  stationAdminHeaderSearchInput,
+  stationAdminLogoutButton,
+  stationAdminMobileMenuButton,
+  stationAdminNavLinkActive,
+  stationAdminNavLinkIdle,
+  stationAdminSidebar,
+  stationAdminSidebarFooterBorder,
+} from '../styles/stationAdminTheme';
 
 /** Вузький режим: ширина вікна менша за 2/3 ширини екрана — панель ховається, відкривається кнопкою меню. */
 function useNarrowSidebar() {
@@ -21,11 +31,7 @@ function useNarrowSidebar() {
 }
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-    isActive
-      ? 'bg-green-600 text-white shadow-md shadow-green-600/25'
-      : 'text-gray-600 hover:bg-emerald-50/90 hover:text-gray-900 hover:shadow-sm'
-  }`;
+  isActive ? stationAdminNavLinkActive : stationAdminNavLinkIdle;
 
 function BoltIcon({ className }: { className?: string }) {
   return (
@@ -105,19 +111,6 @@ function CalendarIcon({ className }: { className?: string }) {
   );
 }
 
-function SessionsIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-      />
-    </svg>
-  );
-}
-
 function UserIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -168,7 +161,7 @@ export default function StationAdminLayout() {
       .toUpperCase() ?? '?';
 
   const asideClassName = [
-    'flex h-full w-64 shrink-0 flex-col overflow-y-auto border-r border-emerald-200/60 bg-white px-4 py-6 shadow-sm',
+    stationAdminSidebar,
     narrowSidebar
       ? `fixed left-0 top-0 z-40 h-dvh max-h-dvh transition-transform duration-200 ease-out ${
           mobileNavOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full'
@@ -177,7 +170,7 @@ export default function StationAdminLayout() {
   ].join(' ');
 
   return (
-    <div className="flex h-dvh max-h-dvh overflow-hidden bg-transparent text-gray-900 antialiased">
+    <div className="flex h-dvh max-h-dvh overflow-hidden bg-transparent text-slate-900 antialiased">
       {narrowSidebar && mobileNavOpen ? (
         <button
           type="button"
@@ -197,8 +190,8 @@ export default function StationAdminLayout() {
             <BoltIcon className="h-6 w-6" />
           </div>
           <div className="min-w-0 text-left">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">EV Stations</p>
-            <p className="text-sm font-bold text-gray-900">Адмін станцій</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">EV Stations</p>
+            <p className="text-sm font-bold text-slate-900">Адмін станцій</p>
           </div>
         </Link>
 
@@ -219,10 +212,6 @@ export default function StationAdminLayout() {
             <CalendarIcon className="h-5 w-5 shrink-0 opacity-90" />
             Бронювання
           </NavLink>
-          <NavLink to="/station-dashboard/sessions" className={navLinkClass}>
-            <SessionsIcon className="h-5 w-5 shrink-0 opacity-90" />
-            Сесії
-          </NavLink>
           <NavLink to="/station-dashboard/analytics" className={navLinkClass}>
             <ChartIcon className="h-5 w-5 shrink-0 opacity-90" />
             Аналітика
@@ -233,12 +222,12 @@ export default function StationAdminLayout() {
           </NavLink>
         </nav>
 
-        <div className="mt-auto flex flex-col gap-3 border-t border-emerald-100/80 pt-4">
+        <div className={stationAdminSidebarFooterBorder}>
           <SeedDemoDataButton />
           <button
             type="button"
             onClick={handleLogout}
-            className="rounded-xl border border-emerald-200/80 bg-white/70 px-3 py-2.5 text-left text-sm font-medium text-gray-600 shadow-sm transition hover:border-emerald-300 hover:bg-white hover:text-gray-900"
+            className={stationAdminLogoutButton}
           >
             Вийти
           </button>
@@ -246,12 +235,12 @@ export default function StationAdminLayout() {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="z-10 flex h-16 shrink-0 items-center gap-4 border-b border-emerald-100/90 bg-white/90 px-4 shadow-sm shadow-emerald-900/5 backdrop-blur-md sm:px-6">
+        <header className={stationAdminHeaderBar}>
           {narrowSidebar ? (
             <button
               type="button"
               onClick={() => setMobileNavOpen((o) => !o)}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-100/90 bg-white/90 text-gray-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50/80 hover:text-green-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+              className={stationAdminMobileMenuButton}
               aria-expanded={mobileNavOpen}
               aria-controls="station-admin-nav"
               title="Меню"
@@ -261,7 +250,7 @@ export default function StationAdminLayout() {
             </button>
           ) : null}
           <div className="relative min-w-0 max-w-xl flex-1">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path
                   strokeLinecap="round"
@@ -274,12 +263,12 @@ export default function StationAdminLayout() {
             <input
               type="search"
               placeholder="Пошук..."
-              className="w-full rounded-2xl border border-emerald-100/90 bg-emerald-50/40 py-2.5 pl-10 pr-4 text-sm outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:shadow-[0_0_0_3px_rgba(34,197,94,0.15)] focus:ring-0"
+              className={stationAdminHeaderSearchInput}
             />
           </div>
           <div className="ml-auto flex items-center gap-2 sm:gap-4">
             <div className="hidden text-right sm:block">
-              <p className="text-sm font-semibold text-gray-900">{user?.name ?? 'Користувач'}</p>
+              <p className="text-sm font-semibold text-slate-900">{user?.name ?? 'Користувач'}</p>
             
             </div>
             <Link

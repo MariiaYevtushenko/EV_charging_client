@@ -12,7 +12,11 @@ import { fetchAdminNetworkBookings, fetchAdminNetworkSessions } from "../api/adm
 
 type StationAdminNetworkContextValue = {
   bookings: AdminNetworkBookingRow[];
+  /** Усього бронювань у мережі (для KPI), незалежно від розміру завантаженого слайсу. */
+  bookingsTotal: number;
   sessions: AdminNetworkSessionRow[];
+  /** Усього сесій у мережі (для KPI). */
+  sessionsTotal: number;
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
@@ -24,7 +28,9 @@ const StationAdminNetworkContext = createContext<StationAdminNetworkContextValue
 
 export function StationAdminNetworkProvider({ children }: { children: ReactNode }) {
   const [bookings, setBookings] = useState<AdminNetworkBookingRow[]>([]);
+  const [bookingsTotal, setBookingsTotal] = useState(0);
   const [sessions, setSessions] = useState<AdminNetworkSessionRow[]>([]);
+  const [sessionsTotal, setSessionsTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,11 +42,15 @@ export function StationAdminNetworkProvider({ children }: { children: ReactNode 
         fetchAdminNetworkBookings(),
         fetchAdminNetworkSessions(),
       ]);
-      setBookings(b);
-      setSessions(s);
+      setBookings(b.items);
+      setBookingsTotal(b.total);
+      setSessions(s.items);
+      setSessionsTotal(s.total);
     } catch (e) {
       setBookings([]);
+      setBookingsTotal(0);
       setSessions([]);
+      setSessionsTotal(0);
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
@@ -54,12 +64,14 @@ export function StationAdminNetworkProvider({ children }: { children: ReactNode 
   const value = useMemo(
     () => ({
       bookings,
+      bookingsTotal,
       sessions,
+      sessionsTotal,
       loading,
       error,
       reload,
     }),
-    [bookings, sessions, loading, error, reload]
+    [bookings, bookingsTotal, sessions, sessionsTotal, loading, error, reload]
   );
 
   return (

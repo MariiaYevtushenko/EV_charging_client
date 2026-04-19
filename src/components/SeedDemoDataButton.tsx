@@ -5,12 +5,10 @@ import { OutlineButton } from './station-admin/Primitives';
 type StatusResponse = { enabled: true; alreadyRun: boolean };
 
 const MSG_ALREADY_FROM_SERVER =
-  'За цей запуск сервера SEED вже виконувався. Оновіть сторінку списку станцій, щоб побачити дані.';
+  'Дані вже завантажені';
 
-/**
- * Повне заповнення БД (seed-all-data: користувачі, авто, станції з CSV, тарифи, booking/session/bill).
- * Один раз за процес API. Показується лише якщо ALLOW_DEV_SEED=true. Сайдбар над «Вийти».
- */
+
+  // Запуск SEED з сервера
 export default function SeedDemoDataButton() {
   const [visible, setVisible] = useState(false);
   const [alreadyRun, setAlreadyRun] = useState(false);

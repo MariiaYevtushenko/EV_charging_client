@@ -3,7 +3,6 @@ export interface UserCar {
   plate: string;
   model: string;
   connector: string;
-  /** URL фото (ручний або підібраний за моделлю) */
   imageUrl?: string;
 }
 

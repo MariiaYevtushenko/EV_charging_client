@@ -1,11 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useUserPortal } from '../../context/UserPortalContext';
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
-import { appFormInputClass, appSelectClass } from '../../components/station-admin/formStyles';
+import { appFormInputClass } from '../../components/station-admin/formStyles';
 import { DEFAULT_CAR_IMAGE, suggestCarImageByModel } from '../../utils/carImageSuggest';
-
-const CONNECTORS = ['Type 2', 'CCS2', 'CHAdeMO'] as const;
 
 export default function UserCarEditPage() {
   const { carId } = useParams<{ carId: string }>();
@@ -15,22 +13,14 @@ export default function UserCarEditPage() {
 
   const [plate, setPlate] = useState('');
   const [model, setModel] = useState('');
-  const [connector, setConnector] = useState<string>('Type 2');
-  const [imageUrl, setImageUrl] = useState('');
 
   useEffect(() => {
     if (!car) return;
     setPlate(car.plate);
     setModel(car.model);
-    setConnector(car.connector);
-    setImageUrl(car.imageUrl?.trim() ?? '');
   }, [car]);
 
-  const previewSrc = imageUrl.trim() || (model.trim() ? suggestCarImageByModel(model) : DEFAULT_CAR_IMAGE);
-
-  const handleSuggest = () => {
-    setImageUrl(suggestCarImageByModel(model));
-  };
+  const previewSrc = useMemo(() => suggestCarImageByModel(model), [model]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -38,8 +28,8 @@ export default function UserCarEditPage() {
     updateCar(carId, {
       plate: plate.trim(),
       model: model.trim(),
-      connector,
-      imageUrl: imageUrl.trim() || suggestCarImageByModel(model.trim()),
+      connector: 'Type 2',
+      imageUrl: undefined,
     });
     navigate('/dashboard/cars');
   };
@@ -64,14 +54,21 @@ export default function UserCarEditPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Редагувати авто</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Оновіть модель, номер, конектор або фото — як при додаванні нового авто.
+          Зображення оновлюється автоматично, коли ви змінюєте назву моделі.
         </p>
       </div>
 
       <AppCard>
         <div className="overflow-hidden rounded-2xl bg-gray-100 ring-1 ring-gray-200">
           <div className="aspect-[16/10] w-full">
-            <img src={previewSrc} alt="" className="h-full w-full object-cover" />
+            <img
+              src={previewSrc}
+              alt=""
+              className="h-full w-full object-cover"
+              onError={(ev) => {
+                (ev.target as HTMLImageElement).src = DEFAULT_CAR_IMAGE;
+              }}
+            />
           </div>
         </div>
 
@@ -99,41 +96,6 @@ export default function UserCarEditPage() {
               placeholder="KA 0000 AA"
               className={appFormInputClass}
             />
-          </div>
-          <div>
-            <label htmlFor="edit-car-conn" className="text-sm font-medium text-gray-700">
-              Конектор
-            </label>
-            <select
-              id="edit-car-conn"
-              value={connector}
-              onChange={(e) => setConnector(e.target.value)}
-              className={`mt-1 ${appSelectClass}`}
-            >
-              {CONNECTORS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="edit-car-img" className="text-sm font-medium text-gray-700">
-              URL фото (необов’язково)
-            </label>
-            <input
-              id="edit-car-img"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://…"
-              type="url"
-              className={appFormInputClass}
-            />
-            <div className="mt-2">
-              <OutlineButton type="button" className="!text-xs" onClick={handleSuggest}>
-                Підібрати фото за моделлю
-              </OutlineButton>
-            </div>
           </div>
 
           <div className="flex flex-wrap gap-3 border-t border-gray-100 pt-6">

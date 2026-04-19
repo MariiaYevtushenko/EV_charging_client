@@ -1,21 +1,20 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useGlobalAdmin } from '../../context/GlobalAdminContext';
 import AdminListPagination from '../../components/admin/AdminListPagination';
-import SortableTableTh, {
-  defaultDirForSortColumn,
-  type SortDir,
-} from '../../components/admin/SortableTableTh';
+import SortableTableTh, { defaultDirForSortColumn } from '../../components/admin/SortableTableTh';
+import type { AdminUsersSortKey } from '../../api/adminUsers';
 import type { EvUserRole } from '../../types/globalAdmin';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
+import { globalAdminPageTitle, globalAdminSearchInput } from '../../styles/globalAdminTheme';
 
-type UserSortKey = 'name' | 'email' | 'phone' | 'role';
+const USERS_SEARCH_DEBOUNCE_MS = 350;
 
 const ROLE_CARDS: { id: EvUserRole; label: string; pillTone: 'success' | 'warn' | 'danger' }[] = [
   { id: 'USER', label: 'Користувачі', pillTone: 'success' },
   { id: 'STATION_ADMIN', label: 'Адміністратори станцій', pillTone: 'warn' },
-  { id: 'ADMIN', label: 'Глобальні адміністратори', pillTone: 'danger' },
+  { id: 'ADMIN', label: 'Адміністратори', pillTone: 'danger' },
 ];
 
 function roleLabel(role: EvUserRole | undefined): string {
@@ -25,36 +24,23 @@ function roleLabel(role: EvUserRole | undefined): string {
     case 'STATION_ADMIN':
       return 'Адмін станції';
     case 'ADMIN':
-      return 'Глобальний адмін';
+      return 'Адміністратор';
     default:
       return '—';
   }
 }
 
-function cmpUsers(
-  a: { name: string; email: string; phone: string; role?: EvUserRole },
-  b: { name: string; email: string; phone: string; role?: EvUserRole },
-  sortKey: UserSortKey,
-  sortDir: SortDir
-): number {
-  let c = 0;
-  switch (sortKey) {
-    case 'name':
-      c = a.name.localeCompare(b.name, 'uk');
-      break;
-    case 'email':
-      c = a.email.localeCompare(b.email, 'uk');
-      break;
-    case 'phone':
-      c = a.phone.localeCompare(b.phone, 'uk');
-      break;
-    case 'role':
-      c = roleLabel(a.role).localeCompare(roleLabel(b.role), 'uk');
-      break;
-    default:
-      c = a.name.localeCompare(b.name, 'uk');
-  }
-  return sortDir === 'desc' ? -c : c;
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+      />
+    </svg>
+  );
 }
 
 function PencilIcon({ className }: { className?: string }) {
@@ -82,21 +68,34 @@ export default function GlobalUsersPage() {
     setUsersPage,
     usersRoleFilter,
     setUsersRoleFilter,
+    usersSearchQuery,
+    setUsersSearchQuery,
     usersRoleCounts,
+    usersSortKey,
+    usersSortDir,
+    setUsersSort,
   } = useGlobalAdmin();
 
-  const [sortKey, setSortKey] = useState<UserSortKey>('name');
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [searchDraft, setSearchDraft] = useState(usersSearchQuery);
 
-  const onSort = useCallback((key: string) => {
-    const k = key as UserSortKey;
-    if (sortKey === k) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(k);
-      setSortDir(defaultDirForSortColumn(k));
-    }
-  }, [sortKey]);
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setUsersSearchQuery(searchDraft.trim());
+    }, USERS_SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
+  }, [searchDraft, setUsersSearchQuery]);
+
+  const onSort = useCallback(
+    (key: string) => {
+      const k = key as AdminUsersSortKey;
+      if (usersSortKey === k) {
+        setUsersSort(k, usersSortDir === 'asc' ? 'desc' : 'asc');
+      } else {
+        setUsersSort(k, defaultDirForSortColumn(k));
+      }
+    },
+    [usersSortKey, usersSortDir, setUsersSort]
+  );
 
   const toggleRoleFilter = useCallback(
     (id: EvUserRole) => {
@@ -110,14 +109,37 @@ export default function GlobalUsersPage() {
     if (currentUser?.id) {
       list = list.filter((u) => u.id !== currentUser.id);
     }
-    return [...list].sort((a, b) => cmpUsers(a, b, sortKey, sortDir));
-  }, [endUsers, currentUser?.id, sortKey, sortDir]);
+    return list;
+  }, [endUsers, currentUser?.id]);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Користувачі</h1>
+          <h1 className={globalAdminPageTitle}>Користувачі</h1>
+          <div className="mt-3 max-w-xl">
+            <label htmlFor="global-users-search" className="sr-only">
+              Пошук користувачів
+            </label>
+            <div className="relative">
+              <span
+                className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"
+                aria-hidden
+              >
+                <SearchIcon className="h-5 w-5" />
+              </span>
+              <input
+                id="global-users-search"
+                type="search"
+                value={searchDraft}
+                onChange={(e) => setSearchDraft(e.target.value)}
+                placeholder="Пошук за ім’ям, прізвищем, email або телефоном…"
+                className={globalAdminSearchInput}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -132,14 +154,14 @@ export default function GlobalUsersPage() {
                   type="button"
                   onClick={() => toggleRoleFilter(id)}
                   aria-pressed={selected}
-                  className={`flex flex-col gap-2 rounded-2xl border p-4 text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 ${
+                  className={`flex flex-col items-center gap-2 rounded-2xl border p-4 text-center shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/50 ${
                     selected
-                      ? 'border-emerald-500 bg-emerald-50/95 ring-2 ring-emerald-500/80 ring-offset-1 ring-offset-white'
-                      : 'border-emerald-100/90 bg-white/95 ring-1 ring-emerald-950/[0.04] hover:border-emerald-200 hover:bg-emerald-50/40'
+                      ? 'border-green-600 bg-green-50/95 ring-2 ring-green-500/80 ring-offset-1 ring-offset-white'
+                      : 'border-green-100/90 bg-white/95 ring-1 ring-slate-900/[0.04] hover:border-green-200 hover:bg-green-50/40'
                   }`}
                 >
                   <StatusPill tone={pillTone}>{label}</StatusPill>
-                  <p className="text-2xl font-bold tabular-nums text-gray-900">
+                  <p className="text-2xl font-bold tabular-nums text-slate-900">
                     {usersRoleCounts[id]}
                   </p>
                 </button>
@@ -156,29 +178,29 @@ export default function GlobalUsersPage() {
               <SortableTableTh
                 label="ПІБ"
                 columnKey="name"
-                activeKey={sortKey}
-                dir={sortDir}
+                activeKey={usersSortKey}
+                dir={usersSortDir}
                 onSort={onSort}
               />
               <SortableTableTh
                 label="Email"
                 columnKey="email"
-                activeKey={sortKey}
-                dir={sortDir}
+                activeKey={usersSortKey}
+                dir={usersSortDir}
                 onSort={onSort}
               />
               <SortableTableTh
                 label="Телефон"
                 columnKey="phone"
-                activeKey={sortKey}
-                dir={sortDir}
+                activeKey={usersSortKey}
+                dir={usersSortDir}
                 onSort={onSort}
               />
               <SortableTableTh
                 label="Роль"
                 columnKey="role"
-                activeKey={sortKey}
-                dir={sortDir}
+                activeKey={usersSortKey}
+                dir={usersSortDir}
                 onSort={onSort}
               />
               <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -197,7 +219,7 @@ export default function GlobalUsersPage() {
               rows.map((u) => (
                 <tr
                   key={u.id}
-                  className="cursor-pointer bg-white transition hover:bg-emerald-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35"
+                  className="cursor-pointer bg-white transition hover:bg-green-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/35"
                   tabIndex={0}
                   aria-label={`Відкрити картку «${u.name}»`}
                   onClick={() => navigate(`/admin-dashboard/users/${u.id}`)}
@@ -208,7 +230,7 @@ export default function GlobalUsersPage() {
                     }
                   }}
                 >
-                  <td className="px-4 py-3 font-medium text-gray-900">{u.name}</td>
+                  <td className="px-4 py-3 font-medium text-slate-900">{u.name}</td>
                   <td className="max-w-[200px] truncate px-4 py-3 text-gray-600" title={u.email}>
                     {u.email}
                   </td>
@@ -232,7 +254,9 @@ export default function GlobalUsersPage() {
         </table>
         {endUsersReady && rows.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-gray-500">
-            Немає записів для відображення (або лише ваш обліковий запис, який не показується).
+            {usersSearchQuery.trim()
+              ? 'Нічого не знайдено за цим запитом. Спробуйте змінити пошук або фільтр ролі.'
+              : 'Немає записів для відображення (або лише ваш обліковий запис, який не показується).'}
           </p>
         ) : null}
       </AppCard>

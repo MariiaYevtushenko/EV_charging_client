@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
-import { fetchAdminNetworkSessionDetail, type AdminSessionDetailDto } from '../../api/adminNetwork';
+import {
+  fetchAdminNetworkSessionDetail,
+  postAdminNetworkSessionComplete,
+  type AdminSessionDetailDto,
+} from '../../api/adminNetwork';
 import { ApiError } from '../../api/http';
 import AdminSessionDetailView, {
   AdminSessionDetailBackLink,
 } from '../../components/admin/AdminSessionDetailView';
+import { globalAdminPageTitle } from '../../styles/globalAdminTheme';
 
 export default function GlobalSessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -12,6 +17,8 @@ export default function GlobalSessionDetailPage() {
   const [data, setData] = useState<AdminSessionDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [completing, setCompleting] = useState(false);
+  const [completeError, setCompleteError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!sessionId) return;
@@ -30,6 +37,23 @@ export default function GlobalSessionDetailPage() {
     void load();
   }, [load]);
 
+  const handleCompleteSession = useCallback(
+    async (opts: { kwhConsumed?: number }) => {
+      if (!sessionId) return;
+      setCompleting(true);
+      setCompleteError(null);
+      try {
+        const updated = await postAdminNetworkSessionComplete(sessionId, opts);
+        setData(updated);
+      } catch (e: unknown) {
+        setCompleteError(e instanceof ApiError ? e.message : 'Не вдалося завершити сесію');
+      } finally {
+        setCompleting(false);
+      }
+    },
+    [sessionId]
+  );
+
   useEffect(() => {
     const focusBill = (location.state as { focusBill?: boolean } | null)?.focusBill;
     if (!focusBill || loading || !data) return;
@@ -39,11 +63,20 @@ export default function GlobalSessionDetailPage() {
     return () => clearTimeout(id);
   }, [loading, data, location.state]);
 
+  const fromUserId = (location.state as { fromUserId?: string } | null)?.fromUserId;
+
   return (
     <div className="space-y-6">
       <div>
-        <AdminSessionDetailBackLink to="/admin-dashboard/sessions">Назад до списку сесій</AdminSessionDetailBackLink>
-        <h1 className="mt-4 text-2xl font-bold tracking-tight text-gray-900">Сесія #{sessionId}</h1>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-1">
+          {fromUserId ? (
+            <AdminSessionDetailBackLink to={`/admin-dashboard/users/${encodeURIComponent(fromUserId)}`}>
+              До профілю користувача
+            </AdminSessionDetailBackLink>
+          ) : null}
+          <AdminSessionDetailBackLink to="/admin-dashboard/sessions">До списку сесій</AdminSessionDetailBackLink>
+        </div>
+        <h1 className={`mt-4 ${globalAdminPageTitle}`}>Сесія #{sessionId}</h1>
       </div>
 
       {loading ? <p className="text-sm text-gray-500">Завантаження…</p> : null}
@@ -58,6 +91,11 @@ export default function GlobalSessionDetailPage() {
             stationHref: (stationId) => `/admin-dashboard/stations/${stationId}`,
             userHref: (userId) => `/admin-dashboard/users/${userId}`,
             bookingHref: (bookingId) => `/admin-dashboard/bookings/${bookingId}`,
+          }}
+          sessionControl={{
+            onComplete: handleCompleteSession,
+            completing,
+            error: completeError,
           }}
         />
       ) : null}
