@@ -429,20 +429,20 @@ export default function AdminSessionDetailView({ data, links, sessionControl }: 
            
           </div>
         ) : (
-          <div className="flex flex-1 flex-col justify-center p-4 sm:p-5">
+          <div className="flex flex-1 flex-col items-center justify-center p-4 text-center sm:p-5">
             {data.status === 'failed' ? (
-              <p className="text-sm text-slate-600">
+              <p className="max-w-md text-sm text-slate-600">
                 Рахунок для цієї сесії не показується: при статусі «Помилка» запис у таблиці{' '}
                 <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">bill</code> не
                 створюється.
               </p>
             ) : data.status === 'active' ? (
-              <p className="text-sm text-slate-600">
+              <p className="max-w-md text-sm text-slate-600">
                 Рахунок ще не сформовано — сесія активна. Після завершення тут з’явиться підсумок
                 оплати.
               </p>
             ) : (
-              <p className="text-sm text-amber-900">
+              <p className="max-w-md text-sm text-amber-900">
                 Рахунок ще не сформовано. Для завершених сесій очікується запис у таблиці{' '}
                 <code className="rounded bg-amber-50 px-1.5 py-0.5 text-xs">bill</code>.
               </p>

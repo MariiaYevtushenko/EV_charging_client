@@ -25,6 +25,11 @@ export const stationFormBackLink =
 export const stationFormBackIconLink =
   'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-green-600 transition hover:bg-green-50 hover:text-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40';
 
+/**
+ * Картка станції / деталі користувача: стрілка трохи лівіше від заголовка (як у `GlobalUserDetailPage`).
+ */
+export const stationDetailBackIconLink = `${stationFormBackIconLink} -ml-3 shrink-0 sm:-ml-4`;
+
 /** Двоколонкова форма: на lg карта зліва лишається на місці, форма справа скролиться. */
 export const stationFormSplitGrid =
   'grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:items-start';

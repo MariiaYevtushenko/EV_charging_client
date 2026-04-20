@@ -1,9 +1,7 @@
 import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
 import { useStations } from '../../context/StationsContext';
 import { useStationAdminNetwork } from '../../context/StationAdminNetworkContext';
 import { AppCard } from '../../components/station-admin/Primitives';
-import { fetchAdminDashboard } from '../../api/adminDashboard';
 import {
   stationAdminKpiIconTile,
   stationAdminLinkAccent,
@@ -75,42 +73,12 @@ function IconChevron({ className }: { className?: string }) {
 const kpiLinkClass = `group flex items-center gap-1 ${stationAdminLinkAccent}`;
 
 export default function StationAdminHome() {
-  const { bookingsTotal, loading: networkLoading } = useStationAdminNetwork();
+  const { bookingsTotal, sessionsTotal, loading: networkLoading } = useStationAdminNetwork();
   const { stationsTotal, stationStatusCounts, loading: stationsLoading } = useStations();
-
-  const [dashLoading, setDashLoading] = useState(true);
-  const [todayRev, setTodayRev] = useState<number | null>(null);
-  const [todaySess, setTodaySess] = useState<number | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setDashLoading(true);
-    void fetchAdminDashboard()
-      .then((d) => {
-        if (!cancelled) {
-          setTodayRev(d.todayRevenueUah);
-          setTodaySess(d.todaySessions);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setTodayRev(null);
-          setTodaySess(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setDashLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const working = stationStatusCounts?.working ?? 0;
   const offline = stationStatusCounts?.offline ?? 0;
   const maintenance = stationStatusCounts?.maintenance ?? 0;
-
-  const showTodayRow = dashLoading || (todayRev != null && todaySess != null);
 
   return (
     <div className="space-y-6">
@@ -121,22 +89,6 @@ export default function StationAdminHome() {
       <div>
         <h2 className={stationAdminSectionLabel}>Зведення</h2>
         <AppCard padding={false} className="overflow-hidden !shadow-sm">
-          {showTodayRow ? (
-            <div className="grid grid-cols-2 divide-x divide-slate-200 border-b border-slate-200 bg-green-50/40">
-              <div className="px-4 py-3.5 sm:px-5">
-                <p className="text-xs font-medium text-slate-500">Дохід сьогодні</p>
-                <p className="mt-1 text-xl font-bold tabular-nums text-green-700">
-                  {dashLoading ? '…' : `${todayRev!.toLocaleString('uk-UA')} грн`}
-                </p>
-              </div>
-              <div className="px-4 py-3.5 sm:px-5">
-                <p className="text-xs font-medium text-slate-500">Сесії сьогодні</p>
-                <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">
-                  {dashLoading ? '…' : todaySess!.toLocaleString('uk-UA')}
-                </p>
-              </div>
-            </div>
-          ) : null}
           <div className="grid divide-y divide-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             <div className="px-4 py-3.5 sm:px-5">
               <p className="text-xs font-medium text-slate-500">Працює</p>
@@ -154,6 +106,20 @@ export default function StationAdminHome() {
               <p className="text-xs font-medium text-slate-500">Обслуговування</p>
               <p className="mt-1 text-xl font-bold tabular-nums text-amber-800">
                 {stationsLoading ? '…' : maintenance.toLocaleString('uk-UA')}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 divide-x divide-slate-200 border-t border-slate-200 bg-slate-50/50">
+            <div className="px-4 py-3.5 sm:px-5">
+              <p className="text-xs font-medium text-slate-500">Сесії</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">
+                {networkLoading ? '…' : sessionsTotal.toLocaleString('uk-UA')}
+              </p>
+            </div>
+            <div className="px-4 py-3.5 sm:px-5">
+              <p className="text-xs font-medium text-slate-500">Бронювання</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">
+                {networkLoading ? '…' : bookingsTotal.toLocaleString('uk-UA')}
               </p>
             </div>
           </div>

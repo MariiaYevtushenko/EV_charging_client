@@ -191,7 +191,7 @@ export default function GlobalPaymentsPage() {
               type="search"
               value={searchDraft}
               onChange={(e) => setSearchDraft(e.target.value)}
-              placeholder="Пошук за ID, сесією, користувачем, методом, сумою…"
+              placeholder="Пошук за сесією, користувачем..."
               className={globalAdminSearchInput}
               autoComplete="off"
               spellCheck={false}

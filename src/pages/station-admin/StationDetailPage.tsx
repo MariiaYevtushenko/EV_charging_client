@@ -24,7 +24,6 @@ import { useStations } from '../../context/StationsContext';
 import { stationFromDashboardDto } from '../../utils/stationFromDashboardDto';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import StationPortsEditor from '../../components/station-admin/StationPortsEditor';
-import StationMiniMap from '../../components/station-admin/StationMiniMap';
 import {
   AppCard,
   DangerButton,
@@ -38,6 +37,7 @@ import {
   stationAdminPageTitle,
   stationAdminUnderlineTabActive,
   stationAdminUnderlineTabIdle,
+  stationDetailBackIconLink,
   stationFormBackIconLink,
 } from '../../styles/stationAdminTheme';
 import { FloatingToast, FloatingToastRegion } from '../../components/admin/FloatingToast';
@@ -58,17 +58,16 @@ function PencilIcon({ className }: { className?: string }) {
 
 type StationDetailLocationState = { stationNotice?: 'created' | 'updated' | 'archived' };
 
-type DetailTab = 'overview' | 'analytics' | 'bookings' | 'ports';
+type DetailTab = 'analytics' | 'bookings' | 'ports';
 
 const tabClass = (active: boolean) =>
   active ? stationAdminUnderlineTabActive : stationAdminUnderlineTabIdle;
 
-function tabFromHash(hash: string, isGlobalAdmin: boolean): DetailTab {
+function tabFromHash(hash: string): DetailTab {
   if (hash === '#station-analytics') return 'analytics';
   if (hash === '#station-bookings') return 'bookings';
   if (hash === '#station-ports') return 'ports';
-  if (isGlobalAdmin) return 'analytics';
-  return 'overview';
+  return 'analytics';
 }
 
 function formatChartAxisLabel(iso: string, period: StationEnergyPeriod): string {
@@ -124,7 +123,7 @@ export default function StationDetailPage() {
     : '/station-dashboard';
   const isGlobalAdminDash = location.pathname.startsWith('/admin-dashboard');
   const { getStation, unarchiveStation, updateStation, archiveStation } = useStations();
-  /** Глобальний адмін: на цій сторінці лише перегляд аналітики/броней (без зміни статусу та портів тут); форма картки — через олівець → редагування. */
+  /** Глобальний адмін: без редагування портів на цій сторінці (олівець → окрема форма). Статус і архів — як у адміна станції. */
   const readOnlyStationDetail = isGlobalAdminDash;
   const { stationId } = useParams<{ stationId: string }>();
   const stationFromCtx = stationId ? getStation(stationId) : undefined;
@@ -138,11 +137,7 @@ export default function StationDetailPage() {
   const station = stationFromCtx ?? stationFallback ?? undefined;
 
   const [tab, setTab] = useState<DetailTab>(() =>
-    typeof window !== 'undefined'
-      ? tabFromHash(window.location.hash, isGlobalAdminDash)
-      : isGlobalAdminDash
-        ? 'analytics'
-        : 'overview'
+    typeof window !== 'undefined' ? tabFromHash(window.location.hash) : 'analytics'
   );
   const [portsModalOpen, setPortsModalOpen] = useState(false);
   const [portsDraft, setPortsDraft] = useState<StationPort[]>([]);
@@ -203,17 +198,8 @@ export default function StationDetailPage() {
   }, [stationSuccessMessage]);
 
   useEffect(() => {
-    setTab(tabFromHash(location.hash, isGlobalAdminDash));
-  }, [station?.id, location.hash, isGlobalAdminDash]);
-
-  useEffect(() => {
-    if (!readOnlyStationDetail || tab !== 'overview' || !station) return;
-    setTab('analytics');
-    navigate(
-      { pathname: `${dashBase}/stations/${station.id}`, hash: 'station-analytics' },
-      { replace: true }
-    );
-  }, [readOnlyStationDetail, tab, station, dashBase, navigate]);
+    setTab(tabFromHash(location.hash));
+  }, [station?.id, location.hash]);
 
   useEffect(() => {
     if (!stationId) {
@@ -337,9 +323,7 @@ export default function StationDetailPage() {
         ? 'station-analytics'
         : t === 'bookings'
           ? 'station-bookings'
-          : t === 'ports'
-            ? 'station-ports'
-            : '';
+          : 'station-ports';
     navigate({ pathname, hash }, { replace: true });
   };
 
@@ -406,39 +390,37 @@ export default function StationDetailPage() {
       {station.archived ? (
         <div className="rounded-2xl border border-red-200/90 bg-red-50/90 px-4 py-3 text-sm shadow-sm shadow-red-900/5">
           <p className="font-bold text-red-900">
-            {readOnlyStationDetail
-              ? 'Станція в архіві — не показується на карті та у списку «Усі»'
-              : 'Станція в архіві — не показується на карті та у списку «Усі». Для зміни статусу розархівуйте станцію'}
+            Станція в архіві — не показується на карті та у списку «Усі». Для зміни статусу розархівуйте станцію
           </p>
         </div>
       ) : null}
 
-      {!readOnlyStationDetail ? (
-        <ConfirmDialog
-          open={archiveConfirmOpen}
-          onClose={() => setArchiveConfirmOpen(false)}
-          onConfirm={confirmArchive}
-          title="Перемістити станцію в архів?"
-          description="Вона зникне з карти та зі списку «Усі»; її можна буде знайти у вкладці «Архів»."
-          confirmLabel="Так, в архів"
-          cancelLabel="Скасувати"
-          variant="danger"
-        />
-      ) : null}
+      <ConfirmDialog
+        open={archiveConfirmOpen}
+        onClose={() => setArchiveConfirmOpen(false)}
+        onConfirm={confirmArchive}
+        title="Перемістити станцію в архів?"
+        description="Вона зникне з карти та зі списку «Усі»; її можна буде знайти у вкладці «Архів»."
+        confirmLabel="Так, в архів"
+        cancelLabel="Скасувати"
+        variant="danger"
+      />
 
       <div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-            <Link
-              to={`${dashBase}/stations`}
-              className={stationFormBackIconLink}
-              title="До списку станцій"
-              aria-label="До списку станцій"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </Link>
+          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+            <div className="flex shrink-0 items-start">
+              <Link
+                to={`${dashBase}/stations`}
+                className={stationDetailBackIconLink}
+                title="До списку станцій"
+                aria-label="До списку станцій"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </Link>
+            </div>
             <div className="min-w-0 flex-1">
               <div className="min-w-0">
                 <h1 className={stationAdminPageTitle}>{station.name}</h1>
@@ -504,18 +486,11 @@ export default function StationDetailPage() {
         </div>
       </div>
 
-      <div
-        className={`flex flex-col gap-4 border-b border-gray-200 sm:gap-6 ${readOnlyStationDetail ? '' : 'sm:flex-row sm:items-end sm:justify-between'}`}
-      >
+      <div className="flex flex-col gap-4 border-b border-gray-200 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
         <nav
           className="-mx-1 flex min-w-0 gap-6 overflow-x-auto px-1 pb-3"
           aria-label="Розділи станції"
         >
-          {!readOnlyStationDetail ? (
-            <button type="button" className={tabClass(tab === 'overview')} onClick={() => goTab('overview')}>
-              Загалом
-            </button>
-          ) : null}
           <button type="button" className={tabClass(tab === 'analytics')} onClick={() => goTab('analytics')}>
             Аналітика
           </button>
@@ -526,128 +501,69 @@ export default function StationDetailPage() {
             Порти ({station.ports.length})
           </button>
         </nav>
-        {!readOnlyStationDetail ? (
-          <div
-            className="flex shrink-0 flex-col gap-2 pb-3 sm:items-end"
-            aria-label="Управління станцією"
-          >
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Статус</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <div
-                className={`inline-flex rounded-xl border p-0.5 shadow-sm ${
-                  station.archived
-                    ? 'border-amber-200/80 bg-amber-100/50'
-                    : 'border-slate-200 bg-green-50/35'
-                }`}
-                role="group"
-                aria-label="Зміна статусу станції"
+        <div
+          className="flex shrink-0 flex-col gap-2 pb-3 sm:items-end"
+          aria-label="Управління станцією"
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Статус</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <div
+              className={`inline-flex rounded-xl border p-0.5 shadow-sm ${
+                station.archived
+                  ? 'border-amber-200/80 bg-amber-100/50'
+                  : 'border-gray-200/90 bg-gray-100/90'
+              }`}
+              role="group"
+              aria-label="Зміна статусу станції"
+            >
+              {STATION_STATUS_OPTIONS.map(({ value, label }) => {
+                const active = station.status === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    disabled={station.archived}
+                    onClick={() => void updateStation(station.id, { status: value })}
+                    className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                      active
+                        ? 'bg-white text-emerald-700 shadow-sm ring-1 ring-black/[0.06]'
+                        : 'text-gray-500 hover:bg-white/60 hover:text-gray-900'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            {station.archived ? (
+              <OutlineButton
+                type="button"
+                className="!px-3 !py-1.5 !text-xs"
+                onClick={async () => {
+                  try {
+                    await unarchiveStation(station.id);
+                  } catch {
+                    /* помилка в контексті */
+                  }
+                }}
               >
-                {STATION_STATUS_OPTIONS.map(({ value, label }) => {
-                  const active = station.status === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      disabled={station.archived}
-                      onClick={() => void updateStation(station.id, { status: value })}
-                      className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-45 ${
-                        active
-                          ? 'bg-white text-green-800 shadow-sm ring-1 ring-gray-200/80'
-                          : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-              {station.archived ? (
-                <OutlineButton
-                  type="button"
-                  className="!px-3 !py-1.5 !text-xs"
-                  onClick={async () => {
-                    try {
-                      await unarchiveStation(station.id);
-                    } catch {
-                      /* помилка в контексті */
-                    }
-                  }}
-                >
-                  Розархівувати
-                </OutlineButton>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setArchiveConfirmOpen(true)}
-                  className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-800 shadow-sm transition hover:bg-red-50"
-                >
-                  В архів
-                </button>
-              )}
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      {!readOnlyStationDetail && tab === 'overview' ? (
-        <div className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-            <AppCard className="space-y-3">
-              <h2 className="text-sm font-semibold text-gray-900">Про станцію</h2>
-              <p className="text-sm text-gray-600">
-                Адреса: <span className="font-medium text-gray-900">{station.address}</span>
-              </p>
-              <p className="text-sm text-gray-600">
-                Місто: <span className="font-medium text-gray-900">{station.city}</span>
-              </p>
-              <p className="text-sm text-gray-600">
-                Країна:{' '}
-                <span
-                  className="font-medium text-gray-900"
-                  title={countryIsoTooltip(station.country)}
-                >
-                  {formatCountryLabel(station.country)}
-                </span>
-              </p>
-              
-             
-            </AppCard>
-            <div>
-              <h2 className="mb-2 text-sm font-semibold text-gray-900">На карті</h2>
-              <StationMiniMap
-                lat={station.lat}
-                lng={station.lng}
-                status={station.status}
-                label={station.name}
-              />
-            </div>
+                Розархівувати
+              </OutlineButton>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setArchiveConfirmOpen(true)}
+                className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50"
+              >
+                В архів
+              </button>
+            )}
           </div>
         </div>
-      ) : null}
+      </div>
 
       {tab === 'bookings' ? (
         <AppCard className="overflow-hidden border-slate-200 bg-gradient-to-br from-white to-green-50/35 p-0 shadow-sm">
-          <div className="border-b border-slate-200 bg-green-50/50 px-5 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold text-gray-900">Заплановані бронювання</h2>
-                <p className="mt-0.5 text-xs text-gray-600">
-                  Майбутні слоти на цій станції зі статусом «підтверджено», від найближчого до найпізнішого
-                </p>
-              </div>
-              {!upcomingLoading && !upcomingError ? (
-                <span className="inline-flex items-center rounded-full bg-green-600/10 px-3 py-1 text-xs font-semibold tabular-nums text-green-900">
-                  {upcomingBookings.length}{' '}
-                  {upcomingBookings.length === 1
-                    ? 'запис'
-                    : upcomingBookings.length < 5
-                      ? 'записи'
-                      : 'записів'}
-                </span>
-              ) : null}
-            </div>
-          </div>
-
           <div className="px-5 py-4">
             {upcomingLoading ? (
               <p className="text-sm text-gray-500">Завантаження списку…</p>
@@ -656,9 +572,6 @@ export default function StationDetailPage() {
             ) : upcomingBookings.length === 0 ? (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/80 px-4 py-8 text-center">
                 <p className="text-sm font-medium text-gray-700">Немає запланованих бронювань</p>
-                <p className="mt-1 text-xs text-gray-500">
-                  Коли з’являться нові підтверджені слоти, вони з’являться тут автоматично.
-                </p>
               </div>
             ) : (
               <ul className="divide-y divide-gray-100">
@@ -821,14 +734,13 @@ export default function StationDetailPage() {
 
       {tab === 'ports' ? (
         <AppCard className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold text-gray-900">Порти та конектори</h2>
-            {!readOnlyStationDetail ? (
+          {!readOnlyStationDetail ? (
+            <div className="flex flex-wrap justify-end gap-3">
               <PrimaryButton type="button" className="!text-xs !py-2" onClick={openPortsEditor}>
                 Змінити порти
               </PrimaryButton>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
           {station.ports.map((p) => (
             <div
               key={p.id}

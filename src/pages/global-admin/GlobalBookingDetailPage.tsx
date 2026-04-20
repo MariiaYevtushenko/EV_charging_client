@@ -133,7 +133,7 @@ function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 
-/** Іконка скасування бронювання (адмін станції). */
+/** Іконка скасування бронювання (адмін станції), правий верхній кут картки. */
 function CancelBookingIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -141,7 +141,7 @@ function CancelBookingIcon({ className }: { className?: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={2}
-        d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+        d="M6 18L18 6M6 6l12 12"
       />
     </svg>
   );
@@ -209,16 +209,6 @@ export default function GlobalBookingDetailPage() {
       setData(updated);
       setCancelDialogOpen(false);
       setCancelToast('Бронювання скасовано');
-      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-        try {
-          new Notification('Бронювання скасовано', {
-            body: `Бронювання #${bookingId}`,
-            tag: `booking-cancel-${bookingId}`,
-          });
-        } catch {
-          /* ignore */
-        }
-      }
     } catch (e: unknown) {
       setError(e instanceof ApiError ? e.message : 'Не вдалося скасувати бронювання');
       setCancelDialogOpen(false);
@@ -247,32 +237,39 @@ export default function GlobalBookingDetailPage() {
 
       {!loading && data ? (
         <div className="space-y-4">
-          <AppCard className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <AppCard className="relative space-y-4">
+            {canShowCancelControl ? (
+              <button
+                type="button"
+                onClick={() => setCancelDialogOpen(true)}
+                className="absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-red-200 bg-white text-red-600 shadow-sm transition hover:border-red-300 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 sm:right-4 sm:top-4"
+                title="Скасувати бронювання"
+                aria-label="Скасувати бронювання"
+              >
+                <CancelBookingIcon className="h-5 w-5" />
+              </button>
+            ) : null}
+
+            <div
+              className={`flex flex-wrap items-start justify-between gap-3 ${
+                canShowCancelControl ? 'pr-12 sm:pr-14' : ''
+              }`}
+            >
               <p className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="font-medium text-slate-700">Статус:</span>
                 <StatusPill tone={bookingTone(data.status)}>{bookingLabel(data.status)}</StatusPill>
               </p>
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                {canShowCancelControl ? (
-                  <button
-                    type="button"
-                    onClick={() => setCancelDialogOpen(true)}
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-white text-red-600 shadow-sm transition hover:border-red-300 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
-                    title="Скасувати бронювання"
-                    aria-label="Скасувати бронювання"
-                  >
-                    <CancelBookingIcon className="h-5 w-5" />
-                  </button>
-                ) : null}
-                {isStationAdminContext && data.status === 'pending' && hasActiveSession ? (
-                  <p className="max-w-[14rem] text-xs text-amber-800" title="Спочатку завершіть активну сесію">
-                    Щоб скасувати, спочатку завершіть активну сесію зарядки.
-                  </p>
-                ) : null}
-                <p className="text-sm text-gray-500">Створено: {fmtLong(data.createdAt)}</p>
-              </div>
+              <p className="text-sm text-gray-500">Створено: {fmtLong(data.createdAt)}</p>
             </div>
+
+            {isStationAdminContext && data.status === 'pending' && hasActiveSession ? (
+              <p
+                className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-xs text-amber-900"
+                title="Спочатку завершіть активну сесію"
+              >
+                Щоб скасувати бронювання, спочатку завершіть активну сесію зарядки.
+              </p>
+            ) : null}
 
             <div className="grid gap-4 border-t border-gray-100 pt-4 sm:grid-cols-2">
               <div>

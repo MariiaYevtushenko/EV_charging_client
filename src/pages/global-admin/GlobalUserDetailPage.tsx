@@ -6,7 +6,7 @@ import type { EndUser, EndUserBooking, EndUserCar, EndUserPayment, EndUserSessio
 import { getCarBrandLogoUrl } from '../../utils/carBrandLogo';
 import { AppCard } from '../../components/station-admin/Primitives';
 import { globalAdminPageTitle } from '../../styles/globalAdminTheme';
-import { stationFormBackIconLink } from '../../styles/stationAdminTheme';
+import { stationDetailBackIconLink } from '../../styles/stationAdminTheme';
 
 type UserTab = 'cars' | 'bookings' | 'sessions' | 'payments';
 
@@ -41,9 +41,6 @@ const tabClass = (active: boolean) =>
 
 /** Оболонка контенту: менший зазор зверху відносно main, ширші поля по боках. */
 const userDetailPageShell = '-mt-3 space-y-6 px-3 sm:px-6 lg:px-10 xl:px-12';
-
-/** Лівіше за контент; у рядку з аватаром вирівнюється по центру висоти іконки. */
-const userDetailBackLinkClass = `${stationFormBackIconLink} -ml-3 shrink-0 sm:-ml-4`;
 
 function bookingLabel(s: string) {
   switch (s) {
@@ -517,7 +514,7 @@ export default function GlobalUserDetailPage() {
       <div className={userDetailPageShell}>
         <Link
           to="/admin-dashboard/users"
-          className={userDetailBackLinkClass}
+          className={stationDetailBackIconLink}
           title="До списку користувачів"
           aria-label="До списку користувачів"
         >
@@ -540,7 +537,7 @@ export default function GlobalUserDetailPage() {
           <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
             <Link
               to="/admin-dashboard/users"
-              className={userDetailBackLinkClass}
+              className={stationDetailBackIconLink}
               title="До списку користувачів"
               aria-label="До списку користувачів"
             >
