@@ -8,7 +8,14 @@ const NOMINATIM_SEARCH = 'https://nominatim.openstreetmap.org/search';
 const NOMINATIM_REVERSE = 'https://nominatim.openstreetmap.org/reverse';
 
 export type ReverseGeocodeResult =
-  | { ok: true; city: string; address: string; displayName?: string }
+  | {
+      ok: true;
+      city: string;
+      address: string;
+      displayName?: string;
+      /** ISO 3166-1 alpha-2 з Nominatim (`address.country_code`). */
+      countryCode?: string;
+    }
   | { ok: false; message: string };
 
 function buildStreetLine(addr: Record<string, string | undefined>): string {
@@ -64,11 +71,15 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
     }
     if (!address) address = '—';
 
+    const rawCc = (a.country_code ?? '').trim().toLowerCase();
+    const countryCode = /^[a-z]{2}$/.test(rawCc) ? rawCc.toUpperCase() : undefined;
+
     return {
       ok: true,
       city: city || '—',
       address,
       displayName: data.display_name,
+      countryCode,
     };
   } catch {
     return {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 const EXIT_DURATION_MS = 380;
 
-export type FloatingToastTone = 'success' | 'info' | 'warning';
+export type FloatingToastTone = 'success' | 'info' | 'warning' | 'danger';
 
 const toneClass: Record<
   FloatingToastTone,
@@ -19,6 +19,10 @@ const toneClass: Record<
   warning: {
     wrap: 'border-amber-200/90 bg-gradient-to-br from-amber-50/98 via-white to-white text-amber-950 shadow-amber-900/[0.1] ring-amber-600/10',
     iconWrap: 'bg-amber-100/90 text-amber-800',
+  },
+  danger: {
+    wrap: 'border-red-200/90 bg-gradient-to-br from-red-50/98 via-white to-white text-red-950 shadow-red-900/[0.1] ring-red-600/10',
+    iconWrap: 'bg-red-100/90 text-red-700',
   },
 };
 
@@ -58,6 +62,14 @@ function IconWarn({ className }: { className?: string }) {
   );
 }
 
+function IconClose({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
 /**
  * Спливаюча плашка з плавною появою/зникненням. Керується пропом `show` (батько зазвичай скидає через таймер).
  */
@@ -67,12 +79,17 @@ export function FloatingToast({
   children,
   className = '',
   icon = 'auto',
+  onDismiss,
+  dismissLabel = 'Закрити',
 }: {
   show: boolean;
   tone?: FloatingToastTone;
   children: ReactNode;
   className?: string;
   icon?: 'auto' | 'none';
+  /** Іконка закриття; `dismissLabel` — лише для `aria-label`. */
+  onDismiss?: () => void;
+  dismissLabel?: string;
 }) {
   const [mounted, setMounted] = useState(show);
   const [visible, setVisible] = useState(false);
@@ -111,16 +128,21 @@ export function FloatingToast({
       <IconCheck className="h-4 w-4" />
     ) : tone === 'info' ? (
       <IconInfo className="h-4 w-4" />
+    ) : tone === 'danger' ? (
+      <IconWarn className="h-4 w-4" />
     ) : (
       <IconWarn className="h-4 w-4" />
     );
 
+  const role = tone === 'danger' ? 'alert' : 'status';
+
   return (
     <div
-      role="status"
+      role={role}
       className={`
-        pointer-events-none max-w-[min(100vw-2rem,22rem)] transform-gpu rounded-2xl border px-4 py-3.5 shadow-lg ring-1 backdrop-blur-[2px]
+        max-w-[min(100vw-2rem,22rem)] transform-gpu rounded-2xl border px-4 py-3.5 shadow-lg ring-1 backdrop-blur-[2px]
         transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]
+        ${onDismiss ? 'pointer-events-auto' : 'pointer-events-none'}
         ${t.wrap}
         ${visible ? 'translate-y-0 opacity-100' : '-translate-y-2.5 opacity-0'}
         ${className}
@@ -134,7 +156,19 @@ export function FloatingToast({
             {iconNode}
           </span>
         ) : null}
-        <div className="min-w-0 flex-1 pt-0.5 text-sm font-medium leading-snug tracking-tight">{body}</div>
+        <div className="flex min-w-0 flex-1 items-start justify-between gap-2 pt-0.5">
+          <div className="min-w-0 text-sm font-medium leading-snug tracking-tight">{body}</div>
+          {onDismiss ? (
+            <button
+              type="button"
+              onClick={onDismiss}
+              aria-label={dismissLabel}
+              className="-m-1 shrink-0 rounded-lg p-1.5 text-current/70 transition hover:bg-black/[0.06] hover:text-current"
+            >
+              <IconClose className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -143,11 +177,20 @@ export function FloatingToast({
 /**
  * Фіксована область у правому верхньому куті (під шапкою адмінки). Усередині — один або кілька `FloatingToast`.
  */
-export function FloatingToastRegion({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function FloatingToastRegion({
+  children,
+  className = '',
+  live = 'polite',
+}: {
+  children: ReactNode;
+  className?: string;
+  /** Для помилок зазвичай `assertive`. */
+  live?: 'polite' | 'assertive';
+}) {
   return (
     <div
-      className={`pointer-events-none fixed top-20 right-4 z-[110] flex max-w-[min(100vw-2rem,22rem)] flex-col gap-3 sm:right-6 ${className}`}
-      aria-live="polite"
+      className={`pointer-events-none fixed top-20 right-4 z-[110] flex max-w-[min(100vw-2rem,22rem)] flex-col items-end gap-3 sm:right-6 ${className}`}
+      aria-live={live}
     >
       {children}
     </div>

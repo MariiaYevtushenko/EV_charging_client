@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   fetchStationDashboard,
@@ -38,7 +38,25 @@ import {
   stationAdminPageTitle,
   stationAdminUnderlineTabActive,
   stationAdminUnderlineTabIdle,
+  stationFormBackIconLink,
 } from '../../styles/stationAdminTheme';
+import { FloatingToast, FloatingToastRegion } from '../../components/admin/FloatingToast';
+import { SUCCESS_TOAST_MS } from './stationNewPageConstants';
+
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.75}
+        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
+      />
+    </svg>
+  );
+}
+
+type StationDetailLocationState = { stationNotice?: 'created' | 'updated' };
 
 type DetailTab = 'overview' | 'analytics' | 'bookings' | 'ports';
 
@@ -137,6 +155,8 @@ export default function StationDetailPage() {
   const [energyAnalytics, setEnergyAnalytics] = useState<StationEnergyAnalyticsDto | null>(null);
   const [energyLoading, setEnergyLoading] = useState(false);
   const [energyError, setEnergyError] = useState<string | null>(null);
+  const [stationSuccessMessage, setStationSuccessMessage] = useState<string | null>(null);
+  const successToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const chartRows = useMemo(() => {
     if (!energyAnalytics?.points.length) return [];
@@ -151,6 +171,32 @@ export default function StationDetailPage() {
     () => (station ? station.energyByHour.reduce((a, b) => a + b, 0) : 0),
     [station]
   );
+
+  /** Спочатку знімаємо stationNotice з history, щоб інші navigate не втратили повідомлення. */
+  useEffect(() => {
+    const st = location.state as StationDetailLocationState | null | undefined;
+    const n = st?.stationNotice;
+    if (n !== 'created' && n !== 'updated') return;
+    setStationSuccessMessage(
+      n === 'created' ? 'Станцію успішно створено.' : 'Дані про станцію успішно оновлено.'
+    );
+    navigate(
+      { pathname: location.pathname, search: location.search, hash: location.hash },
+      { replace: true, state: {} }
+    );
+  }, [location.state, location.pathname, location.search, location.hash, navigate]);
+
+  useEffect(() => {
+    if (!stationSuccessMessage) return;
+    if (successToastTimerRef.current) clearTimeout(successToastTimerRef.current);
+    successToastTimerRef.current = setTimeout(() => {
+      setStationSuccessMessage(null);
+      successToastTimerRef.current = null;
+    }, SUCCESS_TOAST_MS);
+    return () => {
+      if (successToastTimerRef.current) clearTimeout(successToastTimerRef.current);
+    };
+  }, [stationSuccessMessage]);
 
   useEffect(() => {
     setTab(tabFromHash(location.hash, isGlobalAdminDash));
@@ -304,6 +350,15 @@ export default function StationDetailPage() {
 
   return (
     <div className="space-y-6">
+      <FloatingToastRegion>
+        <FloatingToast
+          show={Boolean(stationSuccessMessage)}
+          tone="success"
+          onDismiss={() => setStationSuccessMessage(null)}
+        >
+          {stationSuccessMessage}
+        </FloatingToast>
+      </FloatingToastRegion>
       {!readOnlyStationDetail && portsModalOpen ? (
         <div
           className="fixed inset-0 z-[110] flex items-end justify-center p-4 sm:items-center"
@@ -367,45 +422,62 @@ export default function StationDetailPage() {
       ) : null}
 
       <div>
-        <Link
-          to={`${dashBase}/stations`}
-          className="text-sm font-medium text-green-600 hover:text-green-700"
-        >
-          ← До списку станцій
-        </Link>
-        <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{station.city}</p>
-            <div className="mt-0.5 flex flex-wrap items-center gap-2">
-              <h1 className={stationAdminPageTitle}>{station.name}</h1>
-              {readOnlyStationDetail ? (
-                <StatusPill tone={stationStatusTone(station.status)}>
-                  {stationStatusLabel(station.status)}
-                </StatusPill>
-              ) : null}
-            </div>
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-500">
-              <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+            <Link
+              to={`${dashBase}/stations`}
+              className={stationFormBackIconLink}
+              title="До списку станцій"
+              aria-label="До списку станцій"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              <span className="min-w-0">{station.address}</span>
-            </p>
+            </Link>
+            <div className="min-w-0 flex-1">
+              <div className="min-w-0">
+                <h1 className={stationAdminPageTitle}>{station.name}</h1>
+              </div>
+              <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-gray-600">
+                <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                  />
+                </svg>
+                <span className="min-w-0 font-medium text-gray-800">
+                  {station.city.trim() || '—'}
+                </span>
+                <span className="text-gray-300" aria-hidden>
+                  |
+                </span>
+                <span
+                  className="min-w-0 text-gray-600"
+                  title={countryIsoTooltip(station.country) ?? undefined}
+                >
+                  {formatCountryLabel(station.country)}
+                </span>
+              </p>
+            </div>
           </div>
-          {!readOnlyStationDetail ? (
-            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:ml-auto sm:pt-0.5">
+            <StatusPill tone={stationStatusTone(station.status)} size="md">
+              {stationStatusLabel(station.status)}
+            </StatusPill>
+            {!readOnlyStationDetail ? (
               <OutlineButton
                 type="button"
                 onClick={() => navigate(`${dashBase}/stations/${station.id}/edit`)}
+                title="Редагувати станцію"
+                className="gap-2"
               >
-                Редагувати дані
+                <PencilIcon className="h-4 w-4" />
+                Редагувати станцію
               </OutlineButton>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -535,12 +607,7 @@ export default function StationDetailPage() {
                   {formatCountryLabel(station.country)}
                 </span>
               </p>
-              <p className="text-sm text-gray-600">
-                Координати:{' '}
-                <span className="font-mono text-xs text-gray-800">
-                  {station.lat.toFixed(5)}, {station.lng.toFixed(5)}
-                </span>
-              </p>
+              
              
             </AppCard>
             <div>
@@ -661,10 +728,6 @@ export default function StationDetailPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="text-sm font-semibold text-gray-900">Споживання енергії</h2>
-              <p className="mt-1 text-xs text-gray-500">
-                Накопичене споживання за сесіями (час початку сесії потрапляє у відрізок). Останні 24 години —
-                по годинах; 7 і 30 днів — по календарних добах відрізка.
-              </p>
               {energyLoading ? (
                 <p className="mt-2 text-xs text-gray-400">Завантаження…</p>
               ) : energyError ? (

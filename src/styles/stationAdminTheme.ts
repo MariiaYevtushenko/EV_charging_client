@@ -10,6 +10,37 @@ import {
 
 export const stationAdminPageTitle = userPortalPageTitle;
 export const stationAdminPageSubtitle = userPortalPageSubtitle;
+
+/** Форми «Нова станція» / «Редагування станції» — компактніший верх (див. негативний margin до padding у layout). */
+export const stationFormPageShell =
+  'mx-auto max-w-7xl -mt-3 space-y-3 pb-8 sm:-mt-5 lg:pb-10';
+/** Заголовок h1 у формі станції (нижче за звичайні сторінки, щоб швидше потрапити до полів). */
+export const stationFormPageTitle = 'text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl';
+/** Рядок: назад + заголовок на одній лінії від sm+. */
+export const stationFormPageHeaderRow =
+  'flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-0';
+export const stationFormBackLink =
+  'text-sm font-medium text-green-600 transition hover:text-green-700';
+/** Лише іконка стрілки «назад». */
+export const stationFormBackIconLink =
+  'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-green-600 transition hover:bg-green-50 hover:text-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40';
+
+/** Двоколонкова форма: на lg карта зліва лишається на місці, форма справа скролиться. */
+export const stationFormSplitGrid =
+  'grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:items-start';
+/** Обгортка картки з картою — sticky у межах головного скролу. */
+export const stationFormMapStickyClass = 'lg:sticky lg:top-4 lg:z-[1] lg:self-start';
+/** Картка з полями — внутрішній скрол на великому екрані. */
+export const stationFormDataScrollClass =
+  'lg:max-h-[calc(100vh-9rem)] lg:min-h-0 lg:overflow-y-auto lg:overscroll-y-contain lg:pr-1';
+/** Заголовок картки (напр. «Розташування») */
+export const stationFormCardTitle = 'text-base font-semibold tracking-tight text-gray-900';
+/** Лейбл поля форми */
+export const stationFormLabel = 'mb-0 block text-sm font-medium text-gray-700';
+/** Рядок під заголовком картки (стан завантаження) */
+export const stationFormCardSubline = 'mt-1 text-sm leading-snug text-gray-500';
+/** Другорядний текст підказок у формі */
+export const stationFormHelpText = 'mt-2 text-sm leading-relaxed text-gray-500';
 /** Поле пошуку в контенті сторінок (таблиці тощо) */
 export const stationAdminSearchInput = userPortalSearchInput;
 

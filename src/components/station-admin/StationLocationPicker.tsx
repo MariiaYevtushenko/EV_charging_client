@@ -128,9 +128,6 @@ export default function StationLocationPicker({
         <FlyToCenter lat={lat} lng={lng} zoom={16} flyToKey={flyToKey} />
       </MapContainer>
       <FixedCenterPin />
-      <p className="border-t border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-500">
-        Точка станції — центр карти (синій маркер). Адресу можна отримати автоматично з цих координат.
-      </p>
     </div>
   );
 }

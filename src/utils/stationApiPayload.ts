@@ -8,6 +8,20 @@ export function splitStreetHouse(address: string): { street: string; houseNumber
   return { street: t || "—", houseNumber: "1" };
 }
 
+/**
+ * Збирання вулиці та номера в один рядок для `Station.address`
+ * (далі `splitStreetHouse` у `stationToCreateBody` / `stationToUpdateBody`).
+ * Якщо номер порожній — підставляється `1`, як у fallback `splitStreetHouse`.
+ */
+export function joinStreetHouse(street: string, houseNumber: string): string {
+  const s = street.trim();
+  const h = houseNumber.trim();
+  if (!s && !h) return "—";
+  if (!s) return h || "—";
+  if (!h) return `${s} 1`;
+  return `${s} ${h}`;
+}
+
 function statusForApi(s: StationStatus): string {
   switch (s) {
     case "working":

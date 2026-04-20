@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useStations } from '../../context/StationsContext';
 import type { StationPort, StationStatus } from '../../types/station';
@@ -12,16 +12,39 @@ import {
   OutlineButton,
   PrimaryButton,
 } from '../../components/station-admin/Primitives';
-import { appSelectClass } from '../../components/station-admin/formStyles';
-import { stationAdminPageTitle } from '../../styles/stationAdminTheme';
+import { FloatingToast, FloatingToastRegion } from '../../components/admin/FloatingToast';
+import StationStatusSelect from '../../components/station-admin/StationStatusSelect';
+import {
+  stationFormBackIconLink,
+  stationFormCardSubline,
+  stationFormCardTitle,
+  stationFormDataScrollClass,
+  stationFormHelpText,
+  stationFormLabel,
+  stationFormMapStickyClass,
+  stationFormPageHeaderRow,
+  stationFormPageShell,
+  stationFormPageTitle,
+  stationFormSplitGrid,
+} from '../../styles/stationAdminTheme';
+import { joinStreetHouse, splitStreetHouse } from '../../utils/stationApiPayload';
+import { MAP_HEIGHT_CLASS, REVERSE_DEBOUNCE_MS, SUBMIT_ERROR_TOAST_MS } from './stationNewPageConstants';
+import {
+  hasStationFormErrors,
+  validateStationForm,
+  type StationFormErrors,
+} from '../../utils/stationFormValidation';
 
-const inputClass =
-  'mt-1 w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-3 text-sm outline-none transition hover:border-gray-300 focus:border-green-500 focus:ring-4 focus:ring-green-500/15';
+const inputClassBase =
+  'mt-1 w-full rounded-xl border-2 bg-white px-4 py-3 text-sm outline-none transition focus:ring-4';
 
-const MAP_HEIGHT_CLASS =
-  'min-h-[380px] h-[min(600px,calc(100dvh-10rem))] w-full sm:min-h-[440px]';
+function inputClass(ok: boolean) {
+  return ok
+    ? `${inputClassBase} border-gray-200 hover:border-gray-300 focus:border-green-500 focus:ring-green-500/15`
+    : `${inputClassBase} border-red-400 hover:border-red-400 focus:border-red-500 focus:ring-red-500/20`;
+}
 
-const REVERSE_DEBOUNCE_MS = 650;
+const fieldErrorText = 'mt-1.5 text-xs text-red-600';
 
 export default function StationEditPage() {
   const { stationId } = useParams<{ stationId: string }>();
@@ -34,7 +57,8 @@ export default function StationEditPage() {
   const [name, setName] = useState('');
   const [country, setCountry] = useState('UA');
   const [city, setCity] = useState('');
-  const [address, setAddress] = useState('');
+  const [street, setStreet] = useState('');
+  const [houseNumber, setHouseNumber] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [status, setStatus] = useState<StationStatus>('working');
@@ -44,8 +68,11 @@ export default function StationEditPage() {
   const [reverseLoading, setReverseLoading] = useState(false);
   const [forwardLoading, setForwardLoading] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  const [attempted, setAttempted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const reverseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const submitErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Не перезаписувати адресу з БД після першого moveend карти при відкритті сторінки. */
   const skipFirstReverse = useRef(true);
 
@@ -56,15 +83,30 @@ export default function StationEditPage() {
   useEffect(() => {
     return () => {
       if (reverseTimerRef.current) clearTimeout(reverseTimerRef.current);
+      if (submitErrorTimerRef.current) clearTimeout(submitErrorTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!submitError) return;
+    if (submitErrorTimerRef.current) clearTimeout(submitErrorTimerRef.current);
+    submitErrorTimerRef.current = setTimeout(() => {
+      setSubmitError(null);
+      submitErrorTimerRef.current = null;
+    }, SUBMIT_ERROR_TOAST_MS);
+    return () => {
+      if (submitErrorTimerRef.current) clearTimeout(submitErrorTimerRef.current);
+    };
+  }, [submitError]);
 
   useEffect(() => {
     if (!base) return;
     setName(base.name);
     setCountry(base.country || 'UA');
     setCity(base.city);
-    setAddress(base.address);
+    const addrParts = splitStreetHouse(base.address);
+    setStreet(addrParts.street);
+    setHouseNumber(addrParts.houseNumber);
     setLat(base.lat.toFixed(6));
     setLng(base.lng.toFixed(6));
     setStatus(base.status);
@@ -85,6 +127,24 @@ export default function StationEditPage() {
   const mapLat = Number.isFinite(latNum) ? latNum : base.lat;
   const mapLng = Number.isFinite(lngNum) ? lngNum : base.lng;
 
+  const fieldErrors: StationFormErrors = useMemo(
+    () =>
+      validateStationForm(
+        {
+          name,
+          city,
+          street,
+          houseNumber,
+          country,
+          lat: mapLat,
+          lng: mapLng,
+          ports,
+        },
+        { requireCountry: true }
+      ),
+    [name, city, street, houseNumber, country, mapLat, mapLng, ports]
+  );
+
   const setPositionFromMap = (la: number, lo: number) => {
     setLat(la.toFixed(6));
     setLng(lo.toFixed(6));
@@ -99,7 +159,9 @@ export default function StationEditPage() {
         const r = await reverseGeocode(la, lo);
         if (r.ok) {
           if (r.city && r.city !== '—') setCity(r.city);
-          setAddress(r.address);
+          const parts = splitStreetHouse(r.address);
+          setStreet(parts.street);
+          setHouseNumber(parts.houseNumber);
         }
       } finally {
         setReverseLoading(false);
@@ -108,12 +170,12 @@ export default function StationEditPage() {
   };
 
   const applyCoordsFromAddressFields = async () => {
-    const a = address.trim();
+    const line = joinStreetHouse(street, houseNumber);
     const c = city.trim();
-    if (!a || !c) return;
+    if (!line || line === '—' || !c) return;
     setForwardLoading(true);
     try {
-      const result = await geocodeAddressParts(a, c);
+      const result = await geocodeAddressParts(line, c);
       if (result.ok) {
         setLat(result.lat.toFixed(6));
         setLng(result.lng.toFixed(6));
@@ -126,20 +188,30 @@ export default function StationEditPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
+    setAttempted(true);
+    if (hasStationFormErrors(fieldErrors)) return;
     try {
       await updateStation(base.id, {
-        name: name.trim() || base.name,
+        name: name.trim(),
         country: country.trim() || base.country,
-        city: city.trim() || base.city,
-        address: address.trim() || base.address,
+        city: city.trim(),
+        address: joinStreetHouse(street, houseNumber),
         lat: mapLat,
         lng: mapLng,
         status,
         ports: ports.map((p) => ({ ...p })),
       });
-      navigate(`${dashBase}/stations/${base.id}`, { replace: true });
-    } catch {
-      /* помилка в контексті */
+      navigate(`${dashBase}/stations/${base.id}`, {
+        replace: true,
+        state: { stationNotice: 'updated' as const },
+      });
+    } catch (err) {
+      const msg =
+        err instanceof Error && err.message.trim()
+          ? err.message
+          : 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.';
+      setSubmitError(msg);
     }
   };
 
@@ -163,7 +235,16 @@ export default function StationEditPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className={stationFormPageShell}>
+      <FloatingToastRegion live="assertive">
+        <FloatingToast
+          show={Boolean(submitError)}
+          tone="danger"
+          onDismiss={() => setSubmitError(null)}
+        >
+          {submitError}
+        </FloatingToast>
+      </FloatingToastRegion>
       <ConfirmDialog
         open={archiveConfirmOpen}
         onClose={() => setArchiveConfirmOpen(false)}
@@ -178,86 +259,109 @@ export default function StationEditPage() {
       <div
         className={
           base.archived
-            ? 'rounded-2xl border border-amber-200/90 bg-amber-50/40 p-4 ring-1 ring-amber-100/80 sm:p-5'
+            ? 'rounded-2xl border border-amber-200/90 bg-amber-50/40 p-3 ring-1 ring-amber-100/80 sm:p-4'
             : ''
         }
       >
-        <Link
-          to={`${dashBase}/stations/${base.id}`}
-          className="text-sm font-medium text-green-600 hover:text-green-700"
-        >
-          ← Назад до станції
-        </Link>
-        <h1
-          className={`mt-2 ${stationAdminPageTitle} ${base.archived ? 'text-amber-950' : ''}`}
-        >
-          Редагування станції
-        </h1>
+        <div className={stationFormPageHeaderRow}>
+          <Link
+            to={`${dashBase}/stations/${base.id}`}
+            className={stationFormBackIconLink}
+            title="Назад до станції"
+            aria-label="Назад до станції"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </Link>
+          <h1 className={`${stationFormPageTitle} ${base.archived ? 'text-amber-950' : ''}`}>
+            Редагування станції
+          </h1>
+        </div>
         {base.archived ? (
-          <p className="mt-2 text-sm font-medium text-amber-900/90">Станція в архіві</p>
+          <p className="mt-1.5 text-sm font-medium text-amber-900/90">Станція в архіві</p>
         ) : null}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:items-start">
-        <AppCard className="lg:sticky lg:top-2" padding={false}>
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-sm font-semibold text-gray-900">Розташування</h2>
-            <p className="mt-1 text-xs text-gray-500">
-              {reverseLoading || forwardLoading
-                ? reverseLoading
-                  ? 'Визначаємо місто й вулицю за координатами…'
-                  : 'Шукаємо координати за адресою…'
-                : 'Координати — центр карти; адреса оновлюється після зупинки карти або з полів нижче.'}
-            </p>
-          </div>
-          <div className="space-y-2 p-3">
-            <StationLocationPicker
-              lat={mapLat}
-              lng={mapLng}
-              onPositionChange={setPositionFromMap}
-              flyToKey={flyToKey}
-              mapClassName={MAP_HEIGHT_CLASS}
-            />
-            <p className="text-xs text-gray-600">
-              <span className="font-medium text-gray-700">Координати: </span>
-              {mapLat.toFixed(6)}, {mapLng.toFixed(6)}
-            </p>
-          </div>
-        </AppCard>
+      <div className={stationFormSplitGrid}>
+        <div className={stationFormMapStickyClass}>
+          <AppCard padding={false}>
+            <div className="border-b border-gray-100 px-4 py-3 sm:px-5">
+              <h2 className={stationFormCardTitle}>Розташування</h2>
+              <p className={stationFormCardSubline}>
+                {reverseLoading || forwardLoading
+                  ? reverseLoading
+                    ? 'Оновлюємо адресу за координатами…'
+                    : 'Шукаємо координати за адресом…'
+                  : 'Перетягніть маркер або змініть місто й вулицю в формі.'}
+              </p>
+            </div>
+            <div className="space-y-2 p-3">
+              <StationLocationPicker
+                lat={mapLat}
+                lng={mapLng}
+                onPositionChange={setPositionFromMap}
+                flyToKey={flyToKey}
+                mapClassName={MAP_HEIGHT_CLASS}
+              />
+              <p className="text-sm leading-snug text-gray-600">
+                <span className="font-medium text-gray-700">Координати: </span>
+                {mapLat.toFixed(6)}, {mapLng.toFixed(6)}
+              </p>
+            </div>
+          </AppCard>
+        </div>
 
-        <AppCard>
-          <h2 className="mb-4 text-sm font-semibold text-gray-900">Дані станції</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <AppCard className={stationFormDataScrollClass}>
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            {attempted && fieldErrors.coordinates ? (
+              <p className="rounded-xl border border-red-200 bg-red-50/90 px-3 py-2 text-sm text-red-800" role="alert">
+                {fieldErrors.coordinates}
+              </p>
+            ) : null}
             <div>
-              <label htmlFor="st-name" className="text-sm font-medium text-gray-700">
-                Назва станції
+              <label htmlFor="st-name" className={stationFormLabel}>
+                Назва станції <span className="text-red-500">*</span>
               </label>
               <input
                 id="st-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="напр. Станція «Вокзал»"
-                className={inputClass}
-                required
+                className={inputClass(!attempted || !fieldErrors.name)}
+                aria-invalid={attempted && Boolean(fieldErrors.name)}
+                aria-describedby={attempted && fieldErrors.name ? 'st-name-err' : undefined}
               />
+              {attempted && fieldErrors.name ? (
+                <p id="st-name-err" className={fieldErrorText}>
+                  {fieldErrors.name}
+                </p>
+              ) : null}
             </div>
             <div>
-              <label htmlFor="st-country" className="text-sm font-medium text-gray-700">
-                Країна (код ISO)
+              <label htmlFor="st-country" className={stationFormLabel}>
+                Країна (код ISO) <span className="text-red-500">*</span>
               </label>
               <input
                 id="st-country"
                 value={country}
-                onChange={(e) => setCountry(e.target.value.toUpperCase())}
+                onChange={(e) => setCountry(e.target.value)}
                 placeholder="UA"
                 maxLength={100}
-                className={inputClass}
-                required
+                className={inputClass(!attempted || !fieldErrors.country)}
+                autoComplete="country"
+                aria-invalid={attempted && Boolean(fieldErrors.country)}
+                aria-describedby={attempted && fieldErrors.country ? 'st-country-err' : undefined}
               />
+              {attempted && fieldErrors.country ? (
+                <p id="st-country-err" className={fieldErrorText}>
+                  {fieldErrors.country}
+                </p>
+              ) : null}
             </div>
             <div>
-              <label htmlFor="st-city" className="text-sm font-medium text-gray-700">
-                Місто
+              <label htmlFor="st-city" className={stationFormLabel}>
+                Місто <span className="text-red-500">*</span>
               </label>
               <input
                 id="st-city"
@@ -265,47 +369,69 @@ export default function StationEditPage() {
                 onChange={(e) => setCity(e.target.value)}
                 onBlur={() => void applyCoordsFromAddressFields()}
                 list="edit-city-suggestions"
-                className={inputClass}
-                required
+                className={inputClass(!attempted || !fieldErrors.city)}
+                aria-invalid={attempted && Boolean(fieldErrors.city)}
+                aria-describedby={attempted && fieldErrors.city ? 'st-city-err' : undefined}
               />
               <datalist id="edit-city-suggestions">
                 {uniqueCities.map((c) => (
                   <option key={c} value={c} />
                 ))}
               </datalist>
+              {attempted && fieldErrors.city ? (
+                <p id="st-city-err" className={fieldErrorText}>
+                  {fieldErrors.city}
+                </p>
+              ) : null}
             </div>
-            <div>
-              <label htmlFor="st-addr" className="text-sm font-medium text-gray-700">
-                Вулиця, будинок
-              </label>
-              <input
-                id="st-addr"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                onBlur={() => void applyCoordsFromAddressFields()}
-                placeholder="напр. вул. Університетська, 1"
-                className={inputClass}
-                required
-              />
-             
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-4">
+              <div className="min-w-0 flex-1">
+                <label htmlFor="st-street" className={stationFormLabel}>
+                  Вулиця <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="st-street"
+                  value={street}
+                  onChange={(e) => setStreet(e.target.value)}
+                  onBlur={() => void applyCoordsFromAddressFields()}
+                  placeholder="напр. вул. Університетська"
+                  className={inputClass(!attempted || !fieldErrors.street)}
+                  autoComplete="street-address"
+                  aria-invalid={attempted && Boolean(fieldErrors.street)}
+                  aria-describedby={attempted && fieldErrors.street ? 'st-street-err' : undefined}
+                />
+                {attempted && fieldErrors.street ? (
+                  <p id="st-street-err" className={fieldErrorText}>
+                    {fieldErrors.street}
+                  </p>
+                ) : null}
+              </div>
+              <div className="w-full shrink-0 sm:w-[7.25rem]">
+                <label htmlFor="st-house" className={stationFormLabel}>
+                  Будинок
+                </label>
+                <input
+                  id="st-house"
+                  value={houseNumber}
+                  onChange={(e) => setHouseNumber(e.target.value)}
+                  onBlur={() => void applyCoordsFromAddressFields()}
+                  placeholder="напр. 1"
+                  className={inputClass(!attempted || !fieldErrors.houseNumber)}
+                  aria-invalid={attempted && Boolean(fieldErrors.houseNumber)}
+                  aria-describedby={attempted && fieldErrors.houseNumber ? 'st-house-err' : undefined}
+                />
+                {attempted && fieldErrors.houseNumber ? (
+                  <p id="st-house-err" className={fieldErrorText}>
+                    {fieldErrors.houseNumber}
+                  </p>
+                ) : null}
+              </div>
             </div>
 
             <div>
-              <label htmlFor="st-status" className="text-sm font-medium text-gray-700">
-                Статус
-              </label>
-              <select
-                id="st-status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as StationStatus)}
-                className={`mt-1 ${appSelectClass}`}
-              >
-                <option value="working">Працює</option>
-                <option value="maintenance">Ремонт</option>
-                <option value="offline">Оффлайн</option>
-                <option value="archived">Архів</option>
-              </select>
-              <p className="mt-1 text-xs text-gray-500">
+              <span className={stationFormLabel}>Статус</span>
+              <StationStatusSelect variant="edit" value={status} onChange={setStatus} />
+              <p className={stationFormHelpText}>
                 «Архів» приховує станцію з основного списку. Можна також скористатися кнопкою нижче або
                 відновити станцію кнопкою «Відновити з архіву».
               </p>
@@ -325,6 +451,11 @@ export default function StationEditPage() {
             ) : null}
 
             <div className="border-t border-gray-100 pt-6">
+              {attempted && fieldErrors.ports ? (
+                <p className="mb-2 text-sm text-red-600" role="alert">
+                  {fieldErrors.ports}
+                </p>
+              ) : null}
               <StationPortsEditor ports={ports} onChange={setPorts} onlyMaxPower />
             </div>
 
@@ -339,7 +470,7 @@ export default function StationEditPage() {
           {!base.archived ? (
             <div className="mt-8 border-t border-gray-200 pt-6">
               <p className="text-sm font-semibold text-gray-900">Архів</p>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-sm leading-relaxed text-gray-500">
                 Архівні станції не відображаються на карті та у списку «Усі» — лише у фільтрі «Архів».
               </p>
               <DangerButton type="button" className="mt-4" onClick={() => setArchiveConfirmOpen(true)}>
