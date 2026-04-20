@@ -302,14 +302,13 @@ export default function AdminSessionDetailView({ data, links, sessionControl }: 
       {/* Права колонка: бронювання + рахунок (одна висота з лівою колонкою на lg) */}
       <div className="flex min-h-0 min-w-0 flex-col gap-4 lg:h-full">
       {booking ? (
-        <AppCard className="shrink-0 !p-0" padding={false}>
-          <div className="border-b border-gray-100 px-4 py-3 sm:px-5">
+        <AppCard className="shrink-0 !p-0 overflow-hidden" padding={false}>
+          <div className="border-b border-emerald-100/80 bg-gradient-to-br from-emerald-50/80 via-white to-slate-50/40 px-4 py-3.5 sm:px-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold text-gray-900">Бронювання</h2>
-            
+                
               </div>
-              <span className="shrink-0">
               <StatusPill
                 tone={
                   booking.status === 'confirmed' || booking.status === 'paid'
@@ -321,34 +320,40 @@ export default function AdminSessionDetailView({ data, links, sessionControl }: 
               >
                 {bookingStatusLabel(booking.status)}
               </StatusPill>
-              </span>
             </div>
           </div>
           <div className="p-4 sm:p-5">
-          
-            <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-              <div className="min-w-0 flex-1">
-                {bookingSameCalendarDay ? (
-                  <p className="text-sm text-gray-800">
-                    <span className="text-gray-500">{fmtDateShort(booking.start)}</span>
-                    <span className="mx-1.5 text-gray-300">·</span>
-                    <span className="font-medium tabular-nums">{fmtTimeShort(booking.start)}</span>
-                    <span className="mx-2 text-gray-400">—</span>
-                    <span className="font-medium tabular-nums">{fmtTimeShort(booking.end)}</span>
-                  </p>
-                ) : (
-                  <p className="text-sm leading-snug text-gray-800">
-                    {fmtLong(booking.start)} — {fmtLong(booking.end)}
-                  </p>
-                )}
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              <div className="min-w-0 flex-1 rounded-xl border border-gray-100 bg-gray-50/80 px-3 py-2.5 sm:px-4">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                  Період бронювання
+                </p>
+                <div className="mt-1.5">
+                  {bookingSameCalendarDay ? (
+                    <p className="text-sm text-gray-800">
+                      <span className="text-gray-500">{fmtDateShort(booking.start)}</span>
+                      <span className="mx-1.5 text-gray-300">·</span>
+                      <span className="font-medium tabular-nums">{fmtTimeShort(booking.start)}</span>
+                      <span className="mx-2 text-gray-400">—</span>
+                      <span className="font-medium tabular-nums">{fmtTimeShort(booking.end)}</span>
+                    </p>
+                  ) : (
+                    <p className="text-sm leading-snug text-gray-800">
+                      {fmtLong(booking.start)} — {fmtLong(booking.end)}
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="flex shrink-0 items-center">
                 {bookingLink ? (
                   <Link
                     to={bookingLink}
-                    className="inline-flex items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-green-800 shadow-sm transition hover:bg-emerald-50"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
                   >
-                    Відкрити бронювання
+                    Бронювання
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                   </Link>
                 ) : (
                   <span className="text-sm text-gray-500">Без посилання в кабінеті</span>

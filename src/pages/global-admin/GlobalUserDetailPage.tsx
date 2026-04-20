@@ -700,7 +700,7 @@ export default function GlobalUserDetailPage() {
             {sortedPaymentsForList.map((p) => (
               <Link
                 key={p.id}
-                to={`/admin-dashboard/sessions/${encodeURIComponent(p.sessionId)}`}
+                to={`/admin-dashboard/payments/${encodeURIComponent(p.sessionId)}`}
                 state={{ fromUserId: user.id }}
                 title={paymentLabel(p.status)}
                 aria-label={`Платіж: ${p.description}, ${paymentLabel(p.status)}`}

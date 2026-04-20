@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { fetchAdminNetworkBookingDetail, type AdminBookingDetailDto } from '../../api/adminNetwork';
+import {
+  fetchAdminNetworkBookingDetail,
+  postAdminNetworkBookingCancel,
+  type AdminBookingDetailDto,
+} from '../../api/adminNetwork';
 import { ApiError } from '../../api/http';
+import { FloatingToast, FloatingToastRegion } from '../../components/admin/FloatingToast';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
+import { useAuth } from '../../context/AuthContext';
 import { globalAdminPageTitle } from '../../styles/globalAdminTheme';
 
 function bookingTone(s: string): 'success' | 'warn' | 'muted' | 'danger' | 'info' {
@@ -34,8 +41,27 @@ function bookingLabel(s: string) {
   }
 }
 
-function bookingTypeLabel(t: AdminBookingDetailDto['bookingType']) {
-  return t === 'DEPOSIT' ? 'Депозит' : 'Розрахунок (calc)';
+/** Відображення типу бронювання в картці деталей. */
+function bookingTypeDisplay(t: AdminBookingDetailDto['bookingType']) {
+  return t === 'DEPOSIT' ? 'Передплата' : 'Динамічна ціна';
+}
+
+/** Підпис до суми (узгоджено з типом). */
+function prepaymentAmountLabel(t: AdminBookingDetailDto['bookingType']) {
+  return t === 'DEPOSIT' ? 'Передоплата' : 'Динамічна ціна';
+}
+
+function formatPrepaymentValue(amount: number, bookingType: AdminBookingDetailDto['bookingType']) {
+  if (bookingType === 'CALC') {
+    return `${amount.toLocaleString('uk-UA', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 3,
+    })} кВт·год`;
+  }
+  return `${amount.toLocaleString('uk-UA', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} грн`;
 }
 
 function sessionTone(s: AdminBookingDetailDto['sessions'][number]['status']): 'success' | 'warn' | 'muted' | 'danger' | 'info' {
@@ -99,16 +125,44 @@ function BackArrowIcon({ className }: { className?: string }) {
   );
 }
 
+function ChevronRightIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
+  );
+}
+
+/** Іконка скасування бронювання (адмін станції). */
+function CancelBookingIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
+    </svg>
+  );
+}
+
 export default function GlobalBookingDetailPage() {
+  const { user } = useAuth();
   const { pathname } = useLocation();
   const dashBase = pathname.startsWith('/station-dashboard') ? '/station-dashboard' : '/admin-dashboard';
   const showGlobalUserLinks = dashBase === '/admin-dashboard';
   const showSessionDetailLinks = dashBase === '/admin-dashboard';
+  const isStationAdminContext = user?.role === 'STATION_ADMIN' && pathname.startsWith('/station-dashboard');
 
   const { bookingId } = useParams<{ bookingId: string }>();
   const [data, setData] = useState<AdminBookingDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelToast, setCancelToast] = useState<string | null>(null);
+  const cancelToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(() => {
     if (!bookingId) return;
@@ -126,6 +180,52 @@ export default function GlobalBookingDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!cancelToast) return;
+    if (cancelToastTimerRef.current) clearTimeout(cancelToastTimerRef.current);
+    cancelToastTimerRef.current = window.setTimeout(() => {
+      setCancelToast(null);
+      cancelToastTimerRef.current = null;
+    }, 5000);
+    return () => {
+      if (cancelToastTimerRef.current) clearTimeout(cancelToastTimerRef.current);
+    };
+  }, [cancelToast]);
+
+  const hasActiveSession = Boolean(data?.sessions?.some((s) => s.status === 'active'));
+  const canShowCancelControl =
+    isStationAdminContext &&
+    data != null &&
+    data.status === 'pending' &&
+    !hasActiveSession;
+
+  const handleConfirmCancel = useCallback(async () => {
+    if (!bookingId) return;
+    setCancelBusy(true);
+    try {
+      setError(null);
+      const updated = await postAdminNetworkBookingCancel(bookingId);
+      setData(updated);
+      setCancelDialogOpen(false);
+      setCancelToast('Бронювання скасовано');
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification('Бронювання скасовано', {
+            body: `Бронювання #${bookingId}`,
+            tag: `booking-cancel-${bookingId}`,
+          });
+        } catch {
+          /* ignore */
+        }
+      }
+    } catch (e: unknown) {
+      setError(e instanceof ApiError ? e.message : 'Не вдалося скасувати бронювання');
+      setCancelDialogOpen(false);
+    } finally {
+      setCancelBusy(false);
+    }
+  }, [bookingId]);
 
   return (
     <div className="space-y-6">
@@ -148,15 +248,29 @@ export default function GlobalBookingDetailPage() {
       {!loading && data ? (
         <div className="space-y-4">
           <AppCard className="space-y-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Статус</p>
-                <div className="mt-1">
-                  <StatusPill tone={bookingTone(data.status)}>{bookingLabel(data.status)}</StatusPill>
-                </div>
-              </div>
-              <div className="text-right text-sm text-gray-500">
-                <p>Створено: {fmtLong(data.createdAt)}</p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-medium text-slate-700">Статус:</span>
+                <StatusPill tone={bookingTone(data.status)}>{bookingLabel(data.status)}</StatusPill>
+              </p>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                {canShowCancelControl ? (
+                  <button
+                    type="button"
+                    onClick={() => setCancelDialogOpen(true)}
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-white text-red-600 shadow-sm transition hover:border-red-300 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
+                    title="Скасувати бронювання"
+                    aria-label="Скасувати бронювання"
+                  >
+                    <CancelBookingIcon className="h-5 w-5" />
+                  </button>
+                ) : null}
+                {isStationAdminContext && data.status === 'pending' && hasActiveSession ? (
+                  <p className="max-w-[14rem] text-xs text-amber-800" title="Спочатку завершіть активну сесію">
+                    Щоб скасувати, спочатку завершіть активну сесію зарядки.
+                  </p>
+                ) : null}
+                <p className="text-sm text-gray-500">Створено: {fmtLong(data.createdAt)}</p>
               </div>
             </div>
 
@@ -171,136 +285,85 @@ export default function GlobalBookingDetailPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 sm:grid-cols-2">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Станція</p>
                 <p className="mt-1 font-medium text-slate-900">{data.stationName}</p>
-                <p className="mt-1 text-sm text-gray-600">
-                  Порт №{data.portNumber} · {data.slotLabel}
-                </p>
+                <p className="mt-1 text-sm text-gray-600">Порт №{data.portNumber}</p>
                 <Link
                   to={`${dashBase}/stations/${encodeURIComponent(data.stationId)}`}
-                  className="mt-2 inline-block text-sm font-semibold text-green-700 hover:text-green-800"
+                  className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-green-700 hover:text-green-800"
                 >
                   Детальна інформація про станцію
+                  <ChevronRightIcon className="h-4 w-4 shrink-0" />
                 </Link>
               </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Користувач</p>
-                <p className="mt-1 font-medium text-slate-900">{data.userName}</p>
-                {data.userEmail ? <p className="mt-1 text-sm text-gray-600">{data.userEmail}</p> : null}
-                {data.userId && showGlobalUserLinks ? (
-                  <Link
-                    to={`/admin-dashboard/users/${data.userId}`}
-                    className="mt-2 inline-block text-sm font-semibold text-green-700 hover:text-green-800"
-                  >
-                    Профіль користувача
-                  </Link>
-                ) : null}
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Користувач</p>
+                  <p className="mt-1 font-medium text-slate-900">{data.userName}</p>
+                  {data.userEmail ? <p className="mt-1 text-sm text-gray-600">{data.userEmail}</p> : null}
+                  {data.userId && showGlobalUserLinks ? (
+                    <Link
+                      to={`/admin-dashboard/users/${data.userId}`}
+                      className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-green-700 hover:text-green-800"
+                    >
+                      Профіль користувача
+                      <ChevronRightIcon className="h-4 w-4 shrink-0" />
+                    </Link>
+                  ) : null}
+                </div>
+                {data.vehicle ? (
+                  <div className="border-t border-gray-100 pt-4 sm:border-t-0 sm:pt-0">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Авто</p>
+                    <p className="mt-1 font-medium text-slate-900">{data.vehicle.model}</p>
+                    <p className="mt-1 text-sm tabular-nums text-gray-700">{data.vehicle.plate}</p>
+                  </div>
+                ) : (
+                  <p className="border-t border-gray-100 pt-4 text-sm text-gray-500 sm:border-t-0 sm:pt-0">
+                    Авто не прив’язано.
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="grid gap-4 border-t border-gray-100 pt-4 sm:grid-cols-2">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Тип бронювання</p>
-                <p className="mt-1 text-slate-900">{bookingTypeLabel(data.bookingType)}</p>
+                <p className="mt-1 text-slate-900">{bookingTypeDisplay(data.bookingType)}</p>
               </div>
               <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Передоплата</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                  {prepaymentAmountLabel(data.bookingType)}
+                </p>
                 <p className="mt-1 tabular-nums text-slate-900">
-                  {data.prepaymentAmount.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
-                  грн
+                  {formatPrepaymentValue(data.prepaymentAmount, data.bookingType)}
                 </p>
               </div>
             </div>
-
-            {data.vehicle ? (
-              <div className="border-t border-gray-100 pt-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Авто</p>
-                <p className="mt-1 text-slate-900">
-                  {data.vehicle.model} · {data.vehicle.plate}
-                </p>
-              </div>
-            ) : (
-              <p className="border-t border-gray-100 pt-4 text-sm text-gray-500">Авто не прив’язано.</p>
-            )}
           </AppCard>
 
-          {(data.sessions ?? []).length > 0 ? (
-            <AppCard className="space-y-4">
-              <h2 className="text-base font-semibold text-slate-900">Сесії зарядки за бронюванням</h2>
-              <ul className="space-y-4">
-                {(data.sessions ?? []).map((s) => (
-                  <li
-                    key={s.id}
-                    className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 text-sm"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <p className="font-mono text-xs text-gray-500">Сесія #{s.id}</p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <StatusPill tone={sessionTone(s.status)}>{sessionLabel(s.status)}</StatusPill>
-                        {showSessionDetailLinks ? (
-                          <Link
-                            to={`${dashBase}/sessions/${s.id}`}
-                            className="text-sm font-semibold text-green-700 hover:text-green-800"
-                          >
-                            Деталі сесії
-                          </Link>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Початок</p>
-                        <p className="mt-0.5 text-slate-900">{fmtLong(s.startedAt)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Кінець</p>
-                        <p className="mt-0.5 text-slate-900">
-                          {s.endedAt ? fmtLong(s.endedAt) : '— (активна)'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Енергія</p>
-                        <p className="mt-0.5 tabular-nums text-slate-900">
-                          {s.kwh.toLocaleString('uk-UA', { maximumFractionDigits: 3 })} кВт·год
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сума (bill)</p>
-                        <p className="mt-0.5 tabular-nums text-slate-900">
-                          {s.cost != null
-                            ? `${s.cost.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} грн`
-                            : '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Оплата</p>
-                        <p className="mt-0.5 text-slate-900">
-                          {s.paymentStatus ? (
-                            <span className="inline-flex items-center gap-2">
-                              <span>{payStatusLabel(s.paymentStatus)}</span>
-                              {s.paymentMethod ? (
-                                <span className="text-gray-600">· {s.paymentMethod}</span>
-                              ) : null}
-                            </span>
-                          ) : (
-                            '—'
-                          )}
-                        </p>
-                      </div>
-                      <div className="sm:col-span-2">
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Порт</p>
-                        <p className="mt-0.5 text-gray-800">{s.portLabel}</p>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </AppCard>
-          ) : null}
+       
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={cancelDialogOpen}
+        title="Скасувати бронювання?"
+        description="Ви дійсно хочете скасувати це бронювання? Дію не можна буде скасувати."
+        confirmLabel="Так, скасувати"
+        cancelLabel="Ні"
+        variant="danger"
+        busy={cancelBusy}
+        onClose={() => !cancelBusy && setCancelDialogOpen(false)}
+        onConfirm={handleConfirmCancel}
+      />
+
+      <FloatingToastRegion live="assertive">
+        <FloatingToast show={Boolean(cancelToast)} tone="success" onDismiss={() => setCancelToast(null)}>
+          {cancelToast}
+        </FloatingToast>
+      </FloatingToastRegion>
     </div>
   );
 }

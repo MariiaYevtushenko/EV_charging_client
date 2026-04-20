@@ -59,6 +59,7 @@ export function defaultDirForSortColumn(columnKey: string): SortDir {
       'dayPrice',
       'nightPrice',
       'duration',
+      'sessionId',
     ].includes(columnKey)
   ) {
     return 'desc';

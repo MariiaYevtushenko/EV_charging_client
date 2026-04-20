@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   fetchAdminNetworkPaymentStatusCounts,
   fetchAdminNetworkPayments,
-  fetchAdminNetworkSessionDetail,
   type AdminNetworkPaymentRow,
   type AdminNetworkPaymentStatusCounts,
-  type AdminSessionDetailDto,
   type NetworkListPeriod,
 } from '../../api/adminNetwork';
 import { ApiError } from '../../api/http';
-import PaymentDetailModal from '../../components/admin/PaymentDetailModal';
 import AdminListPagination from '../../components/admin/AdminListPagination';
 import NetworkListPeriodControl from '../../components/admin/NetworkListPeriodControl';
 import SortableTableTh, {
@@ -25,7 +23,7 @@ import {
 
 const PAYMENT_STATUS_TAB_ORDER: AdminNetworkPaymentRow['status'][] = ['success', 'pending', 'failed'];
 
-type PaymentSortKey = 'createdAt' | 'userName' | 'description' | 'method' | 'amount' | 'status';
+type PaymentSortKey = 'createdAt' | 'userName' | 'sessionId' | 'method' | 'amount' | 'status';
 
 function paymentTone(s: string): 'success' | 'warn' | 'danger' | 'muted' {
   switch (s) {
@@ -81,6 +79,7 @@ function SearchIcon({ className }: { className?: string }) {
 }
 
 export default function GlobalPaymentsPage() {
+  const navigate = useNavigate();
   const [sortKey, setSortKey] = useState<PaymentSortKey>('createdAt');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(1);
@@ -123,10 +122,12 @@ export default function GlobalPaymentsPage() {
     setStatusFilter((prev) => (prev === s ? null : s));
   }, []);
 
-  const [paymentModalSessionId, setPaymentModalSessionId] = useState<string | null>(null);
-  const [paymentModalDetail, setPaymentModalDetail] = useState<AdminSessionDetailDto | null>(null);
-  const [paymentModalLoading, setPaymentModalLoading] = useState(false);
-  const [paymentModalError, setPaymentModalError] = useState<string | null>(null);
+  const openPaymentDetail = useCallback(
+    (sessionId: string) => {
+      navigate(`/admin-dashboard/payments/${encodeURIComponent(sessionId)}`);
+    },
+    [navigate]
+  );
 
   const onSort = useCallback(
     (key: string) => {
@@ -170,35 +171,15 @@ export default function GlobalPaymentsPage() {
     void load();
   }, [load]);
 
-  const openPaymentModal = useCallback((sessionId: string) => {
-    setPaymentModalSessionId(sessionId);
-    setPaymentModalDetail(null);
-    setPaymentModalError(null);
-    setPaymentModalLoading(true);
-    void fetchAdminNetworkSessionDetail(sessionId)
-      .then(setPaymentModalDetail)
-      .catch((e: unknown) => {
-        setPaymentModalDetail(null);
-        setPaymentModalError(e instanceof ApiError ? e.message : 'Не вдалося завантажити дані');
-      })
-      .finally(() => setPaymentModalLoading(false));
-  }, []);
-
-  const closePaymentModal = useCallback(() => {
-    setPaymentModalSessionId(null);
-    setPaymentModalDetail(null);
-    setPaymentModalError(null);
-  }, []);
-
   return (
     <div className="space-y-6">
       <div className="min-w-0">
         <h1 className={globalAdminPageTitle}>Платежі</h1>
-        <div className="mt-3 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 lg:gap-6">
+        <div className="mt-3 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 lg:gap-6">
           <label htmlFor="global-payments-search" className="sr-only">
             Пошук платежів
           </label>
-          <div className="relative min-w-0 w-full sm:max-w-xl">
+          <div className="relative min-w-0 w-full flex-1 sm:min-w-0">
             <span
               className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"
               aria-hidden
@@ -210,7 +191,7 @@ export default function GlobalPaymentsPage() {
               type="search"
               value={searchDraft}
               onChange={(e) => setSearchDraft(e.target.value)}
-              placeholder="Пошук за ID, сесією, користувачем, описом, методом, сумою…"
+              placeholder="Пошук за ID, сесією, користувачем, методом, сумою…"
               className={globalAdminSearchInput}
               autoComplete="off"
               spellCheck={false}
@@ -274,8 +255,8 @@ export default function GlobalPaymentsPage() {
                 onSort={onSort}
               />
               <SortableTableTh
-                label="Опис"
-                columnKey="description"
+                label="Сесія · станція"
+                columnKey="sessionId"
                 activeKey={sortKey}
                 dir={sortDir}
                 onSort={onSort}
@@ -327,17 +308,22 @@ export default function GlobalPaymentsPage() {
                 role="button"
                 tabIndex={0}
                 className="cursor-pointer bg-white hover:bg-green-50/70"
-                onClick={() => openPaymentModal(p.sessionId)}
+                onClick={() => openPaymentDetail(p.sessionId)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    openPaymentModal(p.sessionId);
+                    openPaymentDetail(p.sessionId);
                   }
                 }}
               >
                 <td className="whitespace-nowrap px-4 py-3 text-gray-600">{fmt(p.createdAt)}</td>
                 <td className="px-4 py-3 font-medium text-slate-900">{p.userName}</td>
-                <td className="max-w-[200px] truncate px-4 py-3 text-gray-600">{p.description}</td>
+                <td
+                  className="max-w-[11rem] min-w-0 truncate px-4 py-3 text-gray-600 sm:max-w-[16rem] lg:max-w-[20rem]"
+                  title={p.description}
+                >
+                  {p.description}
+                </td>
                 <td className="px-4 py-3 text-gray-600">{p.method}</td>
                 <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">
                   {p.amount.toLocaleString('uk-UA')} {p.currency}
@@ -360,15 +346,6 @@ export default function GlobalPaymentsPage() {
           </div>
         ) : null}
       </AppCard>
-
-      <PaymentDetailModal
-        open={paymentModalSessionId != null}
-        sessionId={paymentModalSessionId}
-        loading={paymentModalLoading}
-        error={paymentModalError}
-        data={paymentModalDetail}
-        onClose={closePaymentModal}
-      />
     </div>
   );
 }

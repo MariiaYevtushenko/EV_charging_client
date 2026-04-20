@@ -31,6 +31,7 @@ import GlobalUsersPage from './pages/global-admin/GlobalUsersPage';
 import GlobalUserDetailPage from './pages/global-admin/GlobalUserDetailPage';
 import GlobalUserEditPage from './pages/global-admin/GlobalUserEditPage';
 import GlobalPaymentsPage from './pages/global-admin/GlobalPaymentsPage';
+import GlobalPaymentDetailPage from './pages/global-admin/GlobalPaymentDetailPage';
 import GlobalBookingsPage from './pages/global-admin/GlobalBookingsPage';
 import GlobalBookingDetailPage from './pages/global-admin/GlobalBookingDetailPage';
 import GlobalSessionsPage from './pages/global-admin/GlobalSessionsPage';
@@ -61,7 +62,7 @@ function App() {
           {/* Маршрути для звичайного Користувача */}
           <Route element={<ProtectedRoute allowedRoles={['USER']} />}>
             <Route
-              path="/dashboard"
+              path="/dashboard/*"
               element={
                 <StationsProvider>
                   <UserPortalProvider>
@@ -91,7 +92,7 @@ function App() {
           {/* Маршрути для Адміна Станцій */}
           <Route element={<ProtectedRoute allowedRoles={['STATION_ADMIN']} />}>
             <Route
-              path="/station-dashboard"
+              path="/station-dashboard/*"
               element={
                 <StationsProvider>
                   <StationAdminNetworkProvider>
@@ -120,7 +121,7 @@ function App() {
           {/* Маршрути для Глобального Адміна */}
           <Route element={<ProtectedRoute allowedRoles={['GLOBAL_ADMIN']} />}>
             <Route
-              path="/admin-dashboard"
+              path="/admin-dashboard/*"
               element={
                 <StationsProvider>
                   <GlobalAdminProvider>
@@ -137,6 +138,7 @@ function App() {
               <Route path="users" element={<GlobalUsersPage />} />
               <Route path="users/:userId" element={<GlobalUserDetailPage />} />
               <Route path="users/:userId/edit" element={<GlobalUserEditPage />} />
+              <Route path="payments/:sessionId" element={<GlobalPaymentDetailPage />} />
               <Route path="payments" element={<GlobalPaymentsPage />} />
               <Route path="bookings/:bookingId" element={<GlobalBookingDetailPage />} />
               <Route path="bookings" element={<GlobalBookingsPage />} />

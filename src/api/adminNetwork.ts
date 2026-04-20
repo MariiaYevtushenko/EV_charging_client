@@ -150,6 +150,14 @@ export function fetchAdminNetworkBookingDetail(bookingId: string): Promise<Admin
   return getJson<AdminBookingDetailDto>(`/api/admin/network/bookings/${encodeURIComponent(bookingId)}`);
 }
 
+/** Скасувати бронювання (мережевий адмін API). */
+export function postAdminNetworkBookingCancel(bookingId: string): Promise<AdminBookingDetailDto> {
+  return postJson<AdminBookingDetailDto>(
+    `/api/admin/network/bookings/${encodeURIComponent(bookingId)}/cancel`,
+    {}
+  );
+}
+
 export function fetchAdminNetworkSessions(
   params?: FetchAdminNetworkSessionsParams
 ): Promise<AdminNetworkSessionsListResponse> {
@@ -211,7 +219,7 @@ export type FetchAdminNetworkPaymentsParams = {
   pageSize?: number;
   q?: string;
   status?: AdminNetworkPaymentRow["status"];
-  sort?: "createdAt" | "userName" | "description" | "method" | "amount" | "status";
+  sort?: "createdAt" | "userName" | "sessionId" | "method" | "amount" | "status";
   order?: "asc" | "desc";
   period?: NetworkListPeriod;
 };

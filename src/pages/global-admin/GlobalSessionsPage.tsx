@@ -168,11 +168,11 @@ export default function GlobalSessionsPage() {
       <div className="min-w-0">
         <h1 className={globalAdminPageTitle}>Сесії зарядки</h1>
      
-        <div className="mt-3 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 lg:gap-6">
+        <div className="mt-3 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 lg:gap-6">
           <label htmlFor="global-sessions-search" className="sr-only">
             Пошук сесій
           </label>
-          <div className="relative min-w-0 w-full sm:max-w-xl">
+          <div className="relative min-w-0 w-full flex-1 sm:min-w-0">
             <span
               className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"
               aria-hidden
