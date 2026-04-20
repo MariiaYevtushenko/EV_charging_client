@@ -201,15 +201,15 @@ export default function GlobalAdminLayout() {
           </NavLink>
           <NavLink to="/admin-dashboard/stations" className={navLinkClass}>
             <BuildingIcon className="h-5 w-5 shrink-0 opacity-90" />
-            Станції +
+            Станції 
           </NavLink>
           <NavLink to="/admin-dashboard/map" className={navLinkClass}>
             <MapIcon className="h-5 w-5 shrink-0 opacity-90" />
-            Карта
+            Карта 
           </NavLink>
           <NavLink to="/admin-dashboard/users" className={navLinkClass}>
             <UsersIcon className="h-5 w-5 shrink-0 opacity-90" />
-            Користувачі +
+            Користувачі 
           </NavLink>
           <NavLink to="/admin-dashboard/payments" className={navLinkClass}>
             <CardIcon className="h-5 w-5 shrink-0 opacity-90" />
@@ -217,11 +217,11 @@ export default function GlobalAdminLayout() {
           </NavLink>
           <NavLink to="/admin-dashboard/bookings" className={navLinkClass}>
             <CalendarIcon className="h-5 w-5 shrink-0 opacity-90" />
-            Бронювання
+            Бронювання 
           </NavLink>
           <NavLink to="/admin-dashboard/sessions" className={navLinkClass}>
             <SessionsIcon className="h-5 w-5 shrink-0 opacity-90" />
-            Сесії
+            Сесії 
           </NavLink>
           <NavLink to="/admin-dashboard/analytics" className={navLinkClass}>
             <ChartIcon className="h-5 w-5 shrink-0 opacity-90" />
@@ -229,11 +229,11 @@ export default function GlobalAdminLayout() {
           </NavLink>
           <NavLink to="/admin-dashboard/tariffs" className={navLinkClass}>
             <SlidersIcon className="h-5 w-5 shrink-0 opacity-90" />
-            Тарифи +(**прогноз)
+            Тарифи 
           </NavLink>
           <NavLink to="/admin-dashboard/profile" className={navLinkClass}>
             <UserIcon className="h-5 w-5 shrink-0 opacity-90" />
-            Профіль +
+            Профіль 
           </NavLink>
         </nav>
 

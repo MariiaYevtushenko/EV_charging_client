@@ -48,8 +48,8 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-export function getJson<T>(path: string): Promise<T> {
-  return fetchJson<T>(path);
+export function getJson<T>(path: string, init?: RequestInit): Promise<T> {
+  return fetchJson<T>(path, init);
 }
 
 export function postJson<T>(path: string, payload: unknown): Promise<T> {

@@ -24,7 +24,12 @@ export function fetchTariffsList(): Promise<TariffListItemDto[]> {
 }
 
 export function fetchTariffsToday(): Promise<TodayTariffsDto> {
-  return getJson<TodayTariffsDto>("/api/admin/tariffs/today");
+  return getJson<TodayTariffsDto>("/api/admin/tariffs/today", { cache: "no-store" });
+}
+
+/** Оновити з API лише денний або лише нічний тариф на сьогодні. */
+export function postTariffsTodayRefresh(period: "day" | "night"): Promise<TodayTariffsDto> {
+  return postJson<TodayTariffsDto>("/api/admin/tariffs/today/refresh", { period });
 }
 
 /** Доповнює пропущені календарні дні від останнього запису до сьогодні (ціни з API, як ingest). */
