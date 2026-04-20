@@ -11,10 +11,13 @@ export type UserSessionApiRow = {
   id: number;
   stationId: number;
   portNumber: number;
+  vehicleId?: number | null;
+  bookingId?: number | null;
   startTime: string;
   endTime: string | null;
   kwhConsumed: number | string | { toString(): string };
   bill?: {
+    id: number;
     calculatedAmount: number | string | { toString(): string };
   } | null;
   port?: {
@@ -49,6 +52,13 @@ export function mapUserSessionApiToRecord(row: UserSessionApiRow): UserSessionRe
   const endedAt =
     end && !Number.isNaN(end.getTime()) ? end.toISOString() : row.endTime ? String(row.endTime) : '';
 
+  const bookingId =
+    row.bookingId != null && Number.isFinite(Number(row.bookingId)) ? String(row.bookingId) : undefined;
+  const billId =
+    row.bill != null && row.bill.id != null ? String(row.bill.id) : undefined;
+  const vehicleId =
+    row.vehicleId != null && Number.isFinite(Number(row.vehicleId)) ? String(row.vehicleId) : undefined;
+
   return {
     id: String(row.id),
     stationId: String(row.stationId),
@@ -59,6 +69,9 @@ export function mapUserSessionApiToRecord(row: UserSessionApiRow): UserSessionRe
     durationMin,
     kwh: Math.round(kwh * 1000) / 1000,
     cost: Math.round(cost * 100) / 100,
+    vehicleId,
+    bookingId,
+    billId,
   };
 }
 
@@ -74,6 +87,11 @@ export type UserBillApiRow = {
     id: number;
     stationId: number;
     kwhConsumed?: number | string | { toString(): string };
+    vehicle?: {
+      brand?: string;
+      vehicleModel?: string;
+      licensePlate?: string;
+    } | null;
     port?: {
       station?: {
         name?: string;
@@ -91,6 +109,11 @@ export function mapBillApiToPaymentRow(b: UserBillApiRow): UserPaymentRow {
         : 'pending';
   const stationName = b.session?.port?.station?.name?.trim();
   const kwh = b.session != null ? num(b.session.kwhConsumed) : 0;
+  const v = b.session?.vehicle;
+  const brandModel =
+    v != null ? `${v.brand?.trim() ?? ''} ${v.vehicleModel?.trim() ?? ''}`.trim() : '';
+  const vehicleLabel = brandModel || (v?.licensePlate?.trim() ?? '') || undefined;
+  const vehiclePlate = v?.licensePlate?.trim() || undefined;
   const desc =
     stationName != null && stationName !== ''
       ? `Зарядка · ${stationName}`
@@ -105,6 +128,8 @@ export function mapBillApiToPaymentRow(b: UserBillApiRow): UserPaymentRow {
     stationName: stationName || undefined,
     energyKwh: kwh > 0 ? Math.round(kwh * 1000) / 1000 : undefined,
     sessionId: b.session != null ? String(b.session.id) : String(b.sessionId),
+    vehicleLabel,
+    vehiclePlate,
   };
 }
 

@@ -11,7 +11,11 @@ import {
   type TariffListItemDto,
 } from '../../api/tariffsAdmin';
 import AdminListPagination from '../../components/admin/AdminListPagination';
-import { globalAdminPageTitle } from '../../styles/globalAdminTheme';
+import {
+  globalAdminPageTitle,
+  globalAdminUnderlineTabActive,
+  globalAdminUnderlineTabIdle,
+} from '../../styles/globalAdminTheme';
 import SortableTableTh, {
   defaultDirForSortColumn,
   type SortDir,
@@ -22,11 +26,7 @@ const TARIFF_LIST_PAGE_SIZE = 20;
 type Tab = 'tariffs' | 'bias';
 
 const tabClass = (active: boolean) =>
-  `relative shrink-0 border-b-2 px-1 pb-3 text-sm font-semibold transition ${
-    active
-      ? 'border-green-600 text-green-800'
-      : 'border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800'
-  }`;
+  active ? globalAdminUnderlineTabActive : globalAdminUnderlineTabIdle;
 
 /** У БД та в UI — грн/кВт·год (seed з API в € конвертує на сервері). */
 function formatUahPerKwh(uah: number | null | undefined): string {
@@ -198,34 +198,39 @@ function ForecastBiasCard() {
   const fieldClass = `mt-1 ${appInputCompactClass}`;
 
   return (
-    <AppCard className="space-y-4 border border-violet-100 bg-violet-50/40">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-slate-900">Корекція прогнозу</h2>
-        {!editing && !loading ? (
-          <button
-            type="button"
-            onClick={startEdit}
-            className="rounded-lg p-2 text-gray-500 transition hover:bg-violet-100/80 hover:text-slate-900"
-            aria-label="Редагувати корекцію прогнозу"
-            title="Редагувати"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="h-5 w-5"
-              aria-hidden
+    <AppCard className="space-y-4 border border-violet-100/90 bg-gradient-to-br from-violet-50/80 via-white to-slate-50/30 shadow-sm">
+      <div>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-bold text-slate-900">Корекція прогнозу</h2>
+          {!editing && !loading ? (
+            <button
+              type="button"
+              onClick={startEdit}
+              className="rounded-lg p-2 text-gray-500 transition hover:bg-violet-100/80 hover:text-slate-900"
+              aria-label="Редагувати корекцію прогнозу"
+              title="Редагувати"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
-              />
-            </svg>
-          </button>
-        ) : null}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="h-5 w-5"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
+                />
+              </svg>
+            </button>
+          ) : null}
+        </div>
+        <p className={`mt-2 text-sm leading-relaxed text-gray-600 ${loading ? 'hidden' : ''}`}>
+          Коефіцієнти зміщення для зовнішнього прогнозу цін (окремо для денного та нічного інтервалу).
+        </p>
       </div>
 
       {loading ? (
@@ -276,7 +281,11 @@ function ForecastBiasCard() {
       )}
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {savedOk ? <p className="text-sm text-green-700">Збережено в базі.</p> : null}
+      {savedOk ? (
+        <p className="rounded-xl border border-green-200 bg-green-50/90 px-4 py-3 text-sm text-green-900">
+          Збережено в базі.
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap gap-2 border-t border-violet-100 pt-4">
         {editing ? (
@@ -344,15 +353,53 @@ function TodayTariffEditor({
   const canEdit = !loading;
 
   return (
-    <AppCard className="space-y-4 border border-amber-100 bg-amber-50/50">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-slate-900">Тариф на сьогодні</h2>
+    <AppCard className="space-y-4 border border-amber-100/90 bg-gradient-to-br from-amber-50/70 via-white to-white shadow-sm">
+      <h2 className="sr-only">Тариф на сьогодні</h2>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-stretch sm:gap-4">
+        <div className="rounded-xl border border-amber-200/90 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-900/90">
+            Денний період <span className="font-normal normal-case text-gray-500">· грн/кВт·год</span>
+          </p>
+          {editing ? (
+            <input
+              value={draftDay}
+              onChange={(e) => setDraftDay(e.target.value)}
+              className={fieldClass}
+              inputMode="decimal"
+              disabled={loading || saving}
+            />
+          ) : (
+            <p className="mt-2 text-xl font-bold tabular-nums text-slate-900">
+              {formatUahPerKwh(parseFloat(dayPrice.replace(',', '.')))}
+            </p>
+          )}
+        </div>
+        <div className="rounded-xl border border-sky-200/90 bg-sky-50/80 p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-900">
+            Нічний період <span className="font-normal normal-case text-gray-500">· грн/кВт·год</span>
+          </p>
+          {editing ? (
+            <input
+              value={draftNight}
+              onChange={(e) => setDraftNight(e.target.value)}
+              className={fieldClass}
+              inputMode="decimal"
+              disabled={loading || saving}
+            />
+          ) : (
+            <p className="mt-2 text-xl font-bold tabular-nums text-slate-900">
+              {formatUahPerKwh(parseFloat(nightPrice.replace(',', '.')))}
+            </p>
+          )}
+        </div>
+        </div>
         {!editing ? (
           <button
             type="button"
             disabled={!canEdit}
             onClick={startEdit}
-            className="rounded-lg p-2 text-gray-500 transition hover:bg-amber-100/80 hover:text-slate-900 disabled:opacity-40"
+            className="shrink-0 rounded-lg p-2 text-gray-500 transition hover:bg-amber-100/80 hover:text-slate-900 disabled:opacity-40"
             aria-label="Редагувати тариф"
             title="Редагувати"
           >
@@ -373,45 +420,6 @@ function TodayTariffEditor({
             </svg>
           </button>
         ) : null}
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-amber-200 bg-white/80 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">
-            Денний період <span className="font-normal normal-case text-gray-500">· грн/кВт·год</span>
-          </p>
-          {editing ? (
-            <input
-              value={draftDay}
-              onChange={(e) => setDraftDay(e.target.value)}
-              className={fieldClass}
-              inputMode="decimal"
-              disabled={loading || saving}
-            />
-          ) : (
-            <p className="mt-2 text-lg font-semibold tabular-nums text-slate-900">
-              {formatUahPerKwh(parseFloat(dayPrice.replace(',', '.')))}
-            </p>
-          )}
-        </div>
-        <div className="rounded-2xl border border-sky-200 bg-sky-600 p-4 text-white shadow-inner">
-          <p className="text-xs font-semibold uppercase tracking-wide text-sky-100">
-            Нічний період <span className="font-normal normal-case text-sky-200/90">· грн/кВт·год</span>
-          </p>
-          {editing ? (
-            <input
-              value={draftNight}
-              onChange={(e) => setDraftNight(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-sky-400/50 bg-sky-500/40 px-3 py-2 text-sm text-white outline-none placeholder:text-sky-200 focus:ring-2 focus:ring-white/30"
-              inputMode="decimal"
-              disabled={loading || saving}
-            />
-          ) : (
-            <p className="mt-2 text-lg font-semibold tabular-nums text-sky-50">
-              {formatUahPerKwh(parseFloat(nightPrice.replace(',', '.')))}
-            </p>
-          )}
-        </div>
       </div>
 
       {editing ? (
@@ -563,18 +571,18 @@ export default function GlobalTariffsPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
         <h1 className={globalAdminPageTitle}>Тарифи та прогноз</h1>
-        
+       
       </div>
 
       <nav
-        className="-mx-1 flex gap-6 overflow-x-auto border-b border-gray-200 px-1"
+        className="-mx-1 flex min-w-0 gap-8 overflow-x-auto border-b border-gray-200 px-1"
         aria-label="Розділи тарифів"
       >
         <button type="button" className={tabClass(tab === 'tariffs')} onClick={() => setTab('tariffs')}>
-            Тарифи
+          Тарифи
         </button>
         <button type="button" className={tabClass(tab === 'bias')} onClick={() => setTab('bias')}>
           Прогноз цін
@@ -582,7 +590,7 @@ export default function GlobalTariffsPage() {
       </nav>
 
       {tab === 'tariffs' ? (
-        <div className="space-y-6">
+        <div className="space-y-5">
           {todayError ? (
             <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               {todayError}
@@ -591,7 +599,11 @@ export default function GlobalTariffsPage() {
           {syncGapError ? (
             <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">{syncGapError}</p>
           ) : null}
-          {todayOk ? <p className="text-sm text-green-700">Тариф на сьогодні збережено в базі.</p> : null}
+          {todayOk ? (
+            <p className="rounded-xl border border-green-200 bg-green-50/90 px-4 py-3 text-sm text-green-900">
+              Тариф на сьогодні збережено в базі.
+            </p>
+          ) : null}
 
           <TodayTariffEditor
             dayPrice={dayPrice}
@@ -601,9 +613,13 @@ export default function GlobalTariffsPage() {
             loading={todayLoading}
           />
 
-          <AppCard padding={false} className="overflow-hidden">
-            <div className="border-b border-gray-100 px-5 py-4">
-              <h2 className="text-sm font-semibold text-slate-900">Архів тарифів</h2>
+          <AppCard padding={false} className="overflow-hidden shadow-sm">
+            <div className="flex flex-wrap items-end justify-between gap-2 border-b border-gray-100 bg-gray-50/50 px-5 py-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">Архів тарифів</h2>
+               
+              </div>
+             
             </div>
 
             {listError ? (

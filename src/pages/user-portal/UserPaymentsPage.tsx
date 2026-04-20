@@ -1,42 +1,22 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import type { NetworkListPeriod } from '../../api/adminNetwork';
+import NetworkListPeriodControl from '../../components/admin/NetworkListPeriodControl';
+import AdminListPagination from '../../components/admin/AdminListPagination';
 import { useUserPortal } from '../../context/UserPortalContext';
-import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
+import { AppCard } from '../../components/station-admin/Primitives';
+import { userPortalPageSubtitle, userPortalPageTitle } from '../../styles/userPortalTheme';
+import { isOnOrAfterNetworkPeriodCutoff } from '../../utils/networkListPeriod';
 
-function paymentTone(s: string): 'success' | 'warn' | 'danger' | 'muted' {
-  switch (s) {
-    case 'success':
-      return 'success';
-    case 'pending':
-      return 'warn';
-    case 'failed':
-      return 'danger';
-    default:
-      return 'muted';
-  }
-}
+const PAYMENTS_PAGE_SIZE = 10;
 
-function paymentLabel(s: string) {
-  switch (s) {
-    case 'success':
-      return 'Успіх';
-    case 'pending':
-      return 'Очікується';
-    case 'failed':
-      return 'Помилка';
-    default:
-      return s;
-  }
-}
-
-function fmt(dt: string) {
+/** Дата без часу — для списку; час і решта — на сторінці деталей. */
+function fmtDateOnly(dt: string) {
   try {
-    return new Date(dt).toLocaleString('uk-UA', {
+    return new Date(dt).toLocaleDateString('uk-UA', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     });
   } catch {
     return dt;
@@ -45,85 +25,83 @@ function fmt(dt: string) {
 
 export default function UserPaymentsPage() {
   const { payments } = useUserPortal();
+  const [period, setPeriod] = useState<NetworkListPeriod>('all');
+  const [page, setPage] = useState(1);
 
-  const rows = useMemo(
-    () => [...payments].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    [payments]
-  );
+  const rows = useMemo(() => {
+    const sorted = [...payments].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return sorted.filter((p) => isOnOrAfterNetworkPeriodCutoff(p.createdAt, period));
+  }, [payments, period]);
 
-  const total = useMemo(
-    () => payments.filter((p) => p.status === 'success').reduce((a, p) => a + p.amount, 0),
-    [payments]
-  );
+  const totalPages = rows.length === 0 ? 1 : Math.max(1, Math.ceil(rows.length / PAYMENTS_PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+
+  const pageSlice = useMemo(() => {
+    const start = (safePage - 1) * PAYMENTS_PAGE_SIZE;
+    return rows.slice(start, start + PAYMENTS_PAGE_SIZE);
+  }, [rows, safePage]);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Платежі</h1>
-        <p className="mt-1 text-sm text-gray-500">Історія оплат за ваші сесії зарядки</p>
-      </div>
+        <h1 className={userPortalPageTitle}>Платежі</h1>
+        </div>
 
-      <AppCard className="!p-5">
-        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Успішні операції (сума)</p>
-        <p className="mt-1 text-2xl font-bold text-green-700">
-          {total.toLocaleString('uk-UA', { minimumFractionDigits: 2 })} грн
-        </p>
-      </AppCard>
+      <div className="flex flex-wrap justify-end gap-4">
+        <NetworkListPeriodControl
+          value={period}
+          onChange={(p) => {
+            setPeriod(p);
+            setPage(1);
+          }}
+        />
+      </div>
 
       {rows.length === 0 ? (
         <AppCard className="py-12 text-center text-sm text-gray-500">
           Платежів ще немає — після зарядок з оплатою вони з’являться тут.
         </AppCard>
       ) : (
-        <div className="relative pl-2">
-          <div className="absolute bottom-3 left-[11px] top-3 w-0.5 bg-gradient-to-b from-emerald-200 via-emerald-100 to-transparent" aria-hidden />
-          <ul className="space-y-0">
-            {rows.map((p) => (
-              <li key={p.id} className="relative pb-8 last:pb-0">
-                <div className="absolute left-0 top-2 z-[1] flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-green-600 shadow-sm shadow-green-600/20" />
-                <div className="ml-10">
-                  <div className="rounded-2xl border border-gray-100 bg-white px-4 py-4 shadow-sm">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <Link
-                          to={`/dashboard/payments/${p.id}`}
-                          className="font-semibold text-gray-900 underline-offset-2 hover:text-green-800 hover:underline"
-                        >
-                          {p.description}
-                        </Link>
-                        {p.stationName ? (
-                          <p className="mt-0.5 text-sm text-gray-600">{p.stationName}</p>
-                        ) : null}
-                        <p className="mt-1 text-xs text-gray-500">
-                          {fmt(p.createdAt)} · {p.method}
-                          {p.energyKwh != null ? ` · ${p.energyKwh.toLocaleString('uk-UA')} кВт·год` : ''}
-                        </p>
-                        {p.sessionId ? (
-                          <p className="mt-2 text-xs">
-                            <Link
-                              to={`/dashboard/sessions/${p.sessionId}`}
-                              className="font-medium text-green-700 hover:text-green-800 hover:underline"
-                            >
-                              Відкрити сесію #{p.sessionId}
-                            </Link>
-                          </p>
-                        ) : null}
-                      </div>
-                      <div className="flex shrink-0 flex-wrap items-center gap-3 sm:flex-col sm:items-end">
-                        <p className="text-xl font-bold tabular-nums text-gray-900">
-                          {p.amount.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
-                          грн
-                        </p>
-                        <StatusPill tone={paymentTone(p.status)}>{paymentLabel(p.status)}</StatusPill>
-                      </div>
+        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+          {pageSlice.map((p) => {
+            const carTitle = p.vehicleLabel?.trim() || 'Авто не вказано';
+            return (
+              <li key={p.id}>
+                <Link
+                  to={`/dashboard/payments/${p.id}`}
+                  className="flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm ring-1 ring-slate-900/[0.04] transition hover:border-emerald-200/90 hover:bg-slate-50/80 hover:shadow-md hover:ring-emerald-950/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:p-5"
+                >
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900/55">Авто</p>
+                    <p className="mt-1 text-base font-semibold leading-snug text-slate-900">{carTitle}</p>
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-emerald-100/90 pt-4">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900/55">Дата</p>
+                      <p className="mt-0.5 text-sm font-semibold text-slate-900">{fmtDateOnly(p.createdAt)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900/55">Сума</p>
+                      <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-900">
+                        {p.amount.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} грн
+                      </p>
                     </div>
                   </div>
-                </div>
+                </Link>
               </li>
-            ))}
-          </ul>
-        </div>
+            );
+          })}
+        </ul>
       )}
+
+      {rows.length > 0 ? (
+        <AdminListPagination
+          page={safePage}
+          pageSize={PAYMENTS_PAGE_SIZE}
+          total={rows.length}
+          onPageChange={setPage}
+        />
+      ) : null}
     </div>
   );
 }

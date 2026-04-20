@@ -92,6 +92,17 @@ export default function UserPaymentDetailPage() {
         </div>
 
         <dl className="mt-6 grid gap-4 border-t border-gray-100 pt-6 sm:grid-cols-2">
+          {payment.vehicleLabel || payment.vehiclePlate ? (
+            <div className="sm:col-span-2">
+              <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Авто</dt>
+              <dd className="mt-1 text-sm font-semibold text-gray-900">
+                {payment.vehicleLabel?.trim() || '—'}
+                {payment.vehiclePlate ? (
+                  <span className="ml-2 font-mono text-gray-600">· {payment.vehiclePlate}</span>
+                ) : null}
+              </dd>
+            </div>
+          ) : null}
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Спосіб оплати</dt>
             <dd className="mt-1 text-sm font-semibold text-gray-900">{payment.method}</dd>
@@ -106,6 +117,19 @@ export default function UserPaymentDetailPage() {
             <div className="sm:col-span-2">
               <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Станція</dt>
               <dd className="mt-1 text-sm font-semibold text-gray-900">{payment.stationName}</dd>
+            </div>
+          ) : null}
+          {payment.sessionId ? (
+            <div className="sm:col-span-2">
+              <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Сесія</dt>
+              <dd className="mt-1">
+                <Link
+                  to={`/dashboard/sessions/${payment.sessionId}`}
+                  className="text-sm font-semibold text-emerald-700 hover:text-emerald-900 hover:underline"
+                >
+                  Відкрити сесію #{payment.sessionId}
+                </Link>
+              </dd>
             </div>
           ) : null}
           {payment.energyKwh != null ? (

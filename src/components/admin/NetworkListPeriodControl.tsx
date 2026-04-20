@@ -14,8 +14,8 @@ type Props = {
 /** Сегментований вибір періоду для списків глобальної адмінки (бронювання / сесії / платежі). */
 export default function NetworkListPeriodControl({ value, onChange }: Props) {
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Період</p>
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+      <p className="shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-500">Період</p>
       <div
         className="inline-flex max-w-full flex-wrap rounded-xl border border-slate-200 bg-slate-50/90 p-1 shadow-inner shadow-slate-900/5"
         role="group"

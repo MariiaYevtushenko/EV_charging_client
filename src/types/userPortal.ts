@@ -1,6 +1,11 @@
 export interface UserCar {
   id: string;
   plate: string;
+  /** Бренд (як у БД). */
+  brand: string;
+  /** Модель без бренду. */
+  vehicleModel: string;
+  /** Повна назва для відображення та підбору зображення. */
   model: string;
   connector: string;
   imageUrl?: string;
@@ -16,6 +21,12 @@ export interface UserSessionRecord {
   durationMin: number;
   kwh: number;
   cost: number;
+  /** Авто з гаража, якщо сесію прив’язано до vehicle */
+  vehicleId?: string;
+  /** Якщо сесію запущено з бронювання */
+  bookingId?: string;
+  /** ID рахунку (bill) — для переходу до картки платежу */
+  billId?: string;
 }
 
 export type UserBookingStatus = 'upcoming' | 'active' | 'completed' | 'cancelled';
@@ -61,4 +72,8 @@ export interface UserPaymentRow {
   stationName?: string;
   /** Для посилання на історію сесій */
   sessionId?: string;
+  /** Бренд + модель з сесії (vehicle), якщо є */
+  vehicleLabel?: string;
+  /** Держномер, якщо є */
+  vehiclePlate?: string;
 }

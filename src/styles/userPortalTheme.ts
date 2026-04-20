@@ -10,7 +10,7 @@ export const userPortalPrimaryCta = appPrimaryCtaClass;
 export const userPortalPageTitle = 'text-2xl font-semibold tracking-tight text-slate-900';
 export const userPortalPageSubtitle = 'mt-1 max-w-xl text-sm leading-relaxed text-slate-600';
 
-/** Сегментовані вкладки (Майбутні / Історія) */
+/** Сегментовані вкладки (Заплановані / Історія) */
 export const userPortalTabBar =
   'inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm';
 export const userPortalTabActive =

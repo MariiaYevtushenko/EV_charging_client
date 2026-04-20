@@ -14,19 +14,30 @@ export default function StationsTableList({
   /** Якщо true — без переходу в режим редагування (напр. інформаційна карта для мережевого адміна). */
   readOnly = false,
   className = '',
+  /** На сторінці карти: картка тягнеться по висоті колонки поруч із мапою. */
+  fillHeight = false,
 }: {
   selected?: Station;
   dashboardBase?: string;
   readOnly?: boolean;
   className?: string;
+  fillHeight?: boolean;
 }) {
   const navigate = useNavigate();
 
   return (
-    <div className={`space-y-4 ${className}`.trim()}>
+    <div
+      className={`${fillHeight ? 'flex h-full min-h-0 flex-col' : 'space-y-4'} ${className}`.trim()}
+    >
     {selected ? (
-      <AppCard className="space-y-5">
-        <div className="flex flex-wrap items-start justify-between gap-2">
+      <AppCard
+        className={
+          fillHeight
+            ? 'flex min-h-0 flex-1 flex-col justify-between gap-4 shadow-md'
+            : 'space-y-5'
+        }
+      >
+        <div className={`flex flex-wrap items-start justify-between gap-2 ${fillHeight ? 'shrink-0' : ''}`}>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
               {[selected.city, formatCountryLabel(selected.country)].filter(Boolean).join(' · ') ||
@@ -62,7 +73,7 @@ export default function StationsTableList({
           </StatusPill>
         </div>
 
-        <div className="grid grid-cols-1 gap-2.5">
+        <div className={`grid grid-cols-1 gap-2.5 ${fillHeight ? 'shrink-0' : ''}`}>
           <div className="rounded-xl bg-gray-50 p-3">
             <p className="text-xs text-gray-500">Дохід сьогодні</p>
             <p className="text-lg font-bold text-gray-900 tabular-nums">
@@ -75,7 +86,7 @@ export default function StationsTableList({
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 border-t border-gray-100 pt-4">
+        <div className={`flex flex-col gap-2 border-t border-gray-100 pt-4 ${fillHeight ? 'mt-auto shrink-0' : ''}`}>
           <PrimaryButton
             type="button"
             className="w-full justify-center"
@@ -95,7 +106,13 @@ export default function StationsTableList({
         </div>
       </AppCard>
     ) : (
-      <AppCard className="py-10 text-center text-sm text-gray-500">
+      <AppCard
+        className={
+          fillHeight
+            ? 'flex flex-1 flex-col items-center justify-center py-10 text-center text-sm text-gray-500'
+            : 'py-10 text-center text-sm text-gray-500'
+        }
+      >
         Немає станції для перегляду.
       </AppCard>
     )}

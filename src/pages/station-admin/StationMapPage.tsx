@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStations } from '../../context/StationsContext';
-import StationFiltersBar from '../../components/station-admin/StationFiltersBar';
 import StationMap from '../../components/station-admin/StationMap';
 import { AppCard } from '../../components/station-admin/Primitives';
 import StationsTableList from '../../components/station-admin/StationsTableList';
@@ -56,23 +55,10 @@ export default function StationMapPage({ dashboardBase = '/station-dashboard' }:
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
         <div className="min-w-0 flex-1">
           <h1 className={stationAdminPageTitle}>Карта станцій</h1>
-          {isGlobalAdminMap ? (
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">
-              Інформаційний перегляд: можна рухати карту й обирати маркери. Додавання нових станцій з цієї
-              сторінки недоступне.
-            </p>
-          ) : null}
-        </div>
-        <div className="shrink-0 lg:max-w-xl lg:pt-0.5">
-          <StationFiltersBar
-            showAddButton={!isGlobalAdminMap}
-            dashboardBase={dashboardBase}
-            showInlineSort
-          />
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-12 lg:items-stretch lg:gap-5">
+      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-12 lg:items-stretch lg:gap-4">
         <AppCard
           className="flex min-h-[min(720px,85dvh)] flex-col overflow-hidden lg:col-span-8"
           padding={false}
@@ -113,14 +99,13 @@ export default function StationMapPage({ dashboardBase = '/station-dashboard' }:
           </div>
         </AppCard>
 
-        <div className="flex min-h-0 flex-col lg:col-span-4 lg:min-w-0 lg:items-stretch">
-          <div className="mx-auto w-full max-w-md lg:mx-0 lg:ml-auto lg:max-w-[19rem]">
-            <StationsTableList
-              selected={selected ?? mapStations[0]}
-              dashboardBase={dashboardBase}
-              readOnly={isGlobalAdminMap}
-            />
-          </div>
+        <div className="flex min-h-0 min-w-0 flex-col lg:col-span-4 lg:h-full">
+          <StationsTableList
+            fillHeight
+            selected={selected ?? mapStations[0]}
+            dashboardBase={dashboardBase}
+            readOnly={isGlobalAdminMap}
+          />
         </div>
       </div>
     </div>

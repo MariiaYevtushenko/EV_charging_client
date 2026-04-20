@@ -29,13 +29,56 @@ function durationLabel(min: number) {
   return `${min} хв`;
 }
 
+function fmtShortBookingStart(iso: string) {
+  try {
+    return new Date(iso).toLocaleString('uk-UA', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function fmtPaymentDate(iso: string) {
+  try {
+    return new Date(iso).toLocaleDateString('uk-UA', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+const relatedLinkClass =
+  'inline-flex text-sm font-semibold text-emerald-700 transition hover:text-emerald-900 hover:underline';
+
 export default function UserSessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const { sessions } = useUserPortal();
+  const { sessions, bookings, payments } = useUserPortal();
   const { getStation } = useStations();
 
   const session = useMemo(() => sessions.find((s) => s.id === sessionId), [sessions, sessionId]);
   const station = session ? getStation(session.stationId) : undefined;
+
+  const linkedBooking = useMemo(
+    () => (session?.bookingId ? bookings.find((b) => b.id === session.bookingId) : undefined),
+    [bookings, session]
+  );
+
+  const linkedPayment = useMemo(() => {
+    if (!session) return undefined;
+    if (session.billId) return payments.find((p) => p.id === session.billId);
+    return payments.find((p) => p.sessionId === session.id);
+  }, [payments, session]);
+
+  const paymentIdForLink = session?.billId ?? linkedPayment?.id;
+  const paymentHref = paymentIdForLink ? `/dashboard/payments/${paymentIdForLink}` : null;
 
   const avgPerKwh =
     session && session.kwh > 0 ? session.cost / session.kwh : null;
@@ -111,6 +154,69 @@ export default function UserSessionDetailPage() {
             </div>
           ) : null}
         </dl>
+
+        {session.bookingId || paymentHref ? (
+          <div className="mt-6 border-t border-gray-100 pt-6">
+            <h2 className="text-sm font-semibold text-gray-900">Пов’язані записи</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {session.bookingId ? (
+                <div className="rounded-xl border border-gray-100 bg-slate-50/90 p-4 ring-1 ring-slate-900/[0.03]">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Бронювання</p>
+                  {linkedBooking ? (
+                    <>
+                      <p className="mt-2 text-sm font-semibold text-gray-900">{linkedBooking.stationName}</p>
+                      <p className="mt-0.5 text-xs text-gray-600">{linkedBooking.slotLabel}</p>
+                      <p className="mt-1 text-xs text-gray-500">{fmtShortBookingStart(linkedBooking.start)}</p>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-sm text-gray-600">Бронювання #{session.bookingId}</p>
+                  )}
+                  <Link
+                    to={`/dashboard/bookings/${session.bookingId}`}
+                    className={`${relatedLinkClass} mt-3`}
+                  >
+                    Деталі бронювання
+                  </Link>
+                </div>
+              ) : null}
+
+              {paymentHref ? (
+                <div className="rounded-xl border border-gray-100 bg-slate-50/90 p-4 ring-1 ring-slate-900/[0.03]">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Платіж</p>
+                  {linkedPayment ? (
+                    <>
+                      <p className="mt-2 text-lg font-bold tabular-nums text-gray-900">
+                        {linkedPayment.amount.toLocaleString('uk-UA', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{' '}
+                        грн
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">{fmtPaymentDate(linkedPayment.createdAt)}</p>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-sm text-gray-600">
+                      Рахунок за сесію
+                      {session.cost > 0 ? (
+                        <span className="ml-1 font-semibold tabular-nums text-gray-900">
+                          ·{' '}
+                          {session.cost.toLocaleString('uk-UA', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{' '}
+                          грн
+                        </span>
+                      ) : null}
+                    </p>
+                  )}
+                  <Link to={paymentHref} className={`${relatedLinkClass} mt-3`}>
+                    Деталі платежу
+                  </Link>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-8 border-t border-gray-100 pt-6">
           <Link to={`/dashboard/stations/${session.stationId}`} className={appPrimaryCtaClass}>

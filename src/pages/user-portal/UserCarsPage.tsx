@@ -1,20 +1,34 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useUserPortal } from '../../context/UserPortalContext';
-import { AppCard } from '../../components/station-admin/Primitives';
+import { AppCard, OutlineButton } from '../../components/station-admin/Primitives';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { DEFAULT_CAR_IMAGE, suggestCarImageByModel } from '../../utils/carImageSuggest';
 import { appPrimaryCtaClass } from '../../components/station-admin/formStyles';
+import { userPortalPageSubtitle, userPortalPageTitle } from '../../styles/userPortalTheme';
 import type { UserCar } from '../../types/userPortal';
 
-function SearchIcon({ className }: { className?: string }) {
+function PencilIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth={2}
-        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+        strokeWidth={1.75}
+        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
+      />
+    </svg>
+  );
+}
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.75}
+        d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
       />
     </svg>
   );
@@ -33,72 +47,55 @@ function CarGarageIcon({ className }: { className?: string }) {
   );
 }
 
-export default function UserCarsPage() {
-  const { cars, removeCar } = useUserPortal();
-  const [query, setQuery] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<UserCar | null>(null);
+function carStatsForId(
+  carId: string,
+  sessions: { vehicleId?: string; kwh: number }[]
+): { sessionCount: number; kwhTotal: number } {
+  let sessionCount = 0;
+  let kwhTotal = 0;
+  for (const s of sessions) {
+    if (s.vehicleId === carId) {
+      sessionCount += 1;
+      kwhTotal += s.kwh;
+    }
+  }
+  return {
+    sessionCount,
+    kwhTotal: Math.round(kwhTotal * 1000) / 1000,
+  };
+}
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return cars;
-    return cars.filter(
-      (c) =>
-        c.model.toLowerCase().includes(q) ||
-        c.plate.toLowerCase().replace(/\s/g, '').includes(q.replace(/\s/g, ''))
-    );
-  }, [cars, query]);
+export default function UserCarsPage() {
+  const { cars, sessions, removeCar } = useUserPortal();
+  const [deleteTarget, setDeleteTarget] = useState<UserCar | null>(null);
+  const [detailCar, setDetailCar] = useState<UserCar | null>(null);
 
   const confirmDelete = () => {
     if (deleteTarget) {
       removeCar(deleteTarget.id);
       setDeleteTarget(null);
+      if (detailCar?.id === deleteTarget.id) setDetailCar(null);
     }
   };
 
+  const detailStats = useMemo(
+    () => (detailCar ? carStatsForId(detailCar.id, sessions) : null),
+    [detailCar, sessions]
+  );
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Мої авто</h1>
-          <p className="mt-1 max-w-xl text-sm text-gray-500">
-            Додавайте електромобілі з моделлю та номером — фото підбирається автоматично за назвою моделі.
+          <h1 className={userPortalPageTitle}>Мої авто</h1>
+          <p className={userPortalPageSubtitle}>
+            Натисніть картку, щоб переглянути дані та статистику зарядок. Фото підбираються за назвою моделі.
           </p>
-          {cars.length > 0 ? (
-            <p className="mt-2 text-xs font-medium uppercase tracking-wide text-emerald-700/90">
-              У гаражі: {cars.length} авто
-            </p>
-          ) : null}
         </div>
         <Link to="/dashboard/cars/new" className={`${appPrimaryCtaClass} shrink-0 self-start sm:self-auto`}>
           + Додати авто
         </Link>
       </div>
-
-      {cars.length > 0 ? (
-        <div className="max-w-xl">
-          <label htmlFor="car-search" className="sr-only">
-            Пошук за моделлю або номером
-          </label>
-          <div className="relative">
-            <span
-              className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400"
-              aria-hidden
-            >
-              <SearchIcon className="h-5 w-5" />
-            </span>
-            <input
-              id="car-search"
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Модель або номерний знак…"
-              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-11 pr-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/25"
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </div>
-        </div>
-      ) : null}
 
       <ConfirmDialog
         open={deleteTarget !== null}
@@ -114,6 +111,85 @@ export default function UserCarsPage() {
         cancelLabel="Скасувати"
         variant="danger"
       />
+
+      {detailCar ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 p-4 backdrop-blur-[2px] sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="car-detail-title"
+          onClick={() => setDetailCar(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setDetailCar(null);
+          }}
+        >
+          <div
+            className="relative max-h-[min(90dvh,640px)] w-full max-w-md overflow-y-auto rounded-2xl border border-emerald-100/80 bg-white shadow-2xl ring-1 ring-slate-900/10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="absolute right-3 top-3 rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+              aria-label="Закрити"
+              onClick={() => setDetailCar(null)}
+            >
+              <span className="text-lg leading-none">×</span>
+            </button>
+            <div className="aspect-[2/1] w-full overflow-hidden rounded-t-xl bg-slate-100">
+              <img
+                src={
+                  detailCar.imageUrl?.trim() ||
+                  suggestCarImageByModel(detailCar.model) ||
+                  DEFAULT_CAR_IMAGE
+                }
+                alt=""
+                className="h-full w-full object-cover"
+                onError={(ev) => {
+                  (ev.target as HTMLImageElement).src = DEFAULT_CAR_IMAGE;
+                }}
+              />
+            </div>
+            <div className="space-y-4 p-5 pt-6">
+              <div>
+                <h2 id="car-detail-title" className="text-lg font-semibold text-slate-900">
+                  {detailCar.model}
+                </h2>
+                <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-slate-600">{detailCar.plate}</p>
+                <p className="mt-2 text-sm text-slate-600">
+                  Роз’єм: <span className="font-medium text-slate-900">{detailCar.connector}</span>
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 rounded-xl border border-emerald-100/90 bg-emerald-50/40 p-4">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900/60">Сесій</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{detailStats.sessionCount}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900/60">Енергія</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">
+                    {detailStats.kwhTotal.toLocaleString('uk-UA', { maximumFractionDigits: 3 })} кВт·год
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">
+                Підрахунок лише для сесій, де обрано це авто. Якщо сесії без прив’язки до авто — тут буде 0.
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Link
+                  to={`/dashboard/cars/${detailCar.id}/edit`}
+                  className={`${appPrimaryCtaClass} flex-1 text-center text-sm`}
+                  onClick={() => setDetailCar(null)}
+                >
+                  Редагувати
+                </Link>
+                <OutlineButton type="button" className="flex-1" onClick={() => setDetailCar(null)}>
+                  Закрити
+                </OutlineButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {cars.length === 0 ? (
         <AppCard className="relative overflow-hidden border border-emerald-100/90 !p-0">
@@ -134,25 +210,26 @@ export default function UserCarsPage() {
             </Link>
           </div>
         </AppCard>
-      ) : filtered.length === 0 ? (
-        <AppCard className="border-dashed border-gray-200 py-12 text-center">
-          <p className="text-sm text-gray-500">Нічого не знайдено за запитом.</p>
-          <button
-            type="button"
-            className="mt-3 text-sm font-semibold text-emerald-700 hover:text-emerald-900"
-            onClick={() => setQuery('')}
-          >
-            Очистити пошук
-          </button>
-        </AppCard>
       ) : (
-        <ul className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((c) => {
+        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {cars.map((c) => {
             const src = c.imageUrl?.trim() || suggestCarImageByModel(c.model) || DEFAULT_CAR_IMAGE;
+            const { sessionCount, kwhTotal } = carStatsForId(c.id, sessions);
             return (
               <li key={c.id}>
-                <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-sm ring-1 ring-gray-950/[0.04] transition hover:shadow-md hover:ring-emerald-500/20">
-                  <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50">
+                <article
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setDetailCar(c)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setDetailCar(c);
+                    }
+                  }}
+                  className="flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-950/[0.04] transition hover:shadow-md hover:ring-emerald-500/15"
+                >
+                  <div className="relative aspect-[2/1] overflow-hidden bg-gradient-to-br from-slate-100 to-emerald-50/30">
                     <img
                       src={src}
                       alt=""
@@ -162,29 +239,38 @@ export default function UserCarsPage() {
                         (ev.target as HTMLImageElement).src = DEFAULT_CAR_IMAGE;
                       }}
                     />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent pt-16 pb-4 px-4">
-                      <h2 className="text-lg font-bold leading-snug text-white drop-shadow-sm">
-                        {c.model}
-                      </h2>
-                      <p className="mt-1 inline-block rounded-md bg-white/15 px-2 py-0.5 font-mono text-sm font-semibold tracking-wide text-white backdrop-blur-sm">
-                        {c.plate}
-                      </p>
+                    <div
+                      className="absolute right-2 top-2 z-[1] flex gap-1.5"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <Link
+                        to={`/dashboard/cars/${c.id}/edit`}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/95 text-slate-700 shadow-md shadow-slate-900/10 ring-1 ring-slate-200/90 transition hover:bg-emerald-50 hover:text-emerald-800 hover:ring-emerald-300/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"
+                        title="Редагувати"
+                        aria-label={`Редагувати ${c.model}`}
+                      >
+                        <PencilIcon className="h-4 w-4" />
+                      </Link>
+                      <button
+                        type="button"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/95 text-red-600 shadow-md shadow-slate-900/10 ring-1 ring-red-100 transition hover:bg-red-50 hover:text-red-700 hover:ring-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50"
+                        title="Видалити"
+                        aria-label={`Видалити ${c.model}`}
+                        onClick={() => setDeleteTarget(c)}
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2 border-t border-gray-100 p-4">
-                    <Link
-                      to={`/dashboard/cars/${c.id}/edit`}
-                      className="inline-flex flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-800 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/80 hover:text-emerald-900 sm:flex-none"
-                    >
-                      Редагувати
-                    </Link>
-                    <button
-                      type="button"
-                      className="inline-flex flex-1 items-center justify-center rounded-xl border border-red-100 bg-red-50/50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 sm:flex-none"
-                      onClick={() => setDeleteTarget(c)}
-                    >
-                      Видалити
-                    </button>
+                  <div className="flex flex-1 flex-col gap-1 border-t border-slate-100 p-3 sm:p-3.5">
+                    <h2 className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900">{c.model}</h2>
+                    <p className="font-mono text-xs font-semibold tabular-nums tracking-wide text-slate-600">{c.plate}</p>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Сесій: <span className="font-semibold text-slate-700">{sessionCount}</span>
+                      {' · '}
+                      {kwhTotal.toLocaleString('uk-UA', { maximumFractionDigits: 2 })} кВт·год
+                    </p>
                   </div>
                 </article>
               </li>

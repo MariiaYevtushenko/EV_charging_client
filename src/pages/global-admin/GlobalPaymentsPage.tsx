@@ -227,7 +227,7 @@ export default function GlobalPaymentsPage() {
 
       {statusCounts ? (
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">За статусом</p>
+          
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {PAYMENT_STATUS_TAB_ORDER.map((st) => {
               const selected = statusFilter === st;
