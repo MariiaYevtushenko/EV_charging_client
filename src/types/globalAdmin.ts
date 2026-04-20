@@ -10,6 +10,9 @@ export interface EndUserBooking {
   stationId: string;
   stationName: string;
   slotLabel: string;
+  /** Номер порту та тип конектора (для картки; `slotLabel` лишається для сумісності). */
+  portNumber?: string;
+  connectorLabel?: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'paid';
   start: string;
   end: string;

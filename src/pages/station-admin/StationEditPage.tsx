@@ -57,14 +57,14 @@ export default function StationEditPage() {
   const [ports, setPorts] = useState<StationPort[]>([]);
 
   const [flyToKey, setFlyToKey] = useState(0);
-  /** Локальний намір «в архіві»; на сервер — лише після «Зберегти зміни». */
+
   const [draftArchived, setDraftArchived] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const reverseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submitErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Не перезаписувати адресу з БД після першого moveend карти при відкритті сторінки. */
+
   const skipFirstReverse = useRef(true);
 
   useEffect(() => {

@@ -6,6 +6,7 @@ import type { EndUser } from '../../types/globalAdmin';
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
 import { appFormInputClass } from '../../components/station-admin/formStyles';
 import { globalAdminPageTitle } from '../../styles/globalAdminTheme';
+import { stationFormBackIconLink } from '../../styles/stationAdminTheme';
 
 function splitDisplayName(full: string): { firstName: string; surname: string } {
   const t = full.trim();
@@ -31,7 +32,6 @@ export default function GlobalUserEditPage() {
   const [surname, setSurname] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [blocked, setBlocked] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const idNum = userId ? Number(userId) : NaN;
@@ -72,7 +72,6 @@ export default function GlobalUserEditPage() {
     setSurname(sn);
     setEmail(base.email);
     setPhone(base.phone);
-    setBlocked(!!base.blocked);
   }, [base]);
 
   if (invalidId) {
@@ -93,9 +92,13 @@ export default function GlobalUserEditPage() {
       <div className="mx-auto max-w-xl space-y-4">
         <Link
           to="/admin-dashboard/users"
-          className="text-sm font-medium text-green-600 hover:text-green-700"
+          className={stationFormBackIconLink}
+          title="До списку користувачів"
+          aria-label="До списку користувачів"
         >
-          ← До списку користувачів
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
         </Link>
         <AppCard className="border-red-100 bg-red-50/80 !p-5">
           <p className="font-medium text-red-900">Не вдалося відкрити редагування</p>
@@ -113,7 +116,6 @@ export default function GlobalUserEditPage() {
       name: fullName,
       email: email.trim() || base.email,
       phone: phone.trim() || base.phone,
-      blocked,
     };
     replaceEndUser(next);
     setBase(next);
@@ -131,7 +133,6 @@ export default function GlobalUserEditPage() {
           ← До картки користувача
         </Link>
         <h1 className={`mt-2 ${globalAdminPageTitle}`}>Редагування</h1>
-        <p className="mt-1 text-sm text-gray-500">{base.name}</p>
       </div>
 
       <AppCard>
@@ -185,15 +186,6 @@ export default function GlobalUserEditPage() {
               className={appFormInputClass}
             />
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              checked={blocked}
-              onChange={(e) => setBlocked(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-            />
-            Заблокувати користувача
-          </label>
 
           {saved ? (
             <p className="rounded-xl bg-green-50 px-3 py-2 text-sm text-green-800 ring-1 ring-green-100">
@@ -201,7 +193,7 @@ export default function GlobalUserEditPage() {
             </p>
           ) : null}
 
-          <div className="flex flex-wrap gap-3 border-t border-gray-100 pt-6">
+          <div className="flex flex-wrap justify-end gap-3 border-t border-gray-100 pt-6">
             <PrimaryButton type="submit">Зберегти</PrimaryButton>
             <OutlineButton
               type="button"
@@ -211,7 +203,6 @@ export default function GlobalUserEditPage() {
                 setSurname(sn);
                 setEmail(base.email);
                 setPhone(base.phone);
-                setBlocked(!!base.blocked);
               }}
             >
               Скинути
