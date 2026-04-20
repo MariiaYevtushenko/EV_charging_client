@@ -17,9 +17,10 @@ import SortableTableTh, {
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
 import { formatCountryLabel } from '../../utils/countryDisplay';
 import { globalAdminPageTitle, globalAdminSearchInput } from '../../styles/globalAdminTheme';
-
-const LIST_SEARCH_DEBOUNCE_MS = 350;
-const SESSIONS_PAGE_SIZE = 50;
+import {
+  ADMIN_LIST_SEARCH_DEBOUNCE_MS,
+  GLOBAL_ADMIN_NETWORK_TABLE_PAGE_SIZE,
+} from '../../constants/adminUi';
 
 const SESSION_STATUS_TAB_ORDER: AdminNetworkSessionRow['status'][] = ['active', 'completed', 'failed'];
 
@@ -96,7 +97,7 @@ export default function GlobalSessionsPage() {
   const [period, setPeriod] = useState<NetworkListPeriod>('all');
 
   useEffect(() => {
-    const t = window.setTimeout(() => setSearchQuery(searchDraft.trim()), LIST_SEARCH_DEBOUNCE_MS);
+    const t = window.setTimeout(() => setSearchQuery(searchDraft.trim()), ADMIN_LIST_SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
   }, [searchDraft]);
 
@@ -133,7 +134,7 @@ export default function GlobalSessionsPage() {
     setError(null);
     void fetchAdminNetworkSessions({
       page,
-      pageSize: SESSIONS_PAGE_SIZE,
+      pageSize: GLOBAL_ADMIN_NETWORK_TABLE_PAGE_SIZE,
       q: searchQuery || undefined,
       status: statusFilter ?? undefined,
       sort: sortKey,
@@ -336,7 +337,7 @@ export default function GlobalSessionsPage() {
             {total === 0 && !searchQuery && !statusFilter
               ? 'Нічого не знайдено.'
               : searchQuery || statusFilter
-                ? 'Нічого не знайдено за цим запитом. Спробуйте змінити пошук або фільтр статусу.'
+                ? 'Нічого не знайдено за цим запитом'
                 : 'Нічого не знайдено.'}
           </p>
         ) : null}
@@ -344,7 +345,7 @@ export default function GlobalSessionsPage() {
 
       <AdminListPagination
         page={page}
-        pageSize={SESSIONS_PAGE_SIZE}
+        pageSize={GLOBAL_ADMIN_NETWORK_TABLE_PAGE_SIZE}
         total={total}
         onPageChange={setPage}
       />

@@ -17,9 +17,10 @@ import SortableTableTh, {
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
 import { formatCountryLabel } from '../../utils/countryDisplay';
 import { globalAdminPageTitle, globalAdminSearchInput } from '../../styles/globalAdminTheme';
-
-const LIST_SEARCH_DEBOUNCE_MS = 350;
-const BOOKINGS_PAGE_SIZE = 50;
+import {
+  ADMIN_LIST_SEARCH_DEBOUNCE_MS,
+  GLOBAL_ADMIN_NETWORK_TABLE_PAGE_SIZE,
+} from '../../constants/adminUi';
 
 /** Порядок «вкладок» за статусом (як на списку станцій). Без `confirmed` — у БД окремого статусу немає. */
 const BOOKING_STATUS_TAB_ORDER: AdminNetworkBookingRow['status'][] = ['pending', 'paid', 'cancelled'];
@@ -100,7 +101,7 @@ export default function GlobalBookingsPage() {
   const [period, setPeriod] = useState<NetworkListPeriod>('all');
 
   useEffect(() => {
-    const t = window.setTimeout(() => setSearchQuery(searchDraft.trim()), LIST_SEARCH_DEBOUNCE_MS);
+    const t = window.setTimeout(() => setSearchQuery(searchDraft.trim()), ADMIN_LIST_SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
   }, [searchDraft]);
 
@@ -137,7 +138,7 @@ export default function GlobalBookingsPage() {
     setError(null);
     void fetchAdminNetworkBookings({
       page,
-      pageSize: BOOKINGS_PAGE_SIZE,
+      pageSize: GLOBAL_ADMIN_NETWORK_TABLE_PAGE_SIZE,
       q: searchQuery || undefined,
       status: statusFilter ?? undefined,
       sort: sortKey,
@@ -318,7 +319,7 @@ export default function GlobalBookingsPage() {
             {total === 0 && !searchQuery && !statusFilter
               ? 'Нічого не знайдено.'
               : searchQuery || statusFilter
-                ? 'Нічого не знайдено за цим запитом. Спробуйте змінити пошук або фільтр статусу.'
+                ? 'Нічого не знайдено за цим запитом'
                 : 'Нічого не знайдено.'}
           </p>
         ) : null}
@@ -326,7 +327,7 @@ export default function GlobalBookingsPage() {
 
       <AdminListPagination
         page={page}
-        pageSize={BOOKINGS_PAGE_SIZE}
+        pageSize={GLOBAL_ADMIN_NETWORK_TABLE_PAGE_SIZE}
         total={total}
         onPageChange={setPage}
       />

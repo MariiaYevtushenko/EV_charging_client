@@ -154,13 +154,7 @@ function ScrollTable({
   empty?: boolean;
   maxHeight?: string;
 }) {
-  if (empty) {
-    return (
-      <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50/80 py-10 text-center text-sm text-gray-500">
-        Немає записів для відображення.
-      </p>
-    );
-  }
+  
   return (
     <div
       className="overflow-x-auto rounded-xl border border-gray-100 bg-slate-50/30"

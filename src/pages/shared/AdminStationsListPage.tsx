@@ -10,10 +10,22 @@ import type { StationStatus } from '../../types/station';
 import { parseStationSortValue } from '../../features/station-list/stationSortOptions';
 import SortableTableTh, { defaultDirForSortColumn } from '../../components/admin/SortableTableTh';
 import { stationAdminPageTitle, stationAdminSearchInput } from '../../styles/stationAdminTheme';
+import { ADMIN_LIST_SEARCH_DEBOUNCE_MS } from '../../constants/adminUi';
 
 const STATUS_STATS_ORDER: StationStatus[] = ['working', 'maintenance', 'offline', 'archived'];
 
-const STATIONS_SEARCH_DEBOUNCE_MS = 350;
+/** Фіксовані частки ширини таблиці (`table-fixed`), сума 100%. */
+const COL = {
+  name: 'w-[40%]',
+  city: 'w-[16%]',
+  country: 'w-[16%]',
+  status: 'w-[12%]',
+  revenue: 'w-[8%]',
+  sessions: 'w-[8%]',
+} as const;
+
+const tdBase = 'max-w-0 overflow-hidden px-4 py-3 align-middle';
+const tdTruncate = 'block min-w-0 truncate';
 
 function SearchIcon({ className }: { className?: string }) {
   return (
@@ -56,7 +68,7 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
   useEffect(() => {
     const t = window.setTimeout(() => {
       setStationsSearchQuery(searchDraft.trim());
-    }, STATIONS_SEARCH_DEBOUNCE_MS);
+    }, ADMIN_LIST_SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
   }, [searchDraft, setStationsSearchQuery]);
 
@@ -97,14 +109,14 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-3">
+        <div className="min-w-0 w-full flex-1">
           <h1 className={stationAdminPageTitle}>Станції</h1>
-          <div className="mt-3 max-w-xl">
+          <div className="mt-3 w-full">
             <label htmlFor="admin-stations-search" className="sr-only">
               Пошук станцій за назвою або містом
             </label>
-            <div className="relative">
+            <div className="relative w-full">
               <span
                 className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"
                 aria-hidden
@@ -124,7 +136,13 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
             </div>
           </div>
         </div>
-        <Link to={`${dashboardBase}/stations/new`} className={appPrimaryCtaClass}>
+        <Link
+          to={`${dashboardBase}/stations/new`}
+          className={`${appPrimaryCtaClass} shrink-0 gap-1.5`}
+        >
+          <span className="text-base font-semibold leading-none" aria-hidden>
+            +
+          </span>
           Додати станцію
         </Link>
       </div>
@@ -158,7 +176,7 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
       ) : null}
 
       <AppCard className="overflow-x-auto !p-0" padding={false}>
-        <table className="min-w-full text-left text-sm">
+        <table className="w-full min-w-[720px] table-fixed text-left text-sm">
           <thead className="border-b border-gray-100 bg-gray-50/80 text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr>
               <SortableTableTh
@@ -167,6 +185,7 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
                 activeKey={parsedSort.key}
                 dir={parsedSort.dir}
                 onSort={handleSort}
+                thClassName={`px-4 py-3 ${COL.name}`}
               />
               <SortableTableTh
                 label="Місто"
@@ -174,6 +193,7 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
                 activeKey={parsedSort.key}
                 dir={parsedSort.dir}
                 onSort={handleSort}
+                thClassName={`px-4 py-3 ${COL.city}`}
               />
               <SortableTableTh
                 label="Країна"
@@ -181,6 +201,7 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
                 activeKey={parsedSort.key}
                 dir={parsedSort.dir}
                 onSort={handleSort}
+                thClassName={`px-4 py-3 ${COL.country}`}
               />
               <SortableTableTh
                 label="Статус"
@@ -188,6 +209,7 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
                 activeKey={parsedSort.key}
                 dir={parsedSort.dir}
                 onSort={handleSort}
+                thClassName={`px-4 py-3 ${COL.status}`}
               />
               <SortableTableTh
                 label="Дохід сьогодні"
@@ -196,6 +218,7 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
                 dir={parsedSort.dir}
                 onSort={handleSort}
                 align="right"
+                thClassName={`px-4 py-3 ${COL.revenue}`}
               />
               <SortableTableTh
                 label="Сесії"
@@ -204,6 +227,7 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
                 dir={parsedSort.dir}
                 onSort={handleSort}
                 align="right"
+                thClassName={`px-4 py-3 ${COL.sessions}`}
               />
             </tr>
           </thead>
@@ -229,25 +253,41 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
                     }
                   }}
                 >
-                  <td className="px-4 py-3 font-medium text-gray-900">{s.name}</td>
-                  <td className="px-4 py-3 text-gray-600">{s.city}</td>
-                  <td className="max-w-[min(12rem,28vw)] px-4 py-3">
+                  <td className={`${tdBase} font-medium text-gray-900 ${COL.name}`}>
+                    <span className={`${tdTruncate} text-gray-900`} title={s.name}>
+                      {s.name}
+                    </span>
+                  </td>
+                  <td className={`${tdBase} text-gray-600 ${COL.city}`}>
+                    <span className={`${tdTruncate} text-gray-600`} title={s.city || undefined}>
+                      {s.city || '—'}
+                    </span>
+                  </td>
+                  <td className={`${tdBase} text-gray-800 ${COL.country}`}>
                     <span
-                      className="line-clamp-2 text-gray-800"
-                      title={countryIsoTooltip(s.country)}
+                      className={`${tdTruncate} text-gray-800`}
+                      title={
+                        [formatCountryLabel(s.country), countryIsoTooltip(s.country)]
+                          .filter(Boolean)
+                          .join(' — ') || undefined
+                      }
                     >
                       {formatCountryLabel(s.country)}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <StatusPill tone={stationStatusTone(s.status)}>
-                      {stationStatusLabel(s.status)}
-                    </StatusPill>
+                  <td className={`${tdBase} ${COL.status}`}>
+                    <span className="inline-flex max-w-full min-w-0">
+                      <StatusPill tone={stationStatusTone(s.status)}>
+                        {stationStatusLabel(s.status)}
+                      </StatusPill>
+                    </span>
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-gray-900">
+                  <td className={`${tdBase} text-right tabular-nums text-gray-900 ${COL.revenue}`}>
                     {s.todayRevenue.toLocaleString('uk-UA')} грн
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-gray-900">{s.todaySessions}</td>
+                  <td className={`${tdBase} text-right tabular-nums text-gray-900 ${COL.sessions}`}>
+                    {s.todaySessions}
+                  </td>
                 </tr>
               ))
             )}
@@ -256,7 +296,7 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
         {!loading && rows.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-gray-500">
             {stationsSearchQuery.trim()
-              ? 'Нічого не знайдено за цим запитом. Спробуйте змінити пошук або фільтр статусу.'
+              ? 'Нічого не знайдено за цим запитом'
               : 'Нічого не знайдено'}
           </p>
         ) : null}

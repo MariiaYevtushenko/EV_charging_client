@@ -7,7 +7,7 @@ export function stationStatusLabel(status: StationStatus): string {
     case 'offline':
       return 'Оффлайн';
     case 'maintenance':
-      return 'На обслуговуванні';
+      return 'Ремонт';
     case 'archived':
       return 'Архів';
     default:

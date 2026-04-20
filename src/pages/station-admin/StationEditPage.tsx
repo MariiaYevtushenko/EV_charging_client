@@ -301,7 +301,7 @@ export default function StationEditPage() {
                 className={`mt-1 ${appSelectClass}`}
               >
                 <option value="working">Працює</option>
-                <option value="maintenance">На обслуговуванні</option>
+                <option value="maintenance">Ремонт</option>
                 <option value="offline">Оффлайн</option>
                 <option value="archived">Архів</option>
               </select>

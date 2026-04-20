@@ -24,6 +24,10 @@ import {
 } from '../api/stations';
 import { stationFromDashboardDto } from '../utils/stationFromDashboardDto';
 import { stationToCreateBody, stationToUpdateBody } from '../utils/stationApiPayload';
+import {
+  DEFAULT_STATION_PAGE_SIZE,
+  STATION_MAP_VIEWPORT_FETCH_LIMIT,
+} from '../constants/adminUi';
 
 export type StationSortKey =
   | 'name'
@@ -33,9 +37,6 @@ export type StationSortKey =
   | 'todayRevenue'
   | 'todaySessions';
 export type StationSortDir = 'asc' | 'desc';
-
-const STATIONS_PAGE_SIZE = 50;
-const MAP_VIEWPORT_FETCH_LIMIT = 1000;
 
 type StationsContextValue = {
   stations: Station[];
@@ -48,7 +49,6 @@ type StationsContextValue = {
     west: number;
     east: number;
   }) => void;
-  
   stationDtos: StationDashboardDto[];
   mapStationDtos: StationDashboardDto[];
   loading: boolean;
@@ -57,7 +57,6 @@ type StationsContextValue = {
   stationsPage: number;
   stationsTotal: number;
   stationsPageSize: number;
-
   stationStatusCounts: StationStatusCounts | null;
   setStationsPage: (page: number) => void;
   filteredStations: Station[];
@@ -66,10 +65,8 @@ type StationsContextValue = {
   setSelectedCities: Dispatch<SetStateAction<string[]>>;
   sortValue: string;
   setSortValue: (v: string) => void;
-  /** Фільтр списку станцій за статусом (null — усі; пагінація на сервері). */
   stationListStatusFilter: StationStatus | null;
   setStationListStatusFilter: (status: StationStatus | null) => void;
-  /** Пошук за назвою станції або містом (параметр `q` на сервері). */
   stationsSearchQuery: string;
   setStationsSearchQuery: (q: string) => void;
   addStation: (station: Omit<Station, 'id'>) => Promise<Station>;
@@ -131,7 +128,7 @@ export function StationsProvider({ children }: { children: ReactNode }) {
     try {
       const res = await fetchStationsPage(
         stationsPage,
-        STATIONS_PAGE_SIZE,
+        DEFAULT_STATION_PAGE_SIZE,
         sortValue,
         stationListStatusFilter,
         stationsSearchQuery
@@ -163,7 +160,7 @@ export function StationsProvider({ children }: { children: ReactNode }) {
           maxLat: bounds.north,
           minLng: bounds.west,
           maxLng: bounds.east,
-          limit: MAP_VIEWPORT_FETCH_LIMIT,
+          limit: STATION_MAP_VIEWPORT_FETCH_LIMIT,
         });
         setMapStationDtos(res.items);
         setMapFetchLimit(typeof res.limit === 'number' ? res.limit : null);
@@ -340,7 +337,7 @@ export function StationsProvider({ children }: { children: ReactNode }) {
       reload,
       stationsPage,
       stationsTotal,
-      stationsPageSize: STATIONS_PAGE_SIZE,
+      stationsPageSize: DEFAULT_STATION_PAGE_SIZE,
       stationStatusCounts,
       setStationsPage,
       filteredStations,

@@ -7,18 +7,14 @@ import type {
   StationsMapResponse,
 } from "../types/stationApi";
 import type { StationStatus } from "../types/station";
+import { DEFAULT_STATION_PAGE_SIZE } from "../constants/adminUi";
 import { deleteJson, getJson, patchJson, postJson, putJson } from "./http";
 
-const DEFAULT_STATION_PAGE_SIZE = 50;
-
-/** `sort` як у контексті: `name:asc`, `city:desc`, … — сортування на сервері по всій таблиці. */
 export function fetchStationsPage(
   page: number,
   pageSize: number = DEFAULT_STATION_PAGE_SIZE,
   sort: string = "name:asc",
-  /** Фільтр списку за статусом (узгоджено з `parseStationStatus` на сервері). */
   status?: StationStatus | null,
-  /** Пошук за назвою станції або містом (query `q` на сервері). */
   search?: string | null
 ): Promise<PaginatedStationsResponse> {
   const params = new URLSearchParams({
@@ -41,11 +37,9 @@ export type MapBoundsQuery = {
   maxLat: number;
   minLng: number;
   maxLng: number;
-  /** Якщо не передано — сервер за замовчуванням 2500, макс. 5000. Клієнт карти передає 1000. */
   limit?: number;
 };
 
-/** Станції лише у межах видимої області карти (не вся БД). */
 export function fetchStationsMapBounds(q: MapBoundsQuery): Promise<StationsMapResponse> {
   const params = new URLSearchParams({
     minLat: String(q.minLat),

@@ -45,14 +45,6 @@ export default function AdminListPagination({ page, pageSize, total, onPageChang
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
 
-  if (total === 0) {
-    return (
-      <div className={`py-2 text-center text-sm text-gray-500 ${className ?? ''}`}>
-        Немає записів для відображення.
-      </div>
-    );
-  }
-
   const atFirst = page <= 1;
   const atLast = page >= totalPages;
 

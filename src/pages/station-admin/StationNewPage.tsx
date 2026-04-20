@@ -8,17 +8,16 @@ import StationLocationPicker from '../../components/station-admin/StationLocatio
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
 import { appSelectClass } from '../../components/station-admin/formStyles';
 import { stationAdminPageTitle } from '../../styles/stationAdminTheme';
+import {
+  DEFAULT_LAT,
+  DEFAULT_LNG,
+  MAP_HEIGHT_CLASS,
+  REVERSE_DEBOUNCE_MS,
+  SUBMIT_ERROR_TOAST_MS,
+} from './stationNewPageConstants';
 
 const inputClass =
   'mt-1 w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-3 text-sm outline-none transition hover:border-gray-300 focus:border-green-500 focus:ring-4 focus:ring-green-500/15';
-
-const DEFAULT_LAT = 49.8397;
-const DEFAULT_LNG = 24.0297;
-
-const MAP_HEIGHT_CLASS =
-  'min-h-[380px] h-[min(600px,calc(100dvh-10rem))] w-full sm:min-h-[440px]';
-
-const REVERSE_DEBOUNCE_MS = 650;
 
 export default function StationNewPage() {
   const { addStation, uniqueCities } = useStations();
@@ -38,14 +37,29 @@ export default function StationNewPage() {
   const [flyToKey, setFlyToKey] = useState(0);
   const [reverseLoading, setReverseLoading] = useState(false);
   const [forwardLoading, setForwardLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const reverseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const submitErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
       if (reverseTimerRef.current) clearTimeout(reverseTimerRef.current);
+      if (submitErrorTimerRef.current) clearTimeout(submitErrorTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!submitError) return;
+    if (submitErrorTimerRef.current) clearTimeout(submitErrorTimerRef.current);
+    submitErrorTimerRef.current = setTimeout(() => {
+      setSubmitError(null);
+      submitErrorTimerRef.current = null;
+    }, SUBMIT_ERROR_TOAST_MS);
+    return () => {
+      if (submitErrorTimerRef.current) clearTimeout(submitErrorTimerRef.current);
+    };
+  }, [submitError]);
 
   const parseNum = (v: string) => {
     const n = parseFloat(v.replace(',', '.'));
@@ -75,7 +89,7 @@ export default function StationNewPage() {
     }, REVERSE_DEBOUNCE_MS);
   };
 
-  /** Після введення міста та вулиці — підібрати координати (без окремої кнопки). */
+  // Підбір координат по адресі
   const applyCoordsFromAddressFields = async () => {
     const a = address.trim();
     const c = city.trim();
@@ -95,6 +109,7 @@ export default function StationNewPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
     try {
       const station = await addStation({
         name: name.trim() || 'Нова станція',
@@ -113,13 +128,35 @@ export default function StationNewPage() {
         ports: ports.map((p) => ({ ...p, id: p.id || `p-${Math.random().toString(36).slice(2)}` })),
       });
       navigate(`${dashBase}/stations/${station.id}`);
-    } catch {
-      /* помилка вже в контексті */
+    } catch (err) {
+      const msg =
+        err instanceof Error && err.message.trim()
+          ? err.message
+          : 'Не вдалося створити станцію. Перевірте дані та спробуйте ще раз.';
+      setSubmitError(msg);
     }
   };
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
+      {submitError ? (
+        <div
+          className="fixed bottom-6 left-1/2 z-50 max-w-[min(36rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 shadow-lg shadow-red-900/10"
+          role="alert"
+          aria-live="assertive"
+        >
+          <div className="flex items-start gap-3">
+            <p className="min-w-0 flex-1 leading-snug">{submitError}</p>
+            <button
+              type="button"
+              onClick={() => setSubmitError(null)}
+              className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-red-800 underline-offset-2 hover:underline"
+            >
+              Закрити
+            </button>
+          </div>
+        </div>
+      ) : null}
       <div>
         <Link
           to={`${dashBase}/stations`}
@@ -234,7 +271,7 @@ export default function StationNewPage() {
                 className={`mt-1 ${appSelectClass}`}
               >
                 <option value="working">Працює</option>
-                <option value="maintenance">На обслуговуванні</option>
+                <option value="maintenance">Ремонт</option>
                 <option value="offline">Оффлайн</option>
               </select>
             </div>

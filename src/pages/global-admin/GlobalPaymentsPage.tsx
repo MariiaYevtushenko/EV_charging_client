@@ -18,9 +18,10 @@ import SortableTableTh, {
 } from '../../components/admin/SortableTableTh';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
 import { globalAdminPageTitle, globalAdminSearchInput } from '../../styles/globalAdminTheme';
-
-const PAYMENT_PAGE_SIZE = 50;
-const LIST_SEARCH_DEBOUNCE_MS = 350;
+import {
+  ADMIN_LIST_SEARCH_DEBOUNCE_MS,
+  GLOBAL_ADMIN_NETWORK_TABLE_PAGE_SIZE,
+} from '../../constants/adminUi';
 
 const PAYMENT_STATUS_TAB_ORDER: AdminNetworkPaymentRow['status'][] = ['success', 'pending', 'failed'];
 
@@ -96,7 +97,7 @@ export default function GlobalPaymentsPage() {
   useEffect(() => {
     const t = window.setTimeout(() => {
       setSearchQuery(searchDraft.trim());
-    }, LIST_SEARCH_DEBOUNCE_MS);
+    }, ADMIN_LIST_SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
   }, [searchDraft]);
 
@@ -105,7 +106,7 @@ export default function GlobalPaymentsPage() {
   }, [searchQuery, statusFilter, period]);
 
   const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(total / PAYMENT_PAGE_SIZE) || 1),
+    () => Math.max(1, Math.ceil(total / GLOBAL_ADMIN_NETWORK_TABLE_PAGE_SIZE) || 1),
     [total]
   );
   useEffect(() => {
@@ -146,7 +147,7 @@ export default function GlobalPaymentsPage() {
     setError(null);
     void fetchAdminNetworkPayments({
       page,
-      pageSize: PAYMENT_PAGE_SIZE,
+      pageSize: GLOBAL_ADMIN_NETWORK_TABLE_PAGE_SIZE,
       q: searchQuery || undefined,
       status: statusFilter ?? undefined,
       sort: sortKey,
@@ -315,7 +316,7 @@ export default function GlobalPaymentsPage() {
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
                   {searchQuery || statusFilter
-                    ? 'Нічого не знайдено за цим запитом. Спробуйте змінити пошук або фільтр статусу.'
+                    ? 'Нічого не знайдено за цим запитом'
                     : 'Платежів (bill) поки немає.'}
                 </td>
               </tr>
@@ -352,7 +353,7 @@ export default function GlobalPaymentsPage() {
           <div className="border-t border-gray-100 px-4 py-4">
             <AdminListPagination
               page={page}
-              pageSize={PAYMENT_PAGE_SIZE}
+              pageSize={GLOBAL_ADMIN_NETWORK_TABLE_PAGE_SIZE}
               total={total}
               onPageChange={setPage}
             />
