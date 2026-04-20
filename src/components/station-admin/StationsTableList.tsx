@@ -1,7 +1,6 @@
 import { AppCard } from "./Primitives";
 import type { Station } from "../../types/station";
 import { stationStatusLabel, stationStatusTone } from "../../utils/stationLabels";
-import { formatCountryLabel } from "../../utils/countryDisplay";
 import { PrimaryButton, StatusPill } from "./Primitives";
 import { OutlineButton } from "./Primitives";
 import { useNavigate } from "react-router-dom";
@@ -37,40 +36,36 @@ export default function StationsTableList({
             : 'space-y-5'
         }
       >
-        <div className={`flex flex-wrap items-start justify-between gap-2 ${fillHeight ? 'shrink-0' : ''}`}>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-              {[selected.city, formatCountryLabel(selected.country)].filter(Boolean).join(' · ') ||
-                '—'}
-            </p>
-            <h2 className="text-lg font-bold text-gray-900">{selected.name}</h2>
-            <p className="mt-1 flex items-start gap-1.5 break-words text-sm text-gray-500">
-              <svg
-                className="mt-0.5 h-4 w-4 shrink-0 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-              {selected.address}
-            </p>
+        <div className={`space-y-2 ${fillHeight ? 'shrink-0' : ''}`}>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="min-w-0 flex-1 text-lg font-bold leading-snug text-gray-900">{selected.name}</h2>
+            <StatusPill tone={stationStatusTone(selected.status)}>
+              {stationStatusLabel(selected.status)}
+            </StatusPill>
           </div>
-          <StatusPill tone={stationStatusTone(selected.status)}>
-            {stationStatusLabel(selected.status)}
-          </StatusPill>
+          <p className="flex items-start gap-1.5 break-words text-sm text-gray-500">
+            <svg
+              className="mt-0.5 h-4 w-4 shrink-0 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+            <span>{selected.address}</span>
+          </p>
         </div>
 
         <div className={`grid grid-cols-1 gap-2.5 ${fillHeight ? 'shrink-0' : ''}`}>

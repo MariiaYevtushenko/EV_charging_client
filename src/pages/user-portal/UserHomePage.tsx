@@ -156,9 +156,6 @@ export default function UserHomePage() {
           className="flex min-h-[min(560px,78dvh)] flex-col overflow-hidden shadow-md shadow-slate-900/[0.04] xl:col-span-3"
           padding={false}
         >
-          <div className="border-b border-emerald-100/80 bg-gradient-to-r from-emerald-50/60 via-white to-slate-50/30 px-4 py-3.5 sm:px-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800/80">Інтерактивна карта</p>
-          </div>
           <div className="flex min-h-0 flex-1 flex-col p-2 sm:p-3">
             <div className="relative min-h-[min(400px,55vh)] flex-1 overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200/80">
               <StationMap

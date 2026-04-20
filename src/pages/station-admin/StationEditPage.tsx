@@ -3,23 +3,15 @@ import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-route
 import { useStations } from '../../context/StationsContext';
 import type { StationPort, StationStatus } from '../../types/station';
 import { geocodeAddressParts, reverseGeocode } from '../../lib/nominatimGeocode';
-import { ConfirmDialog } from '../../components/ConfirmDialog';
 import StationLocationPicker from '../../components/station-admin/StationLocationPicker';
 import StationPortsEditor from '../../components/station-admin/StationPortsEditor';
-import {
-  AppCard,
-  DangerButton,
-  OutlineButton,
-  PrimaryButton,
-} from '../../components/station-admin/Primitives';
+import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
 import { FloatingToast, FloatingToastRegion } from '../../components/admin/FloatingToast';
 import StationStatusSelect from '../../components/station-admin/StationStatusSelect';
 import {
   stationFormBackIconLink,
-  stationFormCardSubline,
   stationFormCardTitle,
   stationFormDataScrollClass,
-  stationFormHelpText,
   stationFormLabel,
   stationFormMapStickyClass,
   stationFormPageHeaderRow,
@@ -65,9 +57,8 @@ export default function StationEditPage() {
   const [ports, setPorts] = useState<StationPort[]>([]);
 
   const [flyToKey, setFlyToKey] = useState(0);
-  const [reverseLoading, setReverseLoading] = useState(false);
-  const [forwardLoading, setForwardLoading] = useState(false);
-  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  /** Локальний намір «в архіві»; на сервер — лише після «Зберегти зміни». */
+  const [draftArchived, setDraftArchived] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -99,6 +90,7 @@ export default function StationEditPage() {
     };
   }, [submitError]);
 
+  /** Лише при перемиканні станції — щоб після PATCH статусу reload() не скидав незбережені поля форми. */
   useEffect(() => {
     if (!base) return;
     setName(base.name);
@@ -111,7 +103,8 @@ export default function StationEditPage() {
     setLng(base.lng.toFixed(6));
     setStatus(base.status);
     setPorts(base.ports.map((p) => ({ ...p })));
-  }, [base?.id, base]);
+    setDraftArchived(Boolean(base.archived));
+  }, [base?.id]);
 
   if (!base) {
     return <Navigate to={`${dashBase}/stations`} replace />;
@@ -140,7 +133,7 @@ export default function StationEditPage() {
           lng: mapLng,
           ports,
         },
-        { requireCountry: true }
+        { requireCountry: false }
       ),
     [name, city, street, houseNumber, country, mapLat, mapLng, ports]
   );
@@ -154,7 +147,6 @@ export default function StationEditPage() {
         skipFirstReverse.current = false;
         return;
       }
-      setReverseLoading(true);
       try {
         const r = await reverseGeocode(la, lo);
         if (r.ok) {
@@ -162,9 +154,10 @@ export default function StationEditPage() {
           const parts = splitStreetHouse(r.address);
           setStreet(parts.street);
           setHouseNumber(parts.houseNumber);
+          if (r.countryCode) setCountry(r.countryCode);
         }
-      } finally {
-        setReverseLoading(false);
+      } catch {
+        /* мережа / Nominatim */
       }
     }, REVERSE_DEBOUNCE_MS);
   };
@@ -173,17 +166,24 @@ export default function StationEditPage() {
     const line = joinStreetHouse(street, houseNumber);
     const c = city.trim();
     if (!line || line === '—' || !c) return;
-    setForwardLoading(true);
     try {
       const result = await geocodeAddressParts(line, c);
       if (result.ok) {
         setLat(result.lat.toFixed(6));
         setLng(result.lng.toFixed(6));
         setFlyToKey((k) => k + 1);
+        const rev = await reverseGeocode(result.lat, result.lng);
+        if (rev.ok && rev.countryCode) setCountry(rev.countryCode);
       }
-    } finally {
-      setForwardLoading(false);
+    } catch {
+      /* мережа / геокодер */
     }
+  };
+
+  const handleStatusChange = (v: StationStatus) => {
+    if (!base) return;
+    setStatus(v);
+    void updateStation(base.id, { status: v });
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -191,7 +191,13 @@ export default function StationEditPage() {
     setSubmitError(null);
     setAttempted(true);
     if (hasStationFormErrors(fieldErrors)) return;
+    const wasArchived = Boolean(base.archived);
+    const wantArchived = draftArchived;
+    const statusForSave: StationStatus = status === 'archived' ? 'working' : status;
     try {
+      if (wasArchived && !wantArchived) {
+        await unarchiveStation(base.id);
+      }
       await updateStation(base.id, {
         name: name.trim(),
         country: country.trim() || base.country,
@@ -199,12 +205,17 @@ export default function StationEditPage() {
         address: joinStreetHouse(street, houseNumber),
         lat: mapLat,
         lng: mapLng,
-        status,
+        status: statusForSave,
         ports: ports.map((p) => ({ ...p })),
       });
+      if (!wasArchived && wantArchived) {
+        await archiveStation(base.id);
+      }
       navigate(`${dashBase}/stations/${base.id}`, {
         replace: true,
-        state: { stationNotice: 'updated' as const },
+        state: {
+          stationNotice: wantArchived && !wasArchived ? 'archived' : 'updated',
+        },
       });
     } catch (err) {
       const msg =
@@ -212,25 +223,6 @@ export default function StationEditPage() {
           ? err.message
           : 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.';
       setSubmitError(msg);
-    }
-  };
-
-  const confirmArchive = async () => {
-    if (!base) return;
-    try {
-      await archiveStation(base.id);
-      setArchiveConfirmOpen(false);
-      navigate(`${dashBase}/stations`, { replace: true });
-    } catch {
-      /* помилка в контексті */
-    }
-  };
-
-  const handleUnarchive = async () => {
-    try {
-      await unarchiveStation(base.id);
-    } catch {
-      /* помилка в контексті */
     }
   };
 
@@ -245,42 +237,18 @@ export default function StationEditPage() {
           {submitError}
         </FloatingToast>
       </FloatingToastRegion>
-      <ConfirmDialog
-        open={archiveConfirmOpen}
-        onClose={() => setArchiveConfirmOpen(false)}
-        onConfirm={confirmArchive}
-        title="Перемістити станцію в архів?"
-        description="Вона зникне з карти та зі списку «Усі»; після цього ви перейдете до списку станцій."
-        confirmLabel="Так, в архів"
-        cancelLabel="Скасувати"
-        variant="danger"
-      />
-
-      <div
-        className={
-          base.archived
-            ? 'rounded-2xl border border-amber-200/90 bg-amber-50/40 p-3 ring-1 ring-amber-100/80 sm:p-4'
-            : ''
-        }
-      >
-        <div className={stationFormPageHeaderRow}>
-          <Link
-            to={`${dashBase}/stations/${base.id}`}
-            className={stationFormBackIconLink}
-            title="Назад до станції"
-            aria-label="Назад до станції"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </Link>
-          <h1 className={`${stationFormPageTitle} ${base.archived ? 'text-amber-950' : ''}`}>
-            Редагування станції
-          </h1>
-        </div>
-        {base.archived ? (
-          <p className="mt-1.5 text-sm font-medium text-amber-900/90">Станція в архіві</p>
-        ) : null}
+      <div className={stationFormPageHeaderRow}>
+        <Link
+          to={`${dashBase}/stations/${base.id}`}
+          className={stationFormBackIconLink}
+          title="Назад до станції"
+          aria-label="Назад до станції"
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </Link>
+        <h1 className={stationFormPageTitle}>Редагування станції</h1>
       </div>
 
       <div className={stationFormSplitGrid}>
@@ -288,15 +256,8 @@ export default function StationEditPage() {
           <AppCard padding={false}>
             <div className="border-b border-gray-100 px-4 py-3 sm:px-5">
               <h2 className={stationFormCardTitle}>Розташування</h2>
-              <p className={stationFormCardSubline}>
-                {reverseLoading || forwardLoading
-                  ? reverseLoading
-                    ? 'Оновлюємо адресу за координатами…'
-                    : 'Шукаємо координати за адресом…'
-                  : 'Перетягніть маркер або змініть місто й вулицю в формі.'}
-              </p>
             </div>
-            <div className="space-y-2 p-3">
+            <div className="p-3">
               <StationLocationPicker
                 lat={mapLat}
                 lng={mapLng}
@@ -304,10 +265,6 @@ export default function StationEditPage() {
                 flyToKey={flyToKey}
                 mapClassName={MAP_HEIGHT_CLASS}
               />
-              <p className="text-sm leading-snug text-gray-600">
-                <span className="font-medium text-gray-700">Координати: </span>
-                {mapLat.toFixed(6)}, {mapLng.toFixed(6)}
-              </p>
             </div>
           </AppCard>
         </div>
@@ -335,27 +292,6 @@ export default function StationEditPage() {
               {attempted && fieldErrors.name ? (
                 <p id="st-name-err" className={fieldErrorText}>
                   {fieldErrors.name}
-                </p>
-              ) : null}
-            </div>
-            <div>
-              <label htmlFor="st-country" className={stationFormLabel}>
-                Країна (код ISO) <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="st-country"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                placeholder="UA"
-                maxLength={100}
-                className={inputClass(!attempted || !fieldErrors.country)}
-                autoComplete="country"
-                aria-invalid={attempted && Boolean(fieldErrors.country)}
-                aria-describedby={attempted && fieldErrors.country ? 'st-country-err' : undefined}
-              />
-              {attempted && fieldErrors.country ? (
-                <p id="st-country-err" className={fieldErrorText}>
-                  {fieldErrors.country}
                 </p>
               ) : null}
             </div>
@@ -428,27 +364,39 @@ export default function StationEditPage() {
               </div>
             </div>
 
-            <div>
-              <span className={stationFormLabel}>Статус</span>
-              <StationStatusSelect variant="edit" value={status} onChange={setStatus} />
-              <p className={stationFormHelpText}>
-                «Архів» приховує станцію з основного списку. Можна також скористатися кнопкою нижче або
-                відновити станцію кнопкою «Відновити з архіву».
-              </p>
-            </div>
-
-            {base.archived ? (
-              <div className="rounded-xl border border-amber-200/90 bg-gradient-to-br from-amber-50/95 to-white px-4 py-4 shadow-sm shadow-amber-900/5">
-                <p className="text-sm font-semibold text-amber-950">Станція в архіві</p>
-                <p className="mt-1 text-xs leading-relaxed text-amber-900/85">
-                  Після відновлення статус стане «Працює»; за потреби змініть його в списку вище й збережіть
-                  форму.
-                </p>
-                <PrimaryButton type="button" className="mt-3" onClick={() => void handleUnarchive()}>
-                  Відновити з архіву
-                </PrimaryButton>
+            {!draftArchived ? (
+              <div>
+                <span className={stationFormLabel}>Статус</span>
+                <StationStatusSelect
+                  variant="edit"
+                  value={status === 'archived' ? 'working' : status}
+                  onChange={handleStatusChange}
+                />
               </div>
             ) : null}
+
+            <div className="space-y-2 rounded-xl border border-gray-100 bg-gray-50/90 px-4 py-3">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm font-medium text-gray-900">В архіві</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-label="В архіві"
+                  aria-checked={draftArchived}
+                  onClick={() => setDraftArchived((v) => !v)}
+                  className={`relative inline-flex h-7 w-[2.75rem] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 ${
+                    draftArchived ? 'bg-green-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none mt-0.5 inline-block h-6 w-6 rounded-full bg-white shadow ring-0 transition-transform ${
+                      draftArchived ? 'translate-x-[1.35rem]' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+              
+            </div>
 
             <div className="border-t border-gray-100 pt-6">
               {attempted && fieldErrors.ports ? (
@@ -466,18 +414,6 @@ export default function StationEditPage() {
               </OutlineButton>
             </div>
           </form>
-
-          {!base.archived ? (
-            <div className="mt-8 border-t border-gray-200 pt-6">
-              <p className="text-sm font-semibold text-gray-900">Архів</p>
-              <p className="mt-1 text-sm leading-relaxed text-gray-500">
-                Архівні станції не відображаються на карті та у списку «Усі» — лише у фільтрі «Архів».
-              </p>
-              <DangerButton type="button" className="mt-4" onClick={() => setArchiveConfirmOpen(true)}>
-                Архівувати станцію
-              </DangerButton>
-            </div>
-          ) : null}
         </AppCard>
       </div>
     </div>

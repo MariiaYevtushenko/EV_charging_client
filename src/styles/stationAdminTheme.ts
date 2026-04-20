@@ -28,8 +28,9 @@ export const stationFormBackIconLink =
 /** Двоколонкова форма: на lg карта зліва лишається на місці, форма справа скролиться. */
 export const stationFormSplitGrid =
   'grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:items-start';
-/** Обгортка картки з картою — sticky у межах головного скролу. */
-export const stationFormMapStickyClass = 'lg:sticky lg:top-4 lg:z-[1] lg:self-start';
+/** Обгортка картки з картою — зліва «липне», права колонка з полями скролиться окремо (`stationFormDataScrollClass`). */
+export const stationFormMapStickyClass =
+  'lg:sticky lg:top-4 lg:z-[1] lg:shrink-0 lg:self-start';
 /** Картка з полями — внутрішній скрол на великому екрані. */
 export const stationFormDataScrollClass =
   'lg:max-h-[calc(100vh-9rem)] lg:min-h-0 lg:overflow-y-auto lg:overscroll-y-contain lg:pr-1';

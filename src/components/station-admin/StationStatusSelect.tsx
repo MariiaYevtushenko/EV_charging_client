@@ -2,7 +2,8 @@ import type { StationStatus } from '../../types/station';
 import { stationStatusLabel } from '../../utils/stationLabels';
 
 const OPTIONS_NEW: StationStatus[] = ['working', 'maintenance', 'offline'];
-const OPTIONS_EDIT: StationStatus[] = ['working', 'maintenance', 'offline', 'archived'];
+/** Редагування: без «Архів» — перенесення в архів окремим перемикачем на формі. */
+const OPTIONS_EDIT: StationStatus[] = ['working', 'maintenance', 'offline'];
 
 function optionButtonClass(status: StationStatus, selected: boolean): string {
   const base =

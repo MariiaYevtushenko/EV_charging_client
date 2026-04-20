@@ -56,7 +56,7 @@ function PencilIcon({ className }: { className?: string }) {
   );
 }
 
-type StationDetailLocationState = { stationNotice?: 'created' | 'updated' };
+type StationDetailLocationState = { stationNotice?: 'created' | 'updated' | 'archived' };
 
 type DetailTab = 'overview' | 'analytics' | 'bookings' | 'ports';
 
@@ -124,7 +124,7 @@ export default function StationDetailPage() {
     : '/station-dashboard';
   const isGlobalAdminDash = location.pathname.startsWith('/admin-dashboard');
   const { getStation, unarchiveStation, updateStation, archiveStation } = useStations();
-  /** Глобальний адмін: лише перегляд, без «Загалом», редагування картки, статусу та керування портами. */
+  /** Глобальний адмін: на цій сторінці лише перегляд аналітики/броней (без зміни статусу та портів тут); форма картки — через олівець → редагування. */
   const readOnlyStationDetail = isGlobalAdminDash;
   const { stationId } = useParams<{ stationId: string }>();
   const stationFromCtx = stationId ? getStation(stationId) : undefined;
@@ -176,9 +176,13 @@ export default function StationDetailPage() {
   useEffect(() => {
     const st = location.state as StationDetailLocationState | null | undefined;
     const n = st?.stationNotice;
-    if (n !== 'created' && n !== 'updated') return;
+    if (n !== 'created' && n !== 'updated' && n !== 'archived') return;
     setStationSuccessMessage(
-      n === 'created' ? 'Станцію успішно створено.' : 'Дані про станцію успішно оновлено.'
+      n === 'created'
+        ? 'Станцію успішно створено.'
+        : n === 'archived'
+          ? 'Станцію переведено в архів.'
+          : 'Дані про станцію успішно оновлено.'
     );
     navigate(
       { pathname: location.pathname, search: location.search, hash: location.hash },
@@ -343,6 +347,7 @@ export default function StationDetailPage() {
     try {
       await archiveStation(station.id);
       setArchiveConfirmOpen(false);
+      setStationSuccessMessage('Станцію переведено в архів');
     } catch {
       /* помилка в контексті */
     }
@@ -399,11 +404,11 @@ export default function StationDetailPage() {
       ) : null}
 
       {station.archived ? (
-        <div className="rounded-2xl border border-amber-200/90 bg-amber-50/80 px-4 py-3 text-sm shadow-sm">
-          <p className="font-bold text-amber-900">
+        <div className="rounded-2xl border border-red-200/90 bg-red-50/90 px-4 py-3 text-sm shadow-sm shadow-red-900/5">
+          <p className="font-bold text-red-900">
             {readOnlyStationDetail
-              ? 'Станція в архіві — не показується на карті та у списку «Усі».'
-              : 'Станція в архіві — не показується на карті та у списку «Усі». Щоб змінити статус роботи, спочатку натисніть «Розархівувати» біля блоку «Статус» нижче.'}
+              ? 'Станція в архіві — не показується на карті та у списку «Усі»'
+              : 'Станція в архіві — не показується на карті та у списку «Усі». Для зміни статусу розархівуйте станцію'}
           </p>
         </div>
       ) : null}
@@ -462,21 +467,18 @@ export default function StationDetailPage() {
               </p>
             </div>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:ml-auto sm:pt-0.5">
+          <div className="flex shrink-0 items-center gap-1 sm:ml-auto sm:pt-0.5">
             <StatusPill tone={stationStatusTone(station.status)} size="md">
               {stationStatusLabel(station.status)}
             </StatusPill>
-            {!readOnlyStationDetail ? (
-              <OutlineButton
-                type="button"
-                onClick={() => navigate(`${dashBase}/stations/${station.id}/edit`)}
-                title="Редагувати станцію"
-                className="gap-2"
-              >
-                <PencilIcon className="h-4 w-4" />
-                Редагувати станцію
-              </OutlineButton>
-            ) : null}
+            <Link
+              to={`${dashBase}/stations/${station.id}/edit`}
+              className={stationFormBackIconLink}
+              title="Редагувати станцію"
+              aria-label="Редагувати станцію"
+            >
+              <PencilIcon className="h-5 w-5" />
+            </Link>
           </div>
         </div>
       </div>

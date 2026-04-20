@@ -17,7 +17,7 @@ export function stationStatusLabel(status: StationStatus): string {
 
 export function stationStatusTone(
   status: StationStatus
-): 'success' | 'warn' | 'muted' {
+): 'success' | 'warn' | 'muted' | 'dark' {
   switch (status) {
     case 'working':
       return 'success';
@@ -26,7 +26,7 @@ export function stationStatusTone(
     case 'offline':
       return 'muted';
     case 'archived':
-      return 'muted';
+      return 'dark';
     default:
       return 'muted';
   }

@@ -23,7 +23,7 @@ export function StatusPill({
   children,
   size = 'sm',
 }: {
-  tone: 'success' | 'info' | 'warn' | 'muted' | 'danger';
+  tone: 'success' | 'info' | 'warn' | 'muted' | 'danger' | 'dark';
   children: ReactNode;
   size?: 'sm' | 'md';
 }) {
@@ -33,6 +33,7 @@ export function StatusPill({
     warn: 'bg-amber-50 text-amber-950 ring-amber-200/90 shadow-sm shadow-amber-900/5',
     muted: 'bg-slate-100 text-slate-700 ring-slate-200/90 shadow-sm',
     danger: 'bg-red-50 text-red-900 ring-red-200/90 shadow-sm shadow-red-900/5',
+    dark: 'bg-slate-900 text-white ring-slate-700 shadow-sm shadow-slate-900/20',
   };
   const sizeClass =
     size === 'md'

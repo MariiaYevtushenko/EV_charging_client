@@ -1,5 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { useCallback, useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStations, type StationSortKey } from '../../context/StationsContext';
 import AdminListPagination from '../../components/admin/AdminListPagination';
 import { AppCard, OutlineButton, StatusPill } from '../../components/station-admin/Primitives';
@@ -11,6 +11,10 @@ import { parseStationSortValue } from '../../features/station-list/stationSortOp
 import SortableTableTh, { defaultDirForSortColumn } from '../../components/admin/SortableTableTh';
 import { stationAdminPageTitle, stationAdminSearchInput } from '../../styles/stationAdminTheme';
 import { ADMIN_LIST_SEARCH_DEBOUNCE_MS } from '../../constants/adminUi';
+import { FloatingToast, FloatingToastRegion } from '../../components/admin/FloatingToast';
+import { SUCCESS_TOAST_MS } from '../station-admin/stationNewPageConstants';
+
+type StationsListLocationState = { stationNotice?: 'archived' };
 
 const STATUS_STATS_ORDER: StationStatus[] = ['working', 'maintenance', 'offline', 'archived'];
 
@@ -46,6 +50,9 @@ export type AdminStationsListPageProps = {
 
 export default function AdminStationsListPage({ dashboardBase }: AdminStationsListPageProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [archiveToastMessage, setArchiveToastMessage] = useState<string | null>(null);
+  const archiveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const {
     filteredStations,
     stationsPage,
@@ -71,6 +78,28 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
     }, ADMIN_LIST_SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
   }, [searchDraft, setStationsSearchQuery]);
+
+  useEffect(() => {
+    const st = location.state as StationsListLocationState | null | undefined;
+    if (st?.stationNotice !== 'archived') return;
+    setArchiveToastMessage('Станцію переведено в архів.');
+    navigate(
+      { pathname: location.pathname, search: location.search, hash: location.hash },
+      { replace: true, state: {} }
+    );
+  }, [location.state, location.pathname, location.search, location.hash, navigate]);
+
+  useEffect(() => {
+    if (!archiveToastMessage) return;
+    if (archiveToastTimerRef.current) clearTimeout(archiveToastTimerRef.current);
+    archiveToastTimerRef.current = setTimeout(() => {
+      setArchiveToastMessage(null);
+      archiveToastTimerRef.current = null;
+    }, SUCCESS_TOAST_MS);
+    return () => {
+      if (archiveToastTimerRef.current) clearTimeout(archiveToastTimerRef.current);
+    };
+  }, [archiveToastMessage]);
 
   const stationPath = useCallback((id: string) => `${dashboardBase}/stations/${id}`, [dashboardBase]);
 
@@ -99,6 +128,15 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
 
   return (
     <div className="space-y-6">
+      <FloatingToastRegion live="polite">
+        <FloatingToast
+          show={Boolean(archiveToastMessage)}
+          tone="success"
+          onDismiss={() => setArchiveToastMessage(null)}
+        >
+          {archiveToastMessage}
+        </FloatingToast>
+      </FloatingToastRegion>
       {error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
           <p className="font-medium">Не вдалося завантажити станції</p>

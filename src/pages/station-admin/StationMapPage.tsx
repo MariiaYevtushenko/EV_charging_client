@@ -21,14 +21,7 @@ type StationMapPageProps = {
 export default function StationMapPage({ dashboardBase = '/station-dashboard' }: StationMapPageProps) {
   /** Карта для мережевого адміна — лише перегляд; додавання станцій з карти недоступне. */
   const isGlobalAdminMap = dashboardBase === '/admin-dashboard';
-  const {
-    mapStations: mapStationsAll,
-    mapLoading,
-    mapFetchLimit,
-    registerMapViewportBounds,
-    getStation,
-    stationsTotal,
-  } = useStations();
+  const { mapStations: mapStationsAll, registerMapViewportBounds, getStation } = useStations();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const selected = selectedId ? getStation(selectedId) : undefined;
@@ -63,17 +56,7 @@ export default function StationMapPage({ dashboardBase = '/station-dashboard' }:
           className="flex min-h-[min(720px,85dvh)] flex-col overflow-hidden lg:col-span-8"
           padding={false}
         >
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
-            <div>
-              <span className="text-sm font-semibold text-slate-900">Інтерактивна карта</span>
-              <p className="mt-0.5 text-xs text-gray-500">
-                {mapLoading
-                  ? 'Завантаження видимої області…'
-                  : mapFetchLimit != null && mapStations.length >= mapFetchLimit
-                    ? `У видимій області показано до ${mapFetchLimit} станцій (обмеження) · усього в БД: ${stationsTotal}`
-                    : `У видимій області: ${mapStations.length} активних · усього в БД: ${stationsTotal}`}
-              </p>
-            </div>
+          <div className="flex flex-wrap items-center justify-end gap-3 border-b border-gray-100 px-5 py-4">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-gray-600">
               <span className="font-medium text-gray-500">Легенда:</span>
               {MAP_LEGEND.map(({ status, color }) => (
