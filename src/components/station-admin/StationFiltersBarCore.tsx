@@ -12,6 +12,8 @@ export type StationFiltersBarCoreProps = {
   sortValue: string;
   setSortValue: (v: string) => void;
   showAddButton?: boolean;
+  /** Поруч із кнопкою фільтра показати сортування (lg+); у вікні фільтра блок сортування приховано на lg+. */
+  showInlineSort?: boolean;
   drawerExtra?: ReactNode;
   /** Базовий шлях дашборду (напр. `/station-dashboard` або `/admin-dashboard`). */
   dashboardBase?: string;
@@ -46,6 +48,7 @@ export default function StationFiltersBarCore({
   sortValue,
   setSortValue,
   showAddButton = false,
+  showInlineSort = false,
   drawerExtra,
   dashboardBase = '/station-dashboard',
 }: StationFiltersBarCoreProps) {
@@ -69,35 +72,55 @@ export default function StationFiltersBarCore({
     };
   }, [open]);
 
+  const sortSelectIdDrawer = "station-map-sort-drawer";
+  const sortSelectIdInline = "station-map-sort-inline";
+
   return (
     <>
-      <div className="rounded-2xl border border-emerald-100/90 bg-white/95 px-3 py-2.5 shadow-sm shadow-emerald-900/5 sm:px-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
-          {showAddButton ? (
-            <Link
-              to={`${dashboardBase}/stations/new`}
-              className={`order-2 w-full whitespace-nowrap sm:order-1 sm:w-auto ${appPrimaryCtaMdClass}`}
-            >
-              + Нова станція
-            </Link>
+      <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="relative order-1 inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-800 shadow-sm transition hover:border-emerald-300/80 hover:bg-emerald-50/60 hover:text-green-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 sm:order-1 sm:w-auto"
+          title="Фільтр за містом"
+          aria-expanded={open}
+          aria-controls={open ? "station-map-city-filter-panel" : undefined}
+        >
+          <FilterIcon className="h-4 w-4 text-emerald-700/90" />
+          <span className="whitespace-nowrap">Міста</span>
+          {selectedCities.length > 0 ? (
+            <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-green-600 px-1.5 text-[11px] font-bold text-white">
+              {selectedCities.length}
+            </span>
           ) : null}
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="relative order-1 inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl border-2 border-emerald-100/90 bg-white px-4 text-sm font-semibold text-gray-800 shadow-sm shadow-emerald-900/5 transition hover:border-emerald-300 hover:bg-emerald-50/90 hover:text-green-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 sm:order-2 sm:w-auto"
-            title="Фільтр за містом і сортування"
-            aria-expanded={open}
-            aria-controls={open ? "station-map-city-filter-panel" : undefined}
+        </button>
+        {showInlineSort ? (
+          <div className="order-3 hidden min-w-0 flex-[1_1_12rem] lg:order-2 lg:flex lg:max-w-[16rem] lg:flex-[0_1_16rem]">
+            <label htmlFor={sortSelectIdInline} className="sr-only">
+              Сортування
+            </label>
+            <select
+              id={sortSelectIdInline}
+              className={`h-10 w-full ${appSelectFilterClass}`}
+              value={sortValue}
+              onChange={(e) => setSortValue(e.target.value)}
+            >
+              {STATION_SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        {showAddButton ? (
+          <Link
+            to={`${dashboardBase}/stations/new`}
+            className={`order-2 inline-flex h-10 w-full shrink-0 items-center justify-center whitespace-nowrap sm:order-3 sm:w-auto ${appPrimaryCtaMdClass}`}
           >
-            <FilterIcon className="h-5 w-5 text-emerald-700/90" />
-            <span>Місто та сортування</span>
-            {selectedCities.length > 0 ? (
-              <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-green-600 px-1.5 text-[11px] font-bold text-white">
-                {selectedCities.length}
-              </span>
-            ) : null}
-          </button>
-        </div>
+            + Нова станція
+          </Link>
+        ) : null}
       </div>
 
       {open ? (
@@ -134,15 +157,15 @@ export default function StationFiltersBarCore({
                     <p className="mt-1 text-sm leading-relaxed text-gray-500">
                       Позначте міста або залиште без вибору — тоді видно всі станції.
                     </p>
-                    <div className="mt-4">
+                    <div className={`mt-4 ${showInlineSort ? "lg:hidden" : ""}`}>
                       <label
-                        htmlFor="station-map-sort"
+                        htmlFor={sortSelectIdDrawer}
                         className="block text-xs font-semibold uppercase tracking-wide text-gray-500"
                       >
                         Сортування
                       </label>
                       <select
-                        id="station-map-sort"
+                        id={sortSelectIdDrawer}
                         className={`mt-1.5 w-full ${appSelectFilterClass}`}
                         value={sortValue}
                         onChange={(e) => setSortValue(e.target.value)}

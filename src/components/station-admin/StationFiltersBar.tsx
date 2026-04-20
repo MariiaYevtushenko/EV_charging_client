@@ -6,10 +6,13 @@ export default function StationFiltersBar({
   showAddButton = false,
   drawerExtra,
   dashboardBase = '/station-dashboard',
+  /** На широких екранах показати сортування в панелі поруч із фільтром (менше кліків). */
+  showInlineSort = false,
 }: {
   showAddButton?: boolean;
   drawerExtra?: ReactNode;
   dashboardBase?: string;
+  showInlineSort?: boolean;
 }) {
   const {
     uniqueCities,
@@ -34,6 +37,7 @@ export default function StationFiltersBar({
       sortValue={sortValue}
       setSortValue={setSortValue}
       showAddButton={showAddButton}
+      showInlineSort={showInlineSort}
       drawerExtra={drawerExtra}
       dashboardBase={dashboardBase}
     />

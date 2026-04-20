@@ -66,9 +66,9 @@ export default function GlobalSessionDetailPage() {
   const fromUserId = (location.state as { fromUserId?: string } | null)?.fromUserId;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-1">
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-1">
           {fromUserId ? (
             <AdminSessionDetailBackLink to={`/admin-dashboard/users/${encodeURIComponent(fromUserId)}`}>
               До профілю користувача
@@ -76,7 +76,7 @@ export default function GlobalSessionDetailPage() {
           ) : null}
           <AdminSessionDetailBackLink to="/admin-dashboard/sessions">До списку сесій</AdminSessionDetailBackLink>
         </div>
-        <h1 className={`mt-4 ${globalAdminPageTitle}`}>Сесія #{sessionId}</h1>
+        <h1 className={`mt-3 ${globalAdminPageTitle}`}>Сесія #{sessionId}</h1>
       </div>
 
       {loading ? <p className="text-sm text-gray-500">Завантаження…</p> : null}

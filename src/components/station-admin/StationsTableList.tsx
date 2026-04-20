@@ -13,18 +13,17 @@ export default function StationsTableList({
   dashboardBase = '/station-dashboard',
   /** Якщо true — без переходу в режим редагування (напр. інформаційна карта для мережевого адміна). */
   readOnly = false,
+  className = '',
 }: {
   selected?: Station;
   dashboardBase?: string;
   readOnly?: boolean;
+  className?: string;
 }) {
   const navigate = useNavigate();
 
-
-
-
   return (
-    <div className="space-y-4 lg:col-span-2">
+    <div className={`space-y-4 ${className}`.trim()}>
     {selected ? (
       <AppCard className="space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -34,7 +33,7 @@ export default function StationsTableList({
                 '—'}
             </p>
             <h2 className="text-lg font-bold text-gray-900">{selected.name}</h2>
-            <p className="mt-1 flex items-start gap-1.5 text-sm text-gray-500">
+            <p className="mt-1 flex items-start gap-1.5 break-words text-sm text-gray-500">
               <svg
                 className="mt-0.5 h-4 w-4 shrink-0 text-gray-400"
                 fill="none"
@@ -63,22 +62,23 @@ export default function StationsTableList({
           </StatusPill>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-2.5">
           <div className="rounded-xl bg-gray-50 p-3">
             <p className="text-xs text-gray-500">Дохід сьогодні</p>
-            <p className="text-lg font-bold text-gray-900">
+            <p className="text-lg font-bold text-gray-900 tabular-nums">
               {selected.todayRevenue.toLocaleString('uk-UA')} грн
             </p>
           </div>
           <div className="rounded-xl bg-gray-50 p-3">
             <p className="text-xs text-gray-500">Сесії сьогодні</p>
-            <p className="text-lg font-bold text-gray-900">{selected.todaySessions}</p>
+            <p className="text-lg font-bold text-gray-900 tabular-nums">{selected.todaySessions}</p>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+        <div className="flex flex-col gap-2 border-t border-gray-100 pt-4">
           <PrimaryButton
             type="button"
+            className="w-full justify-center"
             onClick={() => navigate(`${dashboardBase}/stations/${selected.id}`)}
           >
             Переглянути детально
@@ -86,6 +86,7 @@ export default function StationsTableList({
           {!readOnly ? (
             <OutlineButton
               type="button"
+              className="w-full justify-center"
               onClick={() => navigate(`${dashboardBase}/stations/${selected.id}/edit`)}
             >
               Редагувати

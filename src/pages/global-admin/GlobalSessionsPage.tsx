@@ -16,7 +16,7 @@ import SortableTableTh, {
 } from '../../components/admin/SortableTableTh';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
 import { formatCountryLabel } from '../../utils/countryDisplay';
-import { globalAdminPageSubtitle, globalAdminPageTitle, globalAdminSearchInput } from '../../styles/globalAdminTheme';
+import { globalAdminPageTitle, globalAdminSearchInput } from '../../styles/globalAdminTheme';
 
 const LIST_SEARCH_DEBOUNCE_MS = 350;
 const SESSIONS_PAGE_SIZE = 50;
@@ -167,11 +167,11 @@ export default function GlobalSessionsPage() {
       <div className="min-w-0">
         <h1 className={globalAdminPageTitle}>Сесії зарядки</h1>
      
-        <div className="mt-3 max-w-xl">
+        <div className="mt-3 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 lg:gap-6">
           <label htmlFor="global-sessions-search" className="sr-only">
             Пошук сесій
           </label>
-          <div className="relative">
+          <div className="relative min-w-0 w-full sm:max-w-xl">
             <span
               className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"
               aria-hidden
@@ -189,10 +189,11 @@ export default function GlobalSessionsPage() {
               spellCheck={false}
             />
           </div>
+          <div className="flex w-full min-w-0 justify-end sm:w-auto sm:shrink-0">
+            <NetworkListPeriodControl value={period} onChange={setPeriod} />
+          </div>
         </div>
-        <div className="mt-4">
-          <NetworkListPeriodControl value={period} onChange={setPeriod} />
-        </div>
+      
       </div>
 
       {error ? (
@@ -201,7 +202,7 @@ export default function GlobalSessionsPage() {
 
       {statusCounts ? (
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">За статусом</p>
+         
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {SESSION_STATUS_TAB_ORDER.map((st) => {
               const selected = statusFilter === st;

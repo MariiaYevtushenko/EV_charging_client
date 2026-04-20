@@ -16,7 +16,7 @@ import SortableTableTh, {
 } from '../../components/admin/SortableTableTh';
 import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
 import { formatCountryLabel } from '../../utils/countryDisplay';
-import { globalAdminPageSubtitle, globalAdminPageTitle, globalAdminSearchInput } from '../../styles/globalAdminTheme';
+import { globalAdminPageTitle, globalAdminSearchInput } from '../../styles/globalAdminTheme';
 
 const LIST_SEARCH_DEBOUNCE_MS = 350;
 const BOOKINGS_PAGE_SIZE = 50;
@@ -171,11 +171,11 @@ export default function GlobalBookingsPage() {
       <div className="min-w-0">
         <h1 className={globalAdminPageTitle}>Бронювання</h1>
         
-        <div className="mt-3 max-w-xl">
+        <div className="mt-3 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 lg:gap-6">
           <label htmlFor="global-bookings-search" className="sr-only">
             Пошук бронювань
           </label>
-          <div className="relative">
+          <div className="relative min-w-0 w-full sm:max-w-xl">
             <span
               className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"
               aria-hidden
@@ -193,9 +193,9 @@ export default function GlobalBookingsPage() {
               spellCheck={false}
             />
           </div>
-        </div>
-        <div className="mt-4">
-          <NetworkListPeriodControl value={period} onChange={setPeriod} />
+          <div className="flex w-full min-w-0 justify-end sm:w-auto sm:shrink-0">
+            <NetworkListPeriodControl value={period} onChange={setPeriod} />
+          </div>
         </div>
       </div>
 

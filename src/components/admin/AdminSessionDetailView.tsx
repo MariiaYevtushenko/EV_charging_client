@@ -102,8 +102,8 @@ function Field({
 }) {
   return (
     <div className={className}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</p>
-      <div className="mt-1.5 text-gray-900">{children}</div>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{label}</p>
+      <div className="mt-1 text-sm leading-snug text-gray-900">{children}</div>
     </div>
   );
 }
@@ -141,31 +141,35 @@ export default function AdminSessionDetailView({ data, links, sessionControl }: 
   }, [data.id, data.kwh, data.status]);
 
   return (
-    <div className="space-y-6">
-      {/* Огляд: статус + ключові цифри */}
-      <AppCard className="overflow-hidden !p-0" padding={false}>
-        <div className="flex flex-wrap items-stretch justify-between gap-4 border-b border-emerald-100/80 bg-gradient-to-br from-emerald-50/90 via-white to-slate-50/40 px-5 py-5 sm:px-6">
-          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch lg:gap-6">
+      {/* Ліва колонка: сесія */}
+      <div className="flex min-h-0 min-w-0 flex-col lg:h-full">
+      <AppCard className="flex h-full min-h-0 flex-col overflow-hidden !p-0" padding={false}>
+        <div className="flex flex-wrap items-stretch justify-between gap-3 border-b border-emerald-100/80 bg-gradient-to-br from-emerald-50/90 via-white to-slate-50/40 px-4 py-4 sm:px-5">
+          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:gap-5 lg:gap-6">
             <div>
               <p className="text-xs font-medium text-gray-500">Статус сесії</p>
               <div className="mt-1.5">
                 <StatusPill tone={sessionTone(data.status)}>{sessionLabel(data.status)}</StatusPill>
               </div>
             </div>
-            <div className="hidden h-10 w-px shrink-0 bg-emerald-200/80 sm:block" aria-hidden />
+            <div className="hidden h-9 w-px shrink-0 bg-emerald-200/80 sm:block" aria-hidden />
             <div>
               <p className="text-xs font-medium text-gray-500">Енергія</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-gray-900">
+              <p className="mt-0.5 text-xl font-bold tabular-nums tracking-tight text-gray-900 sm:text-2xl">
                 {data.kwh.toLocaleString('uk-UA', { maximumFractionDigits: 3 })}
                 <span className="ml-1.5 text-base font-semibold text-gray-500">кВт·год</span>
               </p>
             </div>
             {data.bill ? (
               <>
-                <div className="hidden h-10 w-px shrink-0 bg-emerald-200/80 sm:block" aria-hidden />
-                <div>
+                <div
+                  className="hidden h-9 w-px shrink-0 bg-emerald-200/80 sm:block lg:hidden"
+                  aria-hidden
+                />
+                <div className="lg:hidden">
                   <p className="text-xs font-medium text-gray-500">Сума за сесію</p>
-                  <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-800">
+                  <p className="mt-0.5 text-xl font-bold tabular-nums text-emerald-800 sm:text-2xl">
                     {data.bill.calculatedAmount.toLocaleString('uk-UA', {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
@@ -179,13 +183,13 @@ export default function AdminSessionDetailView({ data, links, sessionControl }: 
         </div>
 
         {data.status === 'active' && sessionControl ? (
-          <div className="border-b border-emerald-100/80 bg-amber-50/40 px-5 py-4 sm:px-6">
+          <div className="border-b border-emerald-100/80 bg-amber-50/40 px-4 py-3 sm:px-5">
             <p className="text-sm font-semibold text-gray-900">Керування сесією</p>
-            <p className="mt-1 text-xs leading-relaxed text-gray-600">
+            <p className="mt-0.5 text-xs leading-snug text-gray-600">
               Завершити зарядку: фіксується кінець сесії, статус «Завершено», у базі створюється рахунок
               (bill) за поточними правилами тарифікації.
             </p>
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
+            <div className="mt-3 flex flex-col gap-2.5 sm:flex-row sm:items-end sm:gap-3">
               <label className="block min-w-0 flex-1 text-sm">
                 <span className="text-gray-600">Спожито кВт·год (підсумок)</span>
                 <input
@@ -221,63 +225,65 @@ export default function AdminSessionDetailView({ data, links, sessionControl }: 
           </div>
         ) : null}
 
-        <div className="space-y-8 p-5 sm:p-6">
+        <div className="flex flex-1 flex-col space-y-5 p-4 sm:p-5">
           <section aria-labelledby="session-time-heading">
-            <h3 id="session-time-heading" className="text-sm font-semibold text-gray-900">
-              Час зарядки
+            <h3 id="session-time-heading" className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Час
             </h3>
-            <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <Field label="Початок">
-                <p className="font-medium leading-snug">{fmtLong(data.startedAt)}</p>
+                <p className="font-medium">{fmtLong(data.startedAt)}</p>
               </Field>
               <Field label="Кінець">
-                <p className="font-medium leading-snug">
+                <p className="font-medium">
                   {data.endedAt ? fmtLong(data.endedAt) : '— (сесія активна)'}
                 </p>
               </Field>
-              <Field label="Порт" className="sm:col-span-2 lg:col-span-1">
-                <p className="text-sm leading-relaxed text-gray-800">{data.portLabel}</p>
-                <Link
-                  to={links.stationHref(data.stationId)}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
-                >
-                  Станція
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
+              <Field label="Станція" className="sm:col-span-2">
+                <div className="flex min-w-0 items-center gap-3">
+                  <p className="min-w-0 flex-1 truncate text-gray-800" title={data.portLabel}>
+                    {data.portLabel}
+                  </p>
+                  <Link
+                    to={links.stationHref(data.stationId)}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                  >
+                    Станція
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
               </Field>
             </div>
           </section>
 
           <section
-            className="border-t border-gray-100 pt-8"
+            className="border-t border-gray-100 pt-5"
             aria-labelledby="session-user-heading"
           >
-            <h3 id="session-user-heading" className="text-sm font-semibold text-gray-900">
-              Користувач і авто
-            </h3>
-            <div className="mt-4 grid gap-8 lg:grid-cols-2">
-              <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4">
+            
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-3.5">
                 <Field label="Користувач">
-                  <p className="text-base font-semibold">{data.userName}</p>
+                  <p className="text-base font-semibold leading-tight">{data.userName}</p>
                   {data.userEmail ? (
-                    <p className="mt-1 text-sm text-gray-600">{data.userEmail}</p>
+                    <p className="mt-0.5 text-sm text-gray-600">{data.userEmail}</p>
                   ) : null}
                 </Field>
                 {userLink ? (
                   <Link
                     to={userLink}
-                    className="mt-4 inline-flex text-sm font-semibold text-green-700 underline-offset-2 hover:text-green-800 hover:underline"
+                    className="mt-2.5 inline-flex text-sm font-semibold text-green-700 underline-offset-2 hover:text-green-800 hover:underline"
                   >
                     Профіль користувача
                   </Link>
                 ) : null}
               </div>
-              <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4">
+              <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-3.5">
                 <Field label="Авто">
                   {data.vehicle ? (
-                    <p className="text-sm leading-relaxed">
+                    <p className="leading-snug ">
                       <span className="font-medium text-gray-900">{data.vehicle.model}</span>
                       <span className="text-gray-400"> · </span>
                       <span className="font-mono text-gray-800">{data.vehicle.plate}</span>
@@ -291,16 +297,19 @@ export default function AdminSessionDetailView({ data, links, sessionControl }: 
           </section>
         </div>
       </AppCard>
+      </div>
 
+      {/* Права колонка: бронювання + рахунок (одна висота з лівою колонкою на lg) */}
+      <div className="flex min-h-0 min-w-0 flex-col gap-4 lg:h-full">
       {booking ? (
-        <AppCard className="!p-0" padding={false}>
-          <div className="border-b border-gray-100 px-5 py-4 sm:px-6">
-            <h2 className="text-base font-semibold text-gray-900">Бронювання</h2>
-            <p className="mt-0.5 text-xs text-gray-500">Запис #{booking.id}</p>
-          </div>
-          <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-6">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Статус</span>
+        <AppCard className="shrink-0 !p-0" padding={false}>
+          <div className="border-b border-gray-100 px-4 py-3 sm:px-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-gray-900">Бронювання</h2>
+            
+              </div>
+              <span className="shrink-0">
               <StatusPill
                 tone={
                   booking.status === 'confirmed' || booking.status === 'paid'
@@ -312,69 +321,72 @@ export default function AdminSessionDetailView({ data, links, sessionControl }: 
               >
                 {bookingStatusLabel(booking.status)}
               </StatusPill>
+              </span>
             </div>
-            <div className="min-w-0 flex-1 sm:text-right">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 sm:hidden">
-                Вікно бронювання
-              </p>
-              {bookingSameCalendarDay ? (
-                <p className="mt-1 text-sm text-gray-800 sm:mt-0">
-                  <span className="text-gray-500">{fmtDateShort(booking.start)}</span>
-                  <span className="mx-1.5 text-gray-300">·</span>
-                  <span className="font-medium tabular-nums">{fmtTimeShort(booking.start)}</span>
-                  <span className="mx-2 text-gray-400">—</span>
-                  <span className="font-medium tabular-nums">{fmtTimeShort(booking.end)}</span>
-                </p>
-              ) : (
-                <p className="mt-1 text-sm leading-relaxed text-gray-800 sm:mt-0">
-                  {fmtLong(booking.start)} — {fmtLong(booking.end)}
-                </p>
-              )}
-            </div>
-            <div className="shrink-0">
-              {bookingLink ? (
-                <Link
-                  to={bookingLink}
-                  className="inline-flex w-full items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-green-800 shadow-sm transition hover:bg-emerald-50 sm:w-auto"
-                >
-                  Відкрити бронювання
-                </Link>
-              ) : (
-                <span className="text-sm text-gray-500">Без посилання в кабінеті</span>
-              )}
+          </div>
+          <div className="p-4 sm:p-5">
+          
+            <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <div className="min-w-0 flex-1">
+                {bookingSameCalendarDay ? (
+                  <p className="text-sm text-gray-800">
+                    <span className="text-gray-500">{fmtDateShort(booking.start)}</span>
+                    <span className="mx-1.5 text-gray-300">·</span>
+                    <span className="font-medium tabular-nums">{fmtTimeShort(booking.start)}</span>
+                    <span className="mx-2 text-gray-400">—</span>
+                    <span className="font-medium tabular-nums">{fmtTimeShort(booking.end)}</span>
+                  </p>
+                ) : (
+                  <p className="text-sm leading-snug text-gray-800">
+                    {fmtLong(booking.start)} — {fmtLong(booking.end)}
+                  </p>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center">
+                {bookingLink ? (
+                  <Link
+                    to={bookingLink}
+                    className="inline-flex items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-green-800 shadow-sm transition hover:bg-emerald-50"
+                  >
+                    Відкрити бронювання
+                  </Link>
+                ) : (
+                  <span className="text-sm text-gray-500">Без посилання в кабінеті</span>
+                )}
+              </div>
             </div>
           </div>
         </AppCard>
       ) : (
-        <AppCard className="!p-5">
-          <p className="text-sm text-gray-600">
+        <AppCard className="shrink-0 !p-4">
+          <p className="text-sm leading-snug text-gray-600">
             Немає прив’язаного бронювання <span className="text-gray-400">(walk-in або інший сценарій)</span>
           </p>
         </AppCard>
       )}
 
-      <div id="admin-session-bill" className="scroll-mt-24">
-      <AppCard className="!p-0" padding={false}>
-        <div className="border-b border-sky-100 bg-gradient-to-r from-sky-50/90 to-white px-5 py-4 sm:px-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-base font-semibold text-gray-900">Рахунок</h2>
+      <div id="admin-session-bill" className="flex min-h-0 min-w-0 flex-1 flex-col scroll-mt-24">
+      <AppCard className="flex min-h-0 flex-1 flex-col !p-0" padding={false}>
+        <div className="border-b border-sky-100 bg-gradient-to-r from-sky-50/90 to-white px-4 py-3 sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-gray-900">Рахунок</h2>
 
           </div>
         </div>
 
         {data.bill ? (
-          <div className="p-5 sm:p-6">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between lg:gap-10">
+          <div className="flex flex-1 flex-col gap-4 p-4 sm:p-5">
+            <div className="flex flex-col gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">До сплати</p>
-                <p className="mt-2 text-3xl font-bold tabular-nums tracking-tight text-gray-900">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">До сплати</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-gray-900 sm:text-3xl">
                   {data.bill.calculatedAmount.toLocaleString('uk-UA', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}{' '}
-                  <span className="text-xl font-semibold text-gray-500">грн</span>
+                  <span className="text-lg font-semibold text-gray-500 sm:text-xl">грн</span>
                 </p>
-                <div className="mt-3">
+                <div className="mt-2">
                   <StatusPill
                     tone={
                       data.bill.paymentStatus === 'success'
@@ -389,7 +401,7 @@ export default function AdminSessionDetailView({ data, links, sessionControl }: 
                 </div>
               </div>
 
-              <div className="grid min-w-0 flex-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                 <Field label="Ціна кВт·год (на момент)">
                   <p className="tabular-nums text-gray-900">
                     {data.bill.pricePerKwhAtTime != null
@@ -403,19 +415,16 @@ export default function AdminSessionDetailView({ data, links, sessionControl }: 
                 <Field label="Спосіб оплати">
                   <p>{data.bill.paymentMethod}</p>
                 </Field>
-                <Field label="Оплачено" className="sm:col-span-2 lg:col-span-1">
+                <Field label="Оплачено" className="sm:col-span-2">
                   <p className="text-sm">{data.bill.paidAt ? fmtLong(data.bill.paidAt) : '—'}</p>
                 </Field>
               </div>
             </div>
 
-            <div className="mt-8 rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3 sm:px-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Рахунок створено</p>
-              <p className="mt-1 text-sm text-gray-800">{fmtLong(data.bill.createdAt)}</p>
-            </div>
+           
           </div>
         ) : (
-          <div className="p-5 sm:p-6">
+          <div className="flex flex-1 flex-col justify-center p-4 sm:p-5">
             {data.status === 'failed' ? (
               <p className="text-sm text-slate-600">
                 Рахунок для цієї сесії не показується: при статусі «Помилка» запис у таблиці{' '}
@@ -436,6 +445,7 @@ export default function AdminSessionDetailView({ data, links, sessionControl }: 
           </div>
         )}
       </AppCard>
+      </div>
       </div>
     </div>
   );

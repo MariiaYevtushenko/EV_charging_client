@@ -32,7 +32,7 @@ import {
   PrimaryButton,
   StatusPill,
 } from '../../components/station-admin/Primitives';
-import { portStatusLabel, portStatusTone } from '../../utils/stationLabels';
+import { portStatusLabel, portStatusTone, stationStatusLabel, stationStatusTone } from '../../utils/stationLabels';
 import { countryIsoTooltip, formatCountryLabel } from '../../utils/countryDisplay';
 import {
   stationAdminPageTitle,
@@ -45,10 +45,11 @@ type DetailTab = 'overview' | 'analytics' | 'bookings' | 'ports';
 const tabClass = (active: boolean) =>
   active ? stationAdminUnderlineTabActive : stationAdminUnderlineTabIdle;
 
-function tabFromHash(hash: string): DetailTab {
+function tabFromHash(hash: string, isGlobalAdmin: boolean): DetailTab {
   if (hash === '#station-analytics') return 'analytics';
   if (hash === '#station-bookings') return 'bookings';
   if (hash === '#station-ports') return 'ports';
+  if (isGlobalAdmin) return 'analytics';
   return 'overview';
 }
 
@@ -105,6 +106,8 @@ export default function StationDetailPage() {
     : '/station-dashboard';
   const isGlobalAdminDash = location.pathname.startsWith('/admin-dashboard');
   const { getStation, unarchiveStation, updateStation, archiveStation } = useStations();
+  /** Глобальний адмін: лише перегляд, без «Загалом», редагування картки, статусу та керування портами. */
+  const readOnlyStationDetail = isGlobalAdminDash;
   const { stationId } = useParams<{ stationId: string }>();
   const stationFromCtx = stationId ? getStation(stationId) : undefined;
   const [stationFallback, setStationFallback] = useState<Station | null>(null);
@@ -117,7 +120,11 @@ export default function StationDetailPage() {
   const station = stationFromCtx ?? stationFallback ?? undefined;
 
   const [tab, setTab] = useState<DetailTab>(() =>
-    typeof window !== 'undefined' ? tabFromHash(window.location.hash) : 'overview'
+    typeof window !== 'undefined'
+      ? tabFromHash(window.location.hash, isGlobalAdminDash)
+      : isGlobalAdminDash
+        ? 'analytics'
+        : 'overview'
   );
   const [portsModalOpen, setPortsModalOpen] = useState(false);
   const [portsDraft, setPortsDraft] = useState<StationPort[]>([]);
@@ -146,8 +153,17 @@ export default function StationDetailPage() {
   );
 
   useEffect(() => {
-    setTab(tabFromHash(location.hash));
-  }, [station?.id, location.hash]);
+    setTab(tabFromHash(location.hash, isGlobalAdminDash));
+  }, [station?.id, location.hash, isGlobalAdminDash]);
+
+  useEffect(() => {
+    if (!readOnlyStationDetail || tab !== 'overview' || !station) return;
+    setTab('analytics');
+    navigate(
+      { pathname: `${dashBase}/stations/${station.id}`, hash: 'station-analytics' },
+      { replace: true }
+    );
+  }, [readOnlyStationDetail, tab, station, dashBase, navigate]);
 
   useEffect(() => {
     if (!stationId) {
@@ -288,7 +304,7 @@ export default function StationDetailPage() {
 
   return (
     <div className="space-y-6">
-      {portsModalOpen ? (
+      {!readOnlyStationDetail && portsModalOpen ? (
         <div
           className="fixed inset-0 z-[110] flex items-end justify-center p-4 sm:items-center"
           role="dialog"
@@ -330,22 +346,25 @@ export default function StationDetailPage() {
       {station.archived ? (
         <div className="rounded-2xl border border-amber-200/90 bg-amber-50/80 px-4 py-3 text-sm shadow-sm">
           <p className="font-bold text-amber-900">
-            Станція в архіві — не показується на карті та у списку «Усі». Щоб змінити статус роботи,
-            спочатку натисніть «Розархівувати» біля блоку «Статус» нижче.
+            {readOnlyStationDetail
+              ? 'Станція в архіві — не показується на карті та у списку «Усі».'
+              : 'Станція в архіві — не показується на карті та у списку «Усі». Щоб змінити статус роботи, спочатку натисніть «Розархівувати» біля блоку «Статус» нижче.'}
           </p>
         </div>
       ) : null}
 
-      <ConfirmDialog
-        open={archiveConfirmOpen}
-        onClose={() => setArchiveConfirmOpen(false)}
-        onConfirm={confirmArchive}
-        title="Перемістити станцію в архів?"
-        description="Вона зникне з карти та зі списку «Усі»; її можна буде знайти у вкладці «Архів»."
-        confirmLabel="Так, в архів"
-        cancelLabel="Скасувати"
-        variant="danger"
-      />
+      {!readOnlyStationDetail ? (
+        <ConfirmDialog
+          open={archiveConfirmOpen}
+          onClose={() => setArchiveConfirmOpen(false)}
+          onConfirm={confirmArchive}
+          title="Перемістити станцію в архів?"
+          description="Вона зникне з карти та зі списку «Усі»; її можна буде знайти у вкладці «Архів»."
+          confirmLabel="Так, в архів"
+          cancelLabel="Скасувати"
+          variant="danger"
+        />
+      ) : null}
 
       <div>
         <Link
@@ -357,7 +376,14 @@ export default function StationDetailPage() {
         <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{station.city}</p>
-            <h1 className={`mt-0.5 ${stationAdminPageTitle}`}>{station.name}</h1>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+              <h1 className={stationAdminPageTitle}>{station.name}</h1>
+              {readOnlyStationDetail ? (
+                <StatusPill tone={stationStatusTone(station.status)}>
+                  {stationStatusLabel(station.status)}
+                </StatusPill>
+              ) : null}
+            </div>
             <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-500">
               <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -370,15 +396,16 @@ export default function StationDetailPage() {
               <span className="min-w-0">{station.address}</span>
             </p>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-           
-            <OutlineButton
-              type="button"
-              onClick={() => navigate(`${dashBase}/stations/${station.id}/edit`)}
-            >
-              Редагувати дані
-            </OutlineButton>
-          </div>
+          {!readOnlyStationDetail ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+              <OutlineButton
+                type="button"
+                onClick={() => navigate(`${dashBase}/stations/${station.id}/edit`)}
+              >
+                Редагувати дані
+              </OutlineButton>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -403,14 +430,18 @@ export default function StationDetailPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 border-b border-gray-200 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+      <div
+        className={`flex flex-col gap-4 border-b border-gray-200 sm:gap-6 ${readOnlyStationDetail ? '' : 'sm:flex-row sm:items-end sm:justify-between'}`}
+      >
         <nav
-          className="-mx-1 flex min-w-0 gap-6 overflow-x-auto px-1"
+          className="-mx-1 flex min-w-0 gap-6 overflow-x-auto px-1 pb-3"
           aria-label="Розділи станції"
         >
-          <button type="button" className={tabClass(tab === 'overview')} onClick={() => goTab('overview')}>
-            Загалом
-          </button>
+          {!readOnlyStationDetail ? (
+            <button type="button" className={tabClass(tab === 'overview')} onClick={() => goTab('overview')}>
+              Загалом
+            </button>
+          ) : null}
           <button type="button" className={tabClass(tab === 'analytics')} onClick={() => goTab('analytics')}>
             Аналітика
           </button>
@@ -421,68 +452,70 @@ export default function StationDetailPage() {
             Порти ({station.ports.length})
           </button>
         </nav>
-        <div
-          className="flex shrink-0 flex-col gap-2 pb-3 sm:items-end"
-          aria-label="Управління станцією"
-        >
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Статус</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <div
-              className={`inline-flex rounded-xl border p-0.5 shadow-sm ${
-                station.archived
-                  ? 'border-amber-200/80 bg-amber-100/50'
-                  : 'border-slate-200 bg-green-50/35'
-              }`}
-              role="group"
-              aria-label="Зміна статусу станції"
-            >
-              {STATION_STATUS_OPTIONS.map(({ value, label }) => {
-                const active = station.status === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    disabled={station.archived}
-                    onClick={() => void updateStation(station.id, { status: value })}
-                    className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-45 ${
-                      active
-                        ? 'bg-white text-green-800 shadow-sm ring-1 ring-gray-200/80'
-                        : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+        {!readOnlyStationDetail ? (
+          <div
+            className="flex shrink-0 flex-col gap-2 pb-3 sm:items-end"
+            aria-label="Управління станцією"
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Статус</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <div
+                className={`inline-flex rounded-xl border p-0.5 shadow-sm ${
+                  station.archived
+                    ? 'border-amber-200/80 bg-amber-100/50'
+                    : 'border-slate-200 bg-green-50/35'
+                }`}
+                role="group"
+                aria-label="Зміна статусу станції"
+              >
+                {STATION_STATUS_OPTIONS.map(({ value, label }) => {
+                  const active = station.status === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={station.archived}
+                      onClick={() => void updateStation(station.id, { status: value })}
+                      className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                        active
+                          ? 'bg-white text-green-800 shadow-sm ring-1 ring-gray-200/80'
+                          : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              {station.archived ? (
+                <OutlineButton
+                  type="button"
+                  className="!px-3 !py-1.5 !text-xs"
+                  onClick={async () => {
+                    try {
+                      await unarchiveStation(station.id);
+                    } catch {
+                      /* помилка в контексті */
+                    }
+                  }}
+                >
+                  Розархівувати
+                </OutlineButton>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setArchiveConfirmOpen(true)}
+                  className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-800 shadow-sm transition hover:bg-red-50"
+                >
+                  В архів
+                </button>
+              )}
             </div>
-            {station.archived ? (
-              <OutlineButton
-                type="button"
-                className="!px-3 !py-1.5 !text-xs"
-                onClick={async () => {
-                  try {
-                    await unarchiveStation(station.id);
-                  } catch {
-                    /* помилка в контексті */
-                  }
-                }}
-              >
-                Розархівувати
-              </OutlineButton>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setArchiveConfirmOpen(true)}
-                className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-800 shadow-sm transition hover:bg-red-50"
-              >
-                В архів
-              </button>
-            )}
           </div>
-        </div>
+        ) : null}
       </div>
 
-      {tab === 'overview' ? (
+      {!readOnlyStationDetail && tab === 'overview' ? (
         <div className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
             <AppCard className="space-y-3">
@@ -725,9 +758,11 @@ export default function StationDetailPage() {
         <AppCard className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-sm font-semibold text-gray-900">Порти та конектори</h2>
-            <PrimaryButton type="button" className="!text-xs !py-2" onClick={openPortsEditor}>
-              Змінити порти
-            </PrimaryButton>
+            {!readOnlyStationDetail ? (
+              <PrimaryButton type="button" className="!text-xs !py-2" onClick={openPortsEditor}>
+                Змінити порти
+              </PrimaryButton>
+            ) : null}
           </div>
           {station.ports.map((p) => (
             <div
@@ -746,7 +781,7 @@ export default function StationDetailPage() {
                 </div>
                 <StatusPill tone={portStatusTone(p.status)}>{portStatusLabel(p.status)}</StatusPill>
               </div>
-              {p.status === 'busy' ? (
+              {!readOnlyStationDetail && p.status === 'busy' ? (
                 <DangerButton type="button" className="mt-4 w-full">
                   Зупинити зарядку
                 </DangerButton>
