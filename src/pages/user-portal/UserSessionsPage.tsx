@@ -1,26 +1,44 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import type { NetworkListPeriod } from '../../api/adminNetwork';
 import NetworkListPeriodControl from '../../components/admin/NetworkListPeriodControl';
 import AdminListPagination from '../../components/admin/AdminListPagination';
+import { Link } from 'react-router-dom';
+import { UserPortalEmptyState } from '../../components/user-portal/UserPortalEmptyState';
+import { UserPortalRowCard } from '../../components/user-portal/UserPortalRowCard';
 import { useUserPortal } from '../../context/UserPortalContext';
-import { AppCard } from '../../components/station-admin/Primitives';
 import { isOnOrAfterNetworkPeriodCutoff } from '../../utils/networkListPeriod';
+import {
+  userPortalListPageShell,
+  userPortalPageHeaderRow,
+  userPortalPageTitle,
+  userPortalPrimaryCta,
+} from '../../styles/userPortalTheme';
 
 const SESSIONS_PAGE_SIZE = 10;
 
-function fmt(dt: string) {
+function shortSessionDate(iso: string) {
   try {
-    return new Date(dt).toLocaleString('uk-UA', {
-      day: 'numeric',
-      month: 'long',
+    return new Date(iso).toLocaleDateString('uk-UA', {
+      day: '2-digit',
+      month: '2-digit',
       year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     });
   } catch {
-    return dt;
+    return iso;
   }
+}
+
+function SessionBoltIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.75}
+        d="M13 10V3L4 14h7v7l9-11h-7z"
+      />
+    </svg>
+  );
 }
 
 export default function UserSessionsPage() {
@@ -33,12 +51,6 @@ export default function UserSessionsPage() {
     return sorted.filter((s) => isOnOrAfterNetworkPeriodCutoff(s.startedAt, period));
   }, [sessions, period]);
 
-  const totals = useMemo(() => {
-    const kwh = rows.reduce((a, s) => a + s.kwh, 0);
-    const cost = rows.reduce((a, s) => a + s.cost, 0);
-    return { kwh, cost };
-  }, [rows]);
-
   const totalPages = rows.length === 0 ? 1 : Math.max(1, Math.ceil(rows.length / SESSIONS_PAGE_SIZE));
   const safePage = Math.min(Math.max(1, page), totalPages);
 
@@ -48,14 +60,10 @@ export default function UserSessionsPage() {
   }, [rows, safePage]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Історія сесій</h1>
-        </div>
-
-      <div className="flex min-w-0 flex-row flex-wrap items-center justify-between gap-4 lg:gap-6">
-        
-        <div className="flex min-w-0 shrink-0 justify-end sm:ml-auto">
+    <div className={`space-y-6 ${userPortalListPageShell}`}>
+      <div className={userPortalPageHeaderRow}>
+        <h1 className={`${userPortalPageTitle} shrink-0`}>Історія сесій</h1>
+        <div className="min-w-0 sm:flex sm:shrink-0 sm:justify-end">
           <NetworkListPeriodControl
             value={period}
             onChange={(p) => {
@@ -67,33 +75,34 @@ export default function UserSessionsPage() {
       </div>
 
       {rows.length === 0 ? (
-        <AppCard className="py-12 text-center text-sm text-gray-500">
-          Історія порожня — після зарядок сесії з’являться тут.
-        </AppCard>
+        <UserPortalEmptyState
+          icon={<SessionBoltIcon className="h-8 w-8" />}
+          title="Історія порожня"
+          description="Після зарядок сесії з’являться тут"
+          footer={
+            <Link to="/dashboard/bookings/new" className={userPortalPrimaryCta}>
+              Оформити бронювання
+            </Link>
+          }
+        />
       ) : (
-        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
           {pageSlice.map((s) => (
             <li key={s.id}>
-              <Link
+              <UserPortalRowCard
                 to={`/dashboard/sessions/${s.id}`}
-                className="flex h-full min-h-[140px] flex-col rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm ring-1 ring-slate-900/[0.04] transition hover:border-emerald-200/90 hover:bg-slate-50/80 hover:shadow-md hover:ring-emerald-950/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:p-5"
-              >
-                <span className="text-lg font-semibold leading-snug text-slate-900">{s.stationName}</span>
-                <p className="mt-1 text-sm text-slate-600">{s.portLabel}</p>
-                <p className="mt-1 text-xs text-slate-500">{fmt(s.startedAt)}</p>
-                <div className="mt-4 grid flex-1 grid-cols-2 gap-3 border-t border-emerald-100/90 pt-4">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900/55">Тривалість</p>
-                    <p className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{s.durationMin} хв</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900/55">Енергія</p>
-                    <p className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">
-                      {s.kwh.toLocaleString('uk-UA', { maximumFractionDigits: 3 })} кВт·год
-                    </p>
-                  </div>
-                </div>
-              </Link>
+                accent="green"
+                icon={<SessionBoltIcon className="h-5 w-5" />}
+                title={s.stationName}
+                subtitle={s.portLabel}
+                dateLine={shortSessionDate(s.startedAt)}
+                metaLine={`${s.durationMin} хв · ${s.kwh.toLocaleString('uk-UA', {
+                  maximumFractionDigits: 3,
+                })} кВт·год`}
+                statusLabel="Завершено"
+                statusTextClassName="text-green-700"
+                statusPlacement="inline"
+              />
             </li>
           ))}
         </ul>

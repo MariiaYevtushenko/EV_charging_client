@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { apiBaseUrl } from '../lib/apiBase';
+import { FloatingToast, FloatingToastRegion } from './admin/FloatingToast';
 import { OutlineButton } from './station-admin/Primitives';
 
 type StatusResponse = { enabled: true; alreadyRun: boolean };
 
 const MSG_ALREADY_FROM_SERVER =
   'Дані вже завантажені';
-
 
   // Запуск SEED з сервера
 export default function SeedDemoDataButton() {
@@ -16,7 +16,28 @@ export default function SeedDemoDataButton() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [doneLocal, setDoneLocal] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  /** Текст успіху з API (напр. «SEED успішно завершено») — лише у спливаючому тості після дії користувача. */
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const errorTitleId = useId();
+
+  useEffect(() => {
+    if (!toastMessage) {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+      return;
+    }
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastMessage(null);
+      toastTimerRef.current = null;
+    }, 6500);
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, [toastMessage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,11 +96,12 @@ export default function SeedDemoDataButton() {
       }
 
       if (res.status === 409 || body.error === 'already_run') {
+        const msg =
+          typeof body.message === 'string' && body.message.length > 0 ? body.message : MSG_ALREADY_FROM_SERVER;
+        setToastMessage(msg);
         setAlreadyRun(true);
         setDoneLocal(true);
-        setSuccessMessage(
-          typeof body.message === 'string' && body.message.length > 0 ? body.message : MSG_ALREADY_FROM_SERVER,
-        );
+        setSuccessMessage(msg);
         return;
       }
       if (!res.ok) {
@@ -90,13 +112,14 @@ export default function SeedDemoDataButton() {
         setModalError(msg);
         return;
       }
-      setAlreadyRun(true);
-      setDoneLocal(true);
-      setSuccessMessage(
+      const msg =
         typeof body.message === 'string' && body.message.length > 0
           ? body.message
-          : 'Демо-дані успішно завантажено. Оновіть сторінку списку станцій, щоб побачити зміни.',
-      );
+          : 'Демо-дані успішно завантажено. Оновіть сторінку списку станцій, щоб побачити зміни.';
+      setToastMessage(msg);
+      setAlreadyRun(true);
+      setDoneLocal(true);
+      setSuccessMessage(msg);
     } catch (e) {
       setModalError(e instanceof Error ? e.message : 'Не вдалося виконати запит');
     } finally {
@@ -111,14 +134,25 @@ export default function SeedDemoDataButton() {
 
   if (finished) {
     return (
-      <div role="status" aria-live="polite">
-        <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-emerald-700/90">
-          SEED DATA
-        </p>
-        <p className="rounded-xl border border-emerald-100/90 bg-emerald-50/50 px-3 py-2.5 text-xs leading-relaxed text-emerald-950/90">
-          {successMessage ?? MSG_ALREADY_FROM_SERVER}
-        </p>
-      </div>
+      <>
+        <div role="status" aria-live="polite">
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-emerald-700/90">
+            SEED DATA
+          </p>
+          <p className="rounded-xl border border-emerald-100/90 bg-emerald-50/50 px-3 py-2.5 text-xs leading-relaxed text-emerald-950/90">
+            {doneLocal ? 'Готово' : successMessage ?? MSG_ALREADY_FROM_SERVER}
+          </p>
+        </div>
+        <FloatingToastRegion live="polite">
+          <FloatingToast
+            show={Boolean(toastMessage)}
+            tone="success"
+            onDismiss={() => setToastMessage(null)}
+          >
+            {toastMessage}
+          </FloatingToast>
+        </FloatingToastRegion>
+      </>
     );
   }
 
@@ -126,14 +160,29 @@ export default function SeedDemoDataButton() {
     <>
       <div>
         <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-gray-400">SEED DATA</p>
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => void runSeed()}
-          className="w-full rounded-xl border border-amber-200/90 bg-gradient-to-br from-amber-50/90 to-white px-3 py-2.5 text-left text-sm font-medium text-amber-950 shadow-sm shadow-amber-900/5 transition hover:border-amber-300 hover:from-amber-50 hover:to-amber-50/30 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {loading ? 'Завантаження…' : 'Заповнити БД (SEED)'}
-        </button>
+        {loading ? (
+          <div
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-amber-200/90 bg-gradient-to-br from-amber-50/95 to-white px-3 py-3 shadow-sm shadow-amber-900/5 ring-1 ring-amber-900/[0.04]"
+          >
+            <div
+              className="h-7 w-7 shrink-0 rounded-full border-2 border-amber-200/90 border-t-amber-600 motion-reduce:animate-none animate-spin"
+              aria-hidden
+            />
+            <span className="text-sm font-medium text-amber-950">Завантаження</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => void runSeed()}
+            className="w-full rounded-xl border border-amber-200/90 bg-gradient-to-br from-amber-50/90 to-white px-3 py-2.5 text-left text-sm font-medium text-amber-950 shadow-sm shadow-amber-900/5 transition hover:border-amber-300 hover:from-amber-50 hover:to-amber-50/30 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Заповнити БД (SEED)
+          </button>
+        )}
       </div>
 
       {modalError ? (

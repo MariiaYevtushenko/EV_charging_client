@@ -74,6 +74,7 @@ export type EditCarFormValues = {
   brand: string;
   vehicleModel: string;
   plate: string;
+  batteryCapacity: string;
 };
 
 export function validateEditCarForm(v: EditCarFormValues): CarFormErrors {
@@ -84,6 +85,8 @@ export function validateEditCarForm(v: EditCarFormValues): CarFormErrors {
   if (em) errors.vehicleModel = em;
   const ep = validateCarPlate(v.plate);
   if (ep) errors.plate = ep;
+  const ebk = validateBatteryKwh(v.batteryCapacity);
+  if (ebk) errors.batteryCapacity = ebk;
   return errors;
 }
 

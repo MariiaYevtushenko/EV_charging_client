@@ -10,13 +10,21 @@ export const userPortalPrimaryCta = appPrimaryCtaClass;
 export const userPortalPageTitle = 'text-2xl font-semibold tracking-tight text-slate-900';
 export const userPortalPageSubtitle = 'mt-1 max-w-xl text-sm leading-relaxed text-slate-600';
 
+/** Лівий/правий падінг для всього вмісту на сторінках списків (сесії, бронювання, платежі). */
+export const userPortalListPageShell = 'px-4 sm:px-6 lg:px-8';
+
+/** Один рядок: заголовок сторінки зліва, блок «Період» справа (з sm+). */
+export const userPortalPageHeaderRow =
+  'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4';
+
 /** Сегментовані вкладки (Заплановані / Історія) */
 export const userPortalTabBar =
-  'inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm';
+  'inline-flex items-stretch rounded-xl border border-slate-200 bg-white p-1 shadow-sm';
+/** Однакова висота активної та неактивної вкладки — без «стрибка» при перемиканні */
 export const userPortalTabActive =
-  'rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-green-600/15';
+  'inline-flex min-h-[2.75rem] items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-green-600/15 ring-1 ring-green-800/20';
 export const userPortalTabIdle =
-  'rounded-lg px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50';
+  'inline-flex min-h-[2.75rem] items-center justify-center rounded-lg border border-transparent px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50';
 /** Лічильник на обраній вкладці (темний фон кнопки) */
 export const userPortalTabBadgeOnAccent =
   'ml-1.5 rounded-full bg-white/20 px-1.5 py-0.5 text-xs font-semibold tabular-nums';
@@ -31,6 +39,9 @@ export const userPortalSearchInput =
 /** Іконка в порожньому стані / на картці */
 export const userPortalIconTileLg =
   'flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-700 ring-1 ring-green-600/10';
+/** Компактніша плитка (графіки, вузькі блоки) */
+export const userPortalIconTileMd =
+  'flex h-12 w-12 items-center justify-center rounded-2xl bg-green-50 text-green-700 ring-1 ring-green-600/10';
 export const userPortalIconTileSm =
   'hidden shrink-0 sm:flex h-12 w-12 items-center justify-center rounded-2xl bg-green-50 text-green-700 ring-1 ring-green-600/10';
 
@@ -43,4 +54,5 @@ export const userPortalBookingStatus = {
   active: 'bg-green-50 text-green-900 ring-green-600/20',
   completed: 'bg-zinc-100 text-zinc-800 ring-zinc-400/20',
   cancelled: 'bg-rose-50 text-rose-900 ring-rose-400/25',
+  missed: 'bg-amber-50 text-amber-950 ring-amber-400/30',
 } as const;

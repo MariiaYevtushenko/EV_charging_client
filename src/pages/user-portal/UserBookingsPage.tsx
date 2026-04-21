@@ -1,18 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import type { NetworkListPeriod } from '../../api/adminNetwork';
 import NetworkListPeriodControl from '../../components/admin/NetworkListPeriodControl';
 import AdminListPagination from '../../components/admin/AdminListPagination';
-import { AppCard } from '../../components/station-admin/Primitives';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useUserPortal } from '../../context/UserPortalContext';
 import type { UserBooking } from '../../types/userPortal';
+import { UserPortalEmptyState } from '../../components/user-portal/UserPortalEmptyState';
+import { UserPortalRowCard, type UserPortalRowAccent } from '../../components/user-portal/UserPortalRowCard';
 import {
-  userPortalBookingStatus,
-  userPortalCardTitleHover,
-  userPortalIconTileLg,
-  userPortalIconTileSm,
-  userPortalPageSubtitle,
+  userPortalListPageShell,
+  userPortalPageHeaderRow,
   userPortalPageTitle,
   userPortalPrimaryCta,
   userPortalTabActive,
@@ -38,14 +36,53 @@ function CalendarDaysIcon({ className }: { className?: string }) {
   );
 }
 
-function MapPinIcon({ className }: { className?: string }) {
+function ClockIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth={1.5}
-        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+        strokeWidth={1.75}
+        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
+    </svg>
+  );
+}
+
+function BoltIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.75}
+        d="M13 10V3L4 14h7v7l9-11h-7z"
+      />
+    </svg>
+  );
+}
+
+function CheckCircleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.75}
+        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
+    </svg>
+  );
+}
+
+function XCircleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.75}
+        d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
       />
     </svg>
   );
@@ -87,7 +124,7 @@ function BookingCardOverflowMenu({
     <div className="absolute right-2 top-2 z-20" ref={wrapRef}>
       <button
         type="button"
-        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200/90 bg-white text-slate-600 shadow-sm ring-1 ring-slate-900/[0.04] transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200/90 bg-white text-slate-600 shadow-sm ring-1 ring-slate-900/[0.04] transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
         aria-expanded={open}
         aria-haspopup="menu"
         title="Дії"
@@ -157,11 +194,62 @@ function fmtRange(startIso: string, endIso: string) {
   }
 }
 
-function statusKeyForBooking(b: UserBooking): keyof typeof userPortalBookingStatus {
-  if (b.status === 'upcoming') return 'upcoming';
-  if (b.status === 'active') return 'active';
-  if (b.status === 'completed') return 'completed';
-  return 'cancelled';
+function shortBookingDate(iso: string) {
+  try {
+    return new Date(iso).toLocaleDateString('uk-UA', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function bookingRowVisual(b: UserBooking): {
+  accent: UserPortalRowAccent;
+  statusTextClassName: string;
+  statusLabel: string;
+  icon: ReactElement;
+} {
+  if (b.status === 'upcoming') {
+    return {
+      accent: 'amber',
+      statusTextClassName: 'text-amber-600',
+      statusLabel: 'Очікує',
+      icon: <ClockIcon className="h-5 w-5" />,
+    };
+  }
+  if (b.status === 'active') {
+    return {
+      accent: 'green',
+      statusTextClassName: 'text-green-700',
+      statusLabel: 'Активне',
+      icon: <BoltIcon className="h-5 w-5" />,
+    };
+  }
+  if (b.status === 'completed') {
+    return {
+      accent: 'slate',
+      statusTextClassName: 'text-slate-700',
+      statusLabel: 'Завершено',
+      icon: <CheckCircleIcon className="h-5 w-5" />,
+    };
+  }
+  if (b.status === 'missed') {
+    return {
+      accent: 'amber',
+      statusTextClassName: 'text-amber-800',
+      statusLabel: 'Пропущено',
+      icon: <ClockIcon className="h-5 w-5" />,
+    };
+  }
+  return {
+    accent: 'rose',
+    statusTextClassName: 'text-rose-600',
+    statusLabel: 'Скасовано',
+    icon: <XCircleIcon className="h-5 w-5" />,
+  };
 }
 
 export default function UserBookingsPage() {
@@ -174,19 +262,28 @@ export default function UserBookingsPage() {
   const [menuOpenBookingId, setMenuOpenBookingId] = useState<string | null>(null);
 
   const upcoming = useMemo(
-    () => bookings.filter((b) => b.status === 'upcoming' || b.status === 'active'),
+    () =>
+      bookings
+        .filter((b) => b.status === 'upcoming' || b.status === 'active')
+        .sort((a, b) => a.start.localeCompare(b.start)),
     [bookings]
   );
   const past = useMemo(
-    () => bookings.filter((b) => b.status === 'completed' || b.status === 'cancelled'),
+    () =>
+      bookings
+        .filter(
+          (b) =>
+            b.status === 'completed' || b.status === 'cancelled' || b.status === 'missed',
+        )
+        .sort((a, b) => b.start.localeCompare(a.start)),
     [bookings]
   );
 
   const baseList = tab === 'upcoming' ? upcoming : past;
-  const list = useMemo(
-    () => baseList.filter((b) => isOnOrAfterNetworkPeriodCutoff(b.start, period)),
-    [baseList, period]
-  );
+  const list = useMemo(() => {
+    if (tab === 'upcoming') return baseList;
+    return baseList.filter((b) => isOnOrAfterNetworkPeriodCutoff(b.start, period));
+  }, [baseList, period, tab]);
 
   const totalPages = list.length === 0 ? 1 : Math.max(1, Math.ceil(list.length / BOOKINGS_PAGE_SIZE));
   const safePage = Math.min(Math.max(1, page), totalPages);
@@ -208,155 +305,108 @@ export default function UserBookingsPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className={userPortalPageTitle}>Мої бронювання</h1>
-        
-      </div>
-
-     
-        <div className="flex flex-col gap-5 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:px-5 sm:py-4">
-          <div className={`${userPortalTabBar} w-fit max-w-full shrink-0`}>
-            <button
-              type="button"
-              onClick={() => {
-                setTab('upcoming');
-                setPage(1);
-              }}
-              className={tab === 'upcoming' ? userPortalTabActive : userPortalTabIdle}
-            >
-              Заплановані
-              <span className={tab === 'upcoming' ? userPortalTabBadgeOnAccent : userPortalTabBadgeIdle}>
-                {upcoming.length}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setTab('past');
-                setPage(1);
-              }}
-              className={tab === 'past' ? userPortalTabActive : userPortalTabIdle}
-            >
-              Історія
-              <span className={tab === 'past' ? userPortalTabBadgeOnAccent : userPortalTabBadgeIdle}>
-                {past.length}
-              </span>
-            </button>
+    <div className={`space-y-5 ${userPortalListPageShell}`}>
+      <div className="mx-auto max-w-5xl">
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm ring-1 ring-slate-950/[0.04] sm:p-5">
+          <div className={userPortalPageHeaderRow}>
+            <h1 className={`${userPortalPageTitle} shrink-0`}>Мої бронювання</h1>
+            <div className="flex min-h-0 w-full min-w-0 shrink-0 items-center sm:min-h-[2.75rem] sm:justify-end">
+              <div
+                className={
+                  tab === 'past'
+                    ? 'w-full sm:w-auto'
+                    : 'hidden w-full sm:block sm:w-auto sm:invisible sm:pointer-events-none'
+                }
+                aria-hidden={tab !== 'past'}
+              >
+                <NetworkListPeriodControl
+                  value={period}
+                  onChange={(p) => {
+                    setPeriod(p);
+                    setPage(1);
+                  }}
+                />
+              </div>
+            </div>
           </div>
-          <div className="min-w-0 sm:flex sm:flex-1 sm:justify-end">
-            <NetworkListPeriodControl
-              value={period}
-              onChange={(p) => {
-                setPeriod(p);
-                setPage(1);
-              }}
-            />
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <div className={`${userPortalTabBar} w-full max-w-full sm:w-fit`}>
+              <button
+                type="button"
+                onClick={() => {
+                  setTab('upcoming');
+                  setPage(1);
+                }}
+                className={tab === 'upcoming' ? userPortalTabActive : userPortalTabIdle}
+              >
+                Заплановані
+                <span className={tab === 'upcoming' ? userPortalTabBadgeOnAccent : userPortalTabBadgeIdle}>
+                  {upcoming.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTab('past');
+                  setPage(1);
+                }}
+                className={tab === 'past' ? userPortalTabActive : userPortalTabIdle}
+              >
+                Минулі
+                <span className={tab === 'past' ? userPortalTabBadgeOnAccent : userPortalTabBadgeIdle}>
+                  {past.length}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
-      
+      </div>
 
       {list.length === 0 ? (
-        <AppCard>
-          <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
-            <div className={userPortalIconTileLg}>
-              <CalendarDaysIcon className="h-8 w-8" />
-            </div>
-            <div>
-              <p className="text-base font-semibold text-slate-900">
-                {tab === 'upcoming' ? 'Немає запланованих бронювань' : 'Історія порожня'}
-              </p>
-              <p className="mt-1 max-w-md text-sm text-slate-600">
-                {tab === 'upcoming'
-                  ? 'Оформіть нове бронювання на карті та з вибором слоту — тут з’являться майбутні візити.'
-                  : 'Після завершених або скасованих сесій записи з’являться тут.'}
-              </p>
-            </div>
-            {tab === 'upcoming' ? (
+        <UserPortalEmptyState
+          icon={<CalendarDaysIcon className="h-8 w-8" />}
+          title={tab === 'upcoming' ? 'Немає запланованих бронювань' : 'Минулі бронювання відсутні'}
+          description={
+            tab === 'upcoming'
+              ? 'Оформіть нове бронювання на карті та з вибором слоту — тут з’являться майбутні візити'
+              : 'Завершені та скасовані бронювання за обраний період з’являться тут. Спробуйте «Весь час», якщо список порожній'
+          }
+          footer={
+            tab === 'upcoming' ? (
               <Link to="/dashboard/bookings/new" className={userPortalPrimaryCta}>
                 Оформити бронювання
               </Link>
-            ) : null}
-          </div>
-        </AppCard>
+            ) : null
+          }
+        />
       ) : (
-        <ul className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 md:gap-5">
+        <ul className="mx-auto grid max-w-5xl grid-cols-1 gap-3 lg:grid-cols-2">
           {pageSlice.map((b) => {
-            const { dateLine, timeLine } = fmtRange(b.start, b.end);
+            const { timeLine } = fmtRange(b.start, b.end);
             const isUpcomingTab = tab === 'upcoming';
             const canCancel =
               isUpcomingTab && (b.status === 'upcoming' || b.status === 'active');
-
-            const statusLabel =
-              b.status === 'upcoming'
-                ? 'Заплановано'
-                : b.status === 'active'
-                  ? 'Активне'
-                  : b.status === 'completed'
-                    ? 'Завершено'
-                    : 'Скасовано';
-
-            const sk = statusKeyForBooking(b);
-            const statusClass = userPortalBookingStatus[sk];
+            const vis = bookingRowVisual(b);
+            const dateTimeLine = timeLine
+              ? `${shortBookingDate(b.start)} · ${timeLine}`
+              : shortBookingDate(b.start);
 
             return (
-              <li key={b.id} className="relative flex h-full min-h-0">
-                <div className="relative flex h-full w-full min-h-[148px] flex-col overflow-visible rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-900/[0.04] transition hover:border-emerald-200/90 hover:shadow-md hover:ring-emerald-950/[0.06]">
-                  <Link
+              <li key={b.id} className="min-w-0">
+                <div className="relative w-full min-w-0">
+                  <UserPortalRowCard
                     to={`/dashboard/bookings/${b.id}`}
-                    className={`group flex min-h-0 flex-1 flex-col p-4 transition hover:bg-slate-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:p-5 ${
-                      canCancel ? 'pr-12 sm:pr-14' : ''
-                    }`}
+                    accent={vis.accent}
+                    icon={vis.icon}
+                    title={b.stationName}
+                    subtitle={b.slotLabel}
+                    dateLine={dateTimeLine}
+                    statusLabel={vis.statusLabel}
+                    statusTextClassName={vis.statusTextClassName}
+                    statusPlacement="inline"
+                    className={canCancel ? 'min-h-[4.75rem] pr-12 sm:pr-14' : ''}
                     onClick={() => setMenuOpenBookingId(null)}
-                  >
-                    <div className="flex min-h-0 gap-3">
-                      <div className={userPortalIconTileSm}>
-                        <CalendarDaysIcon className="h-5 w-5 sm:h-6 sm:w-6" />
-                      </div>
-                      <div className="min-w-0 flex-1 overflow-hidden">
-                        <p
-                          className={`${userPortalCardTitleHover} truncate text-base leading-snug sm:text-[1.05rem]`}
-                          title={b.stationName}
-                        >
-                          {b.stationName}
-                        </p>
-                        <p className="mt-1 flex min-w-0 items-center gap-1 text-xs text-slate-600 sm:text-sm">
-                          <MapPinIcon className="h-3.5 w-3.5 shrink-0 text-slate-400 sm:h-4 sm:w-4" />
-                          <span className="truncate" title={b.slotLabel}>
-                            {b.slotLabel}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-
-                    {timeLine ? (
-                      <p
-                        className="mt-3 truncate text-xs text-slate-600 sm:text-sm"
-                        title={timeLine}
-                      >
-                        {timeLine}
-                      </p>
-                    ) : null}
-
-                    <div className="mt-auto flex flex-wrap items-end justify-between gap-3 border-t border-emerald-100/90 pt-4">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900/55">Дата</p>
-                        <p className="mt-0.5 truncate text-sm font-semibold text-slate-900" title={dateLine}>
-                          {dateLine}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1 sm:min-w-[7.5rem]">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900/55">Статус</p>
-                        <span
-                          className={`inline-flex max-w-full truncate rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${statusClass}`}
-                          title={statusLabel}
-                        >
-                          {statusLabel}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-
+                  />
                   {canCancel ? (
                     <BookingCardOverflowMenu
                       open={menuOpenBookingId === b.id}
@@ -373,12 +423,14 @@ export default function UserBookingsPage() {
       )}
 
       {list.length > 0 ? (
-        <AdminListPagination
-          page={safePage}
-          pageSize={BOOKINGS_PAGE_SIZE}
-          total={list.length}
-          onPageChange={setPage}
-        />
+        <div className="mx-auto max-w-5xl">
+          <AdminListPagination
+            page={safePage}
+            pageSize={BOOKINGS_PAGE_SIZE}
+            total={list.length}
+            onPageChange={setPage}
+          />
+        </div>
       ) : null}
 
       <ConfirmDialog

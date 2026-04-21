@@ -31,6 +31,7 @@ import {
   PrimaryButton,
   StatusPill,
 } from '../../components/station-admin/Primitives';
+import { AdminAccentCard, AdminAccentRow, AdminAccentStatus } from '../../components/admin/AdminAccentCard';
 import { portStatusLabel, portStatusTone, stationStatusLabel, stationStatusTone } from '../../utils/stationLabels';
 import { countryIsoTooltip, formatCountryLabel } from '../../utils/countryDisplay';
 import {
@@ -563,79 +564,68 @@ export default function StationDetailPage() {
       </div>
 
       {tab === 'bookings' ? (
-        <AppCard className="overflow-hidden border-slate-200 bg-gradient-to-br from-white to-green-50/35 p-0 shadow-sm">
-          <div className="px-5 py-4">
-            {upcomingLoading ? (
-              <p className="text-sm text-gray-500">Завантаження списку…</p>
-            ) : upcomingError ? (
-              <p className="text-sm text-red-600">{upcomingError}</p>
-            ) : upcomingBookings.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/80 px-4 py-8 text-center">
-                <p className="text-sm font-medium text-gray-700">Немає запланованих бронювань</p>
-              </div>
-            ) : (
-              <ul className="divide-y divide-gray-100">
-                {upcomingBookings.map((b) => {
-                  const { dateLine, timeLine } = fmtBookingRange(b.start, b.end);
-                  const portLabel = `Порт ${b.portNumber}`;
-                  const connectorBit = b.connectorName ? ` · ${b.connectorName}` : '';
-                  const inner = (
-                    <>
-                      <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-green-600/10 text-green-900">
-                        <span className="text-[10px] font-bold uppercase leading-none opacity-80">
-                          {new Date(b.start).toLocaleDateString('uk-UA', { month: 'short' })}
-                        </span>
-                        <span className="text-lg font-bold leading-tight tabular-nums">
-                          {new Date(b.start).getDate()}
-                        </span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-gray-900">{dateLine}</p>
-                        <p className="mt-0.5 text-sm tabular-nums text-gray-600">{timeLine}</p>
-                        <p className="mt-2 text-xs text-gray-500">
-                          <span className="font-semibold text-gray-700">{portLabel}</span>
-                          {connectorBit}
-                        </p>
-                      </div>
-                      <div className="min-w-0 text-right text-sm sm:max-w-[min(100%,280px)]">
-                        <p className="truncate font-medium text-gray-900">
-                          {b.userDisplayName ?? 'Користувач не вказаний'}
-                        </p>
-                        {b.userEmail ? (
-                          <p className="truncate text-xs text-gray-500">{b.userEmail}</p>
-                        ) : null}
-                        {b.vehicleLicensePlate ? (
-                          <p className="mt-1 inline-flex rounded-md bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-800">
-                            {b.vehicleLicensePlate}
+        <div className="space-y-3">
+          {upcomingLoading ? (
+            <p className="text-sm text-gray-500">Завантаження списку…</p>
+          ) : upcomingError ? (
+            <p className="text-sm text-red-600">{upcomingError}</p>
+          ) : upcomingBookings.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/80 px-4 py-8 text-center">
+              <p className="text-sm font-medium text-gray-700">Немає запланованих бронювань</p>
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {upcomingBookings.map((b) => {
+                const { dateLine, timeLine } = fmtBookingRange(b.start, b.end);
+                const portLabel = `Порт ${b.portNumber}`;
+                const connectorBit = b.connectorName ? ` · ${b.connectorName}` : '';
+                const card = (
+                  <AdminAccentCard className={isGlobalAdminDash ? 'transition hover:shadow-md' : ''}>
+                    <AdminAccentRow>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold uppercase leading-snug text-slate-900">{dateLine}</p>
+                          <p className="mt-0.5 text-sm tabular-nums text-gray-600">{timeLine}</p>
+                          <p className="mt-2 text-xs text-gray-500">
+                            <span className="font-semibold text-gray-700">{portLabel}</span>
+                            {connectorBit}
                           </p>
-                        ) : null}
+                          <AdminAccentStatus>Заплановано</AdminAccentStatus>
+                        </div>
+                        <div className="min-w-0 text-left text-sm sm:max-w-[min(100%,280px)] sm:text-right">
+                          <p className="truncate font-medium text-gray-900">
+                            {b.userDisplayName ?? 'Користувач не вказаний'}
+                          </p>
+                          {b.userEmail ? (
+                            <p className="truncate text-xs text-gray-500">{b.userEmail}</p>
+                          ) : null}
+                          {b.vehicleLicensePlate ? (
+                            <p className="mt-1 inline-flex rounded-md bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-800">
+                              {b.vehicleLicensePlate}
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
-                    </>
-                  );
-                  const rowClass =
-                    'flex flex-col gap-4 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:gap-5';
-                  if (isGlobalAdminDash) {
-                    return (
-                      <li key={b.id}>
-                        <Link
-                          to={`${dashBase}/bookings/${b.id}`}
-                          className={`${rowClass} -mx-2 rounded-xl px-2 transition hover:bg-green-50/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/35`}
-                        >
-                          {inner}
-                        </Link>
-                      </li>
-                    );
-                  }
+                    </AdminAccentRow>
+                  </AdminAccentCard>
+                );
+                if (isGlobalAdminDash) {
                   return (
-                    <li key={b.id} className={rowClass}>
-                      {inner}
+                    <li key={b.id}>
+                      <Link
+                        to={`${dashBase}/bookings/${b.id}`}
+                        className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/35"
+                      >
+                        {card}
+                      </Link>
                     </li>
                   );
-                })}
-              </ul>
-            )}
-          </div>
-        </AppCard>
+                }
+                return <li key={b.id}>{card}</li>;
+              })}
+            </ul>
+          )}
+        </div>
       ) : null}
 
       {tab === 'analytics' ? (

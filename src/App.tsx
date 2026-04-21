@@ -18,6 +18,7 @@ import UserBookingDetailPage from './pages/user-portal/UserBookingDetailPage';
 import UserPaymentsPage from './pages/user-portal/UserPaymentsPage';
 import UserPaymentDetailPage from './pages/user-portal/UserPaymentDetailPage';
 import UserCarNewPage from './pages/user-portal/UserCarNewPage';
+import UserCarDetailPage from './pages/user-portal/UserCarDetailPage';
 import UserCarEditPage from './pages/user-portal/UserCarEditPage';
 import UserAnalyticsPage from './pages/user-portal/UserAnalyticsPage';
 import UserProfilePage from './pages/user-portal/UserProfilePage';
@@ -75,6 +76,7 @@ function App() {
               <Route path="session" element={<Navigate to="/dashboard" replace />} />
               <Route path="cars/new" element={<UserCarNewPage />} />
               <Route path="cars/:carId/edit" element={<UserCarEditPage />} />
+              <Route path="cars/:carId" element={<UserCarDetailPage />} />
               <Route path="cars" element={<UserCarsPage />} />
               <Route path="sessions/:sessionId" element={<UserSessionDetailPage />} />
               <Route path="sessions" element={<UserSessionsPage />} />

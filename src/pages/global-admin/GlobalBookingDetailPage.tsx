@@ -19,6 +19,8 @@ function bookingTone(s: string): 'success' | 'warn' | 'muted' | 'danger' | 'info
       return 'success';
     case 'pending':
       return 'warn';
+    case 'missed':
+      return 'warn';
     case 'cancelled':
       return 'danger';
     default:
@@ -32,6 +34,8 @@ function bookingLabel(s: string) {
       return 'Підтверджено';
     case 'pending':
       return 'Очікує';
+    case 'missed':
+      return 'Пропущено';
     case 'cancelled':
       return 'Скасовано';
     case 'paid':

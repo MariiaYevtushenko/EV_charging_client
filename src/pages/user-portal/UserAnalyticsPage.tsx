@@ -10,8 +10,36 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { useUserPortal } from '../../context/UserPortalContext';
+import { UserPortalChartEmpty } from '../../components/user-portal/UserPortalEmptyState';
 import { AppCard } from '../../components/station-admin/Primitives';
+import { useUserPortal } from '../../context/UserPortalContext';
+import { userPortalListPageShell } from '../../styles/userPortalTheme';
+
+function ChartLineIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.75}
+        d="M3 3v18h18M7 15l3-3 4 4 5-7"
+      />
+    </svg>
+  );
+}
+
+function ChartBarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.75}
+        d="M9 19V9m4 10V5m4 14v-6M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"
+      />
+    </svg>
+  );
+}
 
 export default function UserAnalyticsPage() {
   const { sessions, payments } = useUserPortal();
@@ -68,7 +96,7 @@ export default function UserAnalyticsPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${userPortalListPageShell}`}>
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Аналітика</h1>
       
@@ -97,9 +125,10 @@ export default function UserAnalyticsPage() {
           <p className="mt-1 text-xs text-gray-500">За датою початку сесії та сумою з рахунків</p>
           <div className="mt-4 h-64">
             {trend.length === 0 ? (
-              <p className="flex h-full items-center justify-center text-sm text-gray-500">
-                Немає даних — з’являться після зарядок з оплаченими рахунками
-              </p>
+              <UserPortalChartEmpty
+                icon={<ChartLineIcon className="h-6 w-6" />}
+                description="Немає даних — з’являться після зарядок з оплаченими рахунками"
+              />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={trend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
@@ -121,9 +150,10 @@ export default function UserAnalyticsPage() {
           <p className="mt-1 text-xs text-gray-500">Сума кВт·год за історією сесій</p>
           <div className="mt-4 h-64">
             {trend.length === 0 ? (
-              <p className="flex h-full items-center justify-center text-sm text-gray-500">
-                Немає даних за обраний період
-              </p>
+              <UserPortalChartEmpty
+                icon={<ChartBarIcon className="h-6 w-6" />}
+                description="Немає даних за обраний період — після зарядок тут з’явиться динаміка кВт·год"
+              />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={trend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
@@ -142,15 +172,22 @@ export default function UserAnalyticsPage() {
       <AppCard>
         <h2 className="text-sm font-semibold text-gray-900">Накопичено по станціях (з історії сесій)</h2>
         <div className="mt-4 h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={byStation} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10 }} stroke="#9ca3af" />
-              <YAxis type="category" dataKey="label" width={130} tick={{ fontSize: 9 }} stroke="#9ca3af" />
-              <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-              <Bar dataKey="kwh" fill="#22c55e" radius={[0, 6, 6, 0]} name="кВт·год" />
-            </BarChart>
-          </ResponsiveContainer>
+          {byStation.length === 0 ? (
+            <UserPortalChartEmpty
+              icon={<ChartBarIcon className="h-6 w-6" />}
+              description="Після зарядок тут з’явиться порівняння станцій за накопиченою енергією"
+            />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={byStation} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                <YAxis type="category" dataKey="label" width={130} tick={{ fontSize: 9 }} stroke="#9ca3af" />
+                <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
+                <Bar dataKey="kwh" fill="#22c55e" radius={[0, 6, 6, 0]} name="кВт·год" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </AppCard>
     </div>

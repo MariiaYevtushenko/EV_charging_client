@@ -14,7 +14,10 @@ export type AdminNetworkBookingRow = {
   /** Номер порта на станції (для таблиць; повний `slotLabel` лишається для інших екранів). */
   portNumber: number;
   slotLabel: string;
-  status: "pending" | "confirmed" | "cancelled" | "paid";
+  bookingType: "CALC" | "DEPOSIT";
+  /** Сума передплати (грн); для CALC зазвичай 0. */
+  prepaymentAmount: number;
+  status: "pending" | "confirmed" | "cancelled" | "paid" | "missed";
   start: string;
   end: string;
 };
@@ -286,6 +289,8 @@ export type AdminSessionDetailDto = {
   booking: {
     id: string;
     status: AdminNetworkBookingRow["status"];
+    bookingType: AdminNetworkBookingRow["bookingType"];
+    prepaymentAmount: number;
     start: string;
     end: string;
   } | null;

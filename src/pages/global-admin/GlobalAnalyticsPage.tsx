@@ -25,6 +25,7 @@ import {
   globalAdminLoadingSpinner,
   globalAdminPageTitle,
 } from '../../styles/globalAdminTheme';
+import { AdminAccentCard, AdminAccentRow } from '../../components/admin/AdminAccentCard';
 
 const PIE_COLORS = ['#16a34a', '#64748b', '#d97706', '#0284c7', '#7c3aed', '#e11d48'];
 
@@ -95,29 +96,19 @@ function KpiStat({
   label,
   value,
   sub,
-  accent = 'slate',
 }: {
   label: string;
   value: string;
   sub?: string;
-  accent?: 'green' | 'sky' | 'slate' | 'amber';
 }) {
-  const ring =
-    accent === 'green'
-      ? 'ring-green-500/20'
-      : accent === 'sky'
-        ? 'ring-sky-500/20'
-        : accent === 'amber'
-          ? 'ring-amber-500/20'
-          : 'ring-slate-400/15';
   return (
-    <div
-      className={`rounded-2xl border border-gray-100/90 bg-white p-5 shadow-sm ring-1 ${ring} transition hover:shadow-md`}
-    >
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</p>
-      <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{value}</p>
-      {sub ? <p className="mt-1 text-xs text-gray-500">{sub}</p> : null}
-    </div>
+    <AdminAccentCard hover>
+      <AdminAccentRow>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</p>
+        <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{value}</p>
+        {sub ? <p className="mt-1 text-xs text-gray-500">{sub}</p> : null}
+      </AdminAccentRow>
+    </AdminAccentCard>
   );
 }
 
@@ -147,14 +138,11 @@ function Panel({
 
 function ScrollTable({
   children,
-  empty,
   maxHeight = 'min(22rem,55vh)',
 }: {
   children: ReactNode;
-  empty?: boolean;
   maxHeight?: string;
 }) {
-  
   return (
     <div
       className="overflow-x-auto rounded-xl border border-gray-100 bg-slate-50/30"
@@ -300,25 +288,21 @@ export default function GlobalAnalyticsPage() {
               label="Дохід сьогодні"
               value={`${todayRev.toLocaleString('uk-UA', { maximumFractionDigits: 0 })} грн`}
               sub="Зведення по станціях у кабінеті"
-              accent="green"
             />
             <KpiStat
               label="Виручка (30 днів)"
               value={g ? `${num(g.revenue_30d).toLocaleString('uk-UA', { maximumFractionDigits: 0 })} грн` : '—'}
               sub="Сесії з підтвердженим рахунком"
-              accent="slate"
             />
             <KpiStat
               label="Сесії (30 днів)"
               value={g ? num(g.sessions_30d).toLocaleString('uk-UA') : '—'}
               sub="У межах вибраного вікна в БД"
-              accent="slate"
             />
             <KpiStat
               label="Зараз заряджають"
               value={(data?.activeSessions ?? []).length.toLocaleString('uk-UA')}
               sub="Активні сесії"
-              accent="sky"
             />
           </div>
 
@@ -418,7 +402,7 @@ export default function GlobalAnalyticsPage() {
                 title="Станції за останні 30 днів"
                 subtitle="Порти зведені по кожній станції: сесії, енергія, виручка."
               >
-                <ScrollTable empty={stationAgg.length === 0} maxHeight="min(26rem,60vh)">
+                <ScrollTable maxHeight="min(26rem,60vh)">
                   <thead className="sticky top-0 z-10 bg-slate-100/95 text-xs font-semibold uppercase tracking-wide text-slate-600 backdrop-blur">
                     <tr>
                       <th className="px-4 py-3">Станція</th>
@@ -503,7 +487,7 @@ export default function GlobalAnalyticsPage() {
                 title="Улюблені станції (90 днів)"
                 subtitle="Топ зв’язок користувач — станція за енергією та візитами."
               >
-                <ScrollTable empty={(data?.userStationLoyalty ?? []).length === 0}>
+                <ScrollTable>
                   <thead className="sticky top-0 z-10 bg-slate-100/95 text-xs font-semibold uppercase tracking-wide text-slate-600">
                     <tr>
                       <th className="px-3 py-2.5">Користувач</th>
@@ -531,7 +515,7 @@ export default function GlobalAnalyticsPage() {
 
               <div className="grid gap-6 lg:grid-cols-2">
                 <Panel title="Автопарк (фрагмент)" subtitle="Накопичені зарядки та енергія по авто.">
-                  <ScrollTable empty={(data?.userVehicleStats ?? []).length === 0} maxHeight="min(20rem,50vh)">
+                  <ScrollTable maxHeight="min(20rem,50vh)">
                     <thead className="sticky top-0 bg-slate-100/95 text-xs font-semibold uppercase text-slate-600">
                       <tr>
                         <th className="px-3 py-2.5">Авто</th>
@@ -557,7 +541,7 @@ export default function GlobalAnalyticsPage() {
                   </ScrollTable>
                 </Panel>
                 <Panel title="Картка клієнта" subtitle="Сегмент, оборот і остання сесія.">
-                  <ScrollTable empty={(data?.userSegments ?? []).length === 0} maxHeight="min(20rem,50vh)">
+                  <ScrollTable maxHeight="min(20rem,50vh)">
                     <thead className="sticky top-0 bg-slate-100/95 text-xs font-semibold uppercase text-slate-600">
                       <tr>
                         <th className="px-3 py-2.5">Ім’я</th>
@@ -593,7 +577,7 @@ export default function GlobalAnalyticsPage() {
           {tab === 'live' ? (
             <div className="grid gap-6 lg:grid-cols-2">
               <Panel title="Активні зарядки" subtitle="Сесії зі статусом «Активна» зараз.">
-                <ScrollTable empty={(data?.activeSessions ?? []).length === 0} maxHeight="min(26rem,55vh)">
+                <ScrollTable maxHeight="min(26rem,55vh)">
                   <thead className="sticky top-0 z-10 bg-slate-100/95 text-xs font-semibold uppercase text-slate-600">
                     <tr>
                       <th className="px-3 py-2.5">ID</th>
@@ -617,7 +601,7 @@ export default function GlobalAnalyticsPage() {
                 </ScrollTable>
               </Panel>
               <Panel title="Майбутні бронювання" subtitle="Підтверджені слоти, кінець яких ще попереду.">
-                <ScrollTable empty={(data?.upcomingBookings ?? []).length === 0} maxHeight="min(26rem,55vh)">
+                <ScrollTable maxHeight="min(26rem,55vh)">
                   <thead className="sticky top-0 z-10 bg-slate-100/95 text-xs font-semibold uppercase text-slate-600">
                     <tr>
                       <th className="px-3 py-2.5">ID</th>

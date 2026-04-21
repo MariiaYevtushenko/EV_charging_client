@@ -2,21 +2,24 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { AppCard } from '../station-admin/Primitives';
 import { DEFAULT_CAR_IMAGE } from '../../utils/carImageSuggest';
-import { userPortalPageSubtitle, userPortalPageTitle } from '../../styles/userPortalTheme';
 
 export function UserCarImagePreview({
   src,
   alt = 'Попередній перегляд авто',
   variant = 'banner',
+  className = '',
 }: {
   src: string;
   alt?: string;
-  /** `banner` — горизонтальне прев’ю з фіксованим співвідношенням сторін; `side` — заливка колонки (форма зліва/справа від фото). */
+  /** `banner` — горизонтальне прев’ю з фіксованим співвідношенням сторін; `side` — заливка колонки (форма справа від фото). */
   variant?: 'banner' | 'side';
+  className?: string;
 }) {
   if (variant === 'side') {
     return (
-      <div className="relative min-h-[220px] w-full overflow-hidden bg-gradient-to-br from-slate-100 via-emerald-50/40 to-slate-100 md:min-h-[min(420px,65vh)]">
+      <div
+        className={`relative h-full min-h-[200px] w-full overflow-hidden bg-gradient-to-br from-slate-100 via-emerald-50/40 to-slate-100 md:min-h-0${className ? ` ${className}` : ''}`}
+      >
         <img
           src={src}
           alt={alt}
@@ -34,7 +37,9 @@ export function UserCarImagePreview({
   }
 
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-slate-100 via-emerald-50/40 to-slate-100">
+    <div
+      className={`relative overflow-hidden bg-gradient-to-br from-slate-100 via-emerald-50/40 to-slate-100${className ? ` ${className}` : ''}`}
+    >
       <div className="aspect-[16/9] w-full sm:aspect-[2/1]">
         <img
           src={src}
@@ -53,42 +58,59 @@ export function UserCarImagePreview({
   );
 }
 
+/** Оболонка форми авто в стилі «Профіль»: заголовок як у редагування користувача, зліва — фото. */
 export function UserCarFormShell({
   title,
   description,
   previewSrc,
   children,
+  rightColumnHeader,
+  rightColumnJustify = 'center',
+  compact = false,
 }: {
   title: string;
-  description: string;
+  description?: string;
   previewSrc: string;
   children: ReactNode;
+  /** Блок над полями (наприклад модель і номер на сторінці редагування). */
+  rightColumnHeader?: ReactNode;
+  /** Для довгого контенту (деталі авто) — вирівнювання зверху. */
+  rightColumnJustify?: 'center' | 'start';
+  /** Менші відступи й прев’ю без штучної висоти — для коротких сторін (деталі авто). */
+  compact?: boolean;
 }) {
   return (
-    <div className="mx-auto w-full min-w-0 max-w-7xl space-y-8">
+    <div className={`mx-auto w-full min-w-0 max-w-5xl ${compact ? 'space-y-4' : 'space-y-6'} pb-2`}>
       <Link
         to="/dashboard/cars"
-        className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 transition hover:text-emerald-900 hover:underline"
+        className="inline-flex text-sm font-semibold text-emerald-700 transition hover:text-emerald-900 hover:underline"
       >
         ← До моїх авто
       </Link>
 
-      <section className="relative overflow-hidden rounded-2xl border border-emerald-100/90 bg-gradient-to-br from-emerald-50/80 via-white to-slate-50/50 p-5 shadow-sm ring-1 ring-emerald-950/[0.04] sm:p-6">
-        <div
-          className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-emerald-200/20 blur-3xl"
-          aria-hidden
-        />
-        <div className="relative">
-          <h1 className={userPortalPageTitle}>{title}</h1>
-          <p className={userPortalPageSubtitle}>{description}</p>
-        </div>
-      </section>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900">{title}</h1>
+        {description ? <p className="mt-1 text-sm text-gray-500">{description}</p> : null}
+      </div>
 
-      <AppCard className="flex flex-col overflow-hidden p-0 shadow-md shadow-slate-900/[0.05] ring-emerald-950/[0.04] md:flex-row md:items-stretch">
-        <div className="relative w-full shrink-0 md:w-[min(42%,28rem)] md:max-w-md lg:w-[38%] lg:max-w-lg">
+      <AppCard padding={false} className="flex flex-col overflow-hidden md:flex-row md:items-stretch">
+        <div className="relative w-full shrink-0 border-b border-gray-100 bg-gray-50/80 md:w-[min(40%,22rem)] md:max-w-sm md:min-h-0 md:border-b-0 md:border-r md:self-stretch">
           <UserCarImagePreview src={previewSrc} variant="side" />
         </div>
-        <div className="flex min-w-0 flex-1 flex-col justify-center space-y-6 p-6 sm:p-8">{children}</div>
+        <div
+          className={`flex min-h-0 min-w-0 flex-1 flex-col ${compact ? 'p-4 sm:p-5' : 'p-6 sm:p-8'} ${
+            rightColumnJustify === 'start' ? 'justify-start' : 'justify-center'
+          }`}
+        >
+          {rightColumnHeader ? (
+            <div
+              className={`border-b border-gray-100 ${compact ? 'mb-4 pb-4' : 'mb-6 pb-6'}`}
+            >
+              {rightColumnHeader}
+            </div>
+          ) : null}
+          <div className="mx-auto w-full max-w-xl">{children}</div>
+        </div>
       </AppCard>
     </div>
   );

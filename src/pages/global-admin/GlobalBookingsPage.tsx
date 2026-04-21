@@ -21,9 +21,15 @@ import {
   ADMIN_LIST_SEARCH_DEBOUNCE_MS,
   GLOBAL_ADMIN_NETWORK_TABLE_PAGE_SIZE,
 } from '../../constants/adminUi';
+import { BookingTypeCell } from '../../components/admin/BookingTypeCell';
 
 /** Порядок «вкладок» за статусом (як на списку станцій). Без `confirmed` — у БД окремого статусу немає. */
-const BOOKING_STATUS_TAB_ORDER: AdminNetworkBookingRow['status'][] = ['pending', 'paid', 'cancelled'];
+const BOOKING_STATUS_TAB_ORDER: AdminNetworkBookingRow['status'][] = [
+  'pending',
+  'paid',
+  'missed',
+  'cancelled',
+];
 
 type BookingSortKey = 'start' | 'userName' | 'stationName' | 'slot' | 'status';
 
@@ -47,6 +53,8 @@ function bookingTone(s: string): 'success' | 'warn' | 'muted' | 'danger' | 'info
       return 'success';
     case 'pending':
       return 'warn';
+    case 'missed':
+      return 'warn';
     case 'cancelled':
       return 'danger';
     default:
@@ -60,6 +68,8 @@ function bookingLabel(s: string) {
       return 'Підтверджено';
     case 'pending':
       return 'Очікує';
+    case 'missed':
+      return 'Пропущено';
     case 'cancelled':
       return 'Скасовано';
     case 'paid':
@@ -188,7 +198,7 @@ export default function GlobalBookingsPage() {
               type="search"
               value={searchDraft}
               onChange={(e) => setSearchDraft(e.target.value)}
-              placeholder="Користувач, станція, місто, країна…"
+              placeholder="Користувач, станція, місто …"
               className={globalAdminSearchInput}
               autoComplete="off"
               spellCheck={false}
@@ -207,7 +217,7 @@ export default function GlobalBookingsPage() {
       {statusCounts ? (
         <div>
          
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             {BOOKING_STATUS_TAB_ORDER.map((st) => {
               const selected = statusFilter === st;
               return (
@@ -266,6 +276,9 @@ export default function GlobalBookingsPage() {
                 onSort={onSort}
                 align="right"
               />
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Тип
+              </th>
               <SortableTableTh
                 label="Статус"
                 columnKey="status"
@@ -278,7 +291,7 @@ export default function GlobalBookingsPage() {
           <tbody className="divide-y divide-gray-100">
             {loading && rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
                   Завантаження…
                 </td>
               </tr>
@@ -307,6 +320,9 @@ export default function GlobalBookingsPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3 text-right text-gray-800">Порт {b.portNumber}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">
+                  <BookingTypeCell bookingType={b.bookingType} prepaymentAmount={b.prepaymentAmount} />
+                </td>
                 <td className="px-4 py-3">
                   <StatusPill tone={bookingTone(b.status)}>{bookingLabel(b.status)}</StatusPill>
                 </td>
@@ -317,10 +333,10 @@ export default function GlobalBookingsPage() {
         {!loading && rows.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-gray-500">
             {total === 0 && !searchQuery && !statusFilter
-              ? 'Нічого не знайдено.'
+              ? 'Нічого не знайдено'
               : searchQuery || statusFilter
                 ? 'Нічого не знайдено за цим запитом'
-                : 'Нічого не знайдено.'}
+                : 'Нічого не знайдено'}
           </p>
         ) : null}
       </AppCard>

@@ -184,7 +184,7 @@ export default function GlobalSessionsPage() {
               type="search"
               value={searchDraft}
               onChange={(e) => setSearchDraft(e.target.value)}
-              placeholder="Користувач, станція, місто, країна…"
+              placeholder="Користувач, станція, місто …"
               className={globalAdminSearchInput}
               autoComplete="off"
               spellCheck={false}
@@ -335,10 +335,10 @@ export default function GlobalSessionsPage() {
         {!loading && rows.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-gray-500">
             {total === 0 && !searchQuery && !statusFilter
-              ? 'Нічого не знайдено.'
+              ? 'Нічого не знайдено'
               : searchQuery || statusFilter
                 ? 'Нічого не знайдено за цим запитом'
-                : 'Нічого не знайдено.'}
+                : 'Нічого не знайдено'}
           </p>
         ) : null}
       </AppCard>

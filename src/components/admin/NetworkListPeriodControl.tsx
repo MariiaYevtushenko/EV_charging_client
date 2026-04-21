@@ -14,7 +14,7 @@ type Props = {
 /** Сегментований вибір періоду для списків глобальної адмінки (бронювання / сесії / платежі). */
 export default function NetworkListPeriodControl({ value, onChange }: Props) {
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+    <div className="flex flex-row flex-wrap items-center gap-2 sm:gap-3">
       <p className="shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-500">Період</p>
       <div
         className="inline-flex max-w-full flex-wrap rounded-xl border border-slate-200 bg-slate-50/90 p-1 shadow-inner shadow-slate-900/5"
@@ -29,7 +29,7 @@ export default function NetworkListPeriodControl({ value, onChange }: Props) {
             aria-pressed={value === opt.id}
             className={`rounded-lg px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/50 ${
               value === opt.id
-                ? 'bg-white text-green-900 shadow-sm ring-1 ring-slate-200/90'
+                ? 'bg-white text-green-900 shadow-sm ring-1 ring-green-600/30'
                 : 'text-slate-600 hover:bg-white/60 hover:text-slate-900'
             }`}
           >

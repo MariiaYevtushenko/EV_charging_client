@@ -298,7 +298,7 @@ export default function GlobalPaymentsPage() {
                 <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
                   {searchQuery || statusFilter
                     ? 'Нічого не знайдено за цим запитом'
-                    : 'Платежів (bill) поки немає.'}
+                    : 'Платежів поки немає'}
                 </td>
               </tr>
             ) : null}

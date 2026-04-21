@@ -40,30 +40,3 @@ function RefCard({
     </figure>
   );
 }
-
-export default function DesignReferenceStrip() {
-  return (
-    <section aria-labelledby="design-ref-heading" className="space-y-3">
-      <div>
-        <h2 id="design-ref-heading" className="text-sm font-semibold text-gray-900">
-          Інформація 
-        </h2>
-        
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <RefCard
-          title="Дашборд і аналітика"
-          caption="KPI, статуси мережі, графіки доходів (як у макетах курсової)."
-          localSrc={LOCAL_DASH}
-          fallbackSrc={FALLBACK_DASH}
-        />
-        <RefCard
-          title="Списки та історія"
-          caption="Картки рядків, аватари, бейджі статусів — той самий візуальний ритм, що в адмінці станцій."
-          localSrc={LOCAL_LIST}
-          fallbackSrc={FALLBACK_LIST}
-        />
-      </div>
-    </section>
-  );
-}

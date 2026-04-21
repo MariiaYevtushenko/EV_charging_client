@@ -19,7 +19,8 @@ import {
   type AdminAnalyticsViewsResponse,
 } from '../../api/adminAnalytics';
 import { ApiError } from '../../api/http';
-import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
+import { StatusPill } from '../../components/station-admin/Primitives';
+import { AdminAccentCard, AdminAccentRow } from '../../components/admin/AdminAccentCard';
 import { stationStatusLabel, stationStatusTone } from '../../utils/stationLabels';
 import {
   stationAdminLinkAccent,
@@ -171,35 +172,37 @@ export default function StationAnalyticsPage() {
       ) : null}
 
       {!analyticsLoading && g ? (
-        <AppCard className="!p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Мережа (30 днів, VIEW)</p>
-          <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <p className="text-xs text-gray-500">Виручка</p>
-              <p className="mt-0.5 text-lg font-bold tabular-nums text-green-700">
-                {num(g.revenue_30d).toLocaleString('uk-UA', { maximumFractionDigits: 0 })} грн
-              </p>
+        <AdminAccentCard>
+          <AdminAccentRow>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Мережа (30 днів, VIEW)</p>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <p className="text-xs text-gray-500">Виручка</p>
+                <p className="mt-0.5 text-lg font-bold tabular-nums text-green-700">
+                  {num(g.revenue_30d).toLocaleString('uk-UA', { maximumFractionDigits: 0 })} грн
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Сесії</p>
+                <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">
+                  {num(g.sessions_30d).toLocaleString('uk-UA')}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Енергія</p>
+                <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">
+                  {num(g.energy_30d).toLocaleString('uk-UA', { maximumFractionDigits: 1 })} кВт·год
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Унікальні авто</p>
+                <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">
+                  {num(g.unique_cars_30d).toLocaleString('uk-UA')}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-gray-500">Сесії</p>
-              <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">
-                {num(g.sessions_30d).toLocaleString('uk-UA')}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Енергія</p>
-              <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">
-                {num(g.energy_30d).toLocaleString('uk-UA', { maximumFractionDigits: 1 })} кВт·год
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Унікальні авто</p>
-              <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">
-                {num(g.unique_cars_30d).toLocaleString('uk-UA')}
-              </p>
-            </div>
-          </div>
-        </AppCard>
+          </AdminAccentRow>
+        </AdminAccentCard>
       ) : null}
 
       {analyticsData?.partial ? (
@@ -211,32 +214,38 @@ export default function StationAnalyticsPage() {
           Активність мережі (БД)
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <AppCard className="!p-5">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Бронювання</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">
-              {networkLoading ? '…' : bookingsTotal.toLocaleString('uk-UA')}
-            </p>
-            <Link to="/station-dashboard/bookings" className={`mt-2 inline-block ${stationAdminLinkAccent}`}>
-              Список бронювань
-            </Link>
-          </AppCard>
-          <AppCard className="!p-5">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Енергія (усі сесії)</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">
-              {networkLoading
-                ? '…'
-                : `${sessionEnergyTotal.toLocaleString('uk-UA', { maximumFractionDigits: 1 })} кВт·год`}
-            </p>
-          </AppCard>
-          <AppCard className="!p-5">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сума по рахунках</p>
-            <p className="mt-1 text-2xl font-bold text-green-700">
-              {networkLoading
-                ? '…'
-                : `${sessionCostTotal.toLocaleString('uk-UA', { maximumFractionDigits: 2 })} грн`}
-            </p>
-            <p className="mt-1 text-xs text-gray-500">За сесіями з виставленим bill</p>
-          </AppCard>
+          <AdminAccentCard>
+            <AdminAccentRow>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Бронювання</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">
+                {networkLoading ? '…' : bookingsTotal.toLocaleString('uk-UA')}
+              </p>
+              <Link to="/station-dashboard/bookings" className={`mt-2 inline-block ${stationAdminLinkAccent}`}>
+                Список бронювань
+              </Link>
+            </AdminAccentRow>
+          </AdminAccentCard>
+          <AdminAccentCard>
+            <AdminAccentRow>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Енергія (усі сесії)</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">
+                {networkLoading
+                  ? '…'
+                  : `${sessionEnergyTotal.toLocaleString('uk-UA', { maximumFractionDigits: 1 })} кВт·год`}
+              </p>
+            </AdminAccentRow>
+          </AdminAccentCard>
+          <AdminAccentCard>
+            <AdminAccentRow>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сума по рахунках</p>
+              <p className="mt-1 text-2xl font-bold text-green-700">
+                {networkLoading
+                  ? '…'
+                  : `${sessionCostTotal.toLocaleString('uk-UA', { maximumFractionDigits: 2 })} грн`}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">За сесіями з виставленим bill</p>
+            </AdminAccentRow>
+          </AdminAccentCard>
         </div>
       </section>
 
@@ -245,35 +254,42 @@ export default function StationAnalyticsPage() {
           Огляд мережі
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <AppCard className="!p-5">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Станцій у мережі</p>
-            <p className="mt-1 text-3xl font-bold text-slate-900">{totalStations}</p>
-          </AppCard>
-          <AppCard className="!p-5">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Дохід сьогодні</p>
-            <p className="mt-1 text-3xl font-bold text-green-700">
-              {todayRev.toLocaleString('uk-UA')} грн
-            </p>
-           
-          </AppCard>
-          <AppCard className="!p-5">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сесії сьогодні</p>
-            <p className="mt-1 text-3xl font-bold text-slate-900">{todaySess}</p>
-          </AppCard>
-          <AppCard className="!p-5">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Статуси</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {statusSummary.map((s) => (
-                <span
-                  key={s.name}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700"
-                >
-                  <span className="h-2 w-2 rounded-full" style={{ background: s.fill }} />
-                  {s.name}: {s.count}
-                </span>
-              ))}
-            </div>
-          </AppCard>
+          <AdminAccentCard>
+            <AdminAccentRow>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Станцій у мережі</p>
+              <p className="mt-1 text-3xl font-bold text-slate-900">{totalStations}</p>
+            </AdminAccentRow>
+          </AdminAccentCard>
+          <AdminAccentCard>
+            <AdminAccentRow>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Дохід сьогодні</p>
+              <p className="mt-1 text-3xl font-bold text-green-700">
+                {todayRev.toLocaleString('uk-UA')} грн
+              </p>
+            </AdminAccentRow>
+          </AdminAccentCard>
+          <AdminAccentCard>
+            <AdminAccentRow>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Сесії сьогодні</p>
+              <p className="mt-1 text-3xl font-bold text-slate-900">{todaySess}</p>
+            </AdminAccentRow>
+          </AdminAccentCard>
+          <AdminAccentCard>
+            <AdminAccentRow>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Статуси</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {statusSummary.map((s) => (
+                  <span
+                    key={s.name}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700"
+                  >
+                    <span className="h-2 w-2 rounded-full" style={{ background: s.fill }} />
+                    {s.name}: {s.count}
+                  </span>
+                ))}
+              </div>
+            </AdminAccentRow>
+          </AdminAccentCard>
         </div>
       </section>
 
@@ -291,83 +307,90 @@ export default function StationAnalyticsPage() {
 
       {tab === 'trends' ? (
         <div className="grid gap-6 lg:grid-cols-2">
-          <AppCard>
-            <h2 className="text-sm font-semibold text-slate-900">Виручка по містах</h2>
-            <p className="mt-1 text-xs text-gray-500">Дані з VIEW (агрегат по місту)</p>
-            <div className="mt-4 h-72">
-              {cityChart.length === 0 ? (
-                <p className="flex h-full items-center justify-center text-sm text-gray-500">
-                  Немає даних для діаграми
-                </p>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    layout="vertical"
-                    data={cityChart}
-                    margin={{ top: 8, right: 16, left: 4, bottom: 8 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                    <YAxis
-                      type="category"
-                      dataKey="city"
-                      width={100}
-                      tick={{ fontSize: 10 }}
-                      stroke="#9ca3af"
-                    />
-                    <Tooltip
-                      contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
-                      formatter={(v) => {
-                        const n = typeof v === 'number' ? v : Number(v);
-                        return [`${(Number.isFinite(n) ? n : 0).toLocaleString('uk-UA')} грн`, 'Виручка'];
-                      }}
-                      labelFormatter={(_, p) => (p?.[0]?.payload?.fullCity as string) ?? ''}
-                    />
-                    <Bar dataKey="revenue" fill="#16a34a" name="Виручка" radius={[0, 8, 8, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
+          <AdminAccentCard>
+            <AdminAccentRow>
+              <h2 className="text-sm font-semibold text-slate-900">Виручка по містах</h2>
+              <p className="mt-1 text-xs text-gray-500">Дані з VIEW (агрегат по місту)</p>
+            </AdminAccentRow>
+            <div className="border-t border-gray-100 px-5 pb-5">
+              <div className="h-72 pt-4">
+                {cityChart.length === 0 ? (
+                  <p className="flex h-full items-center justify-center text-sm text-gray-500">
+                    Немає даних для діаграми
+                  </p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      layout="vertical"
+                      data={cityChart}
+                      margin={{ top: 8, right: 16, left: 4, bottom: 8 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                      <YAxis
+                        type="category"
+                        dataKey="city"
+                        width={100}
+                        tick={{ fontSize: 10 }}
+                        stroke="#9ca3af"
+                      />
+                      <Tooltip
+                        contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
+                        formatter={(v) => {
+                          const n = typeof v === 'number' ? v : Number(v);
+                          return [`${(Number.isFinite(n) ? n : 0).toLocaleString('uk-UA')} грн`, 'Виручка'];
+                        }}
+                        labelFormatter={(_, p) => (p?.[0]?.payload?.fullCity as string) ?? ''}
+                      />
+                      <Bar dataKey="revenue" fill="#16a34a" name="Виручка" radius={[0, 8, 8, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
             </div>
-          </AppCard>
+          </AdminAccentCard>
 
-          <AppCard>
-            <h2 className="text-sm font-semibold text-slate-900">Динаміка періоду</h2>
-            <p className="mt-1 text-xs text-gray-500">Поточні 30 днів vs попередні 30 днів, %</p>
-            <div className="mt-4 h-72">
-              {growthBars.length === 0 ? (
-                <p className="flex h-full items-center justify-center text-sm text-gray-500">
-                  Немає зведення global dashboard
-                </p>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={growthBars} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 11 }} stroke="#94a3b8" tickFormatter={(v) => `${v}%`} />
-                    <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} stroke="#64748b" />
-                    <Tooltip
-                      contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
-                      formatter={(v) => {
-                        const n = typeof v === 'number' ? v : Number(v);
-                        return [`${(Number.isFinite(n) ? n : 0).toFixed(1)} %`, 'Δ'];
-                      }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Bar dataKey="pct" fill="#0ea5e9" name="Зміна, %" radius={[0, 8, 8, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
+          <AdminAccentCard>
+            <AdminAccentRow>
+              <h2 className="text-sm font-semibold text-slate-900">Динаміка періоду</h2>
+              <p className="mt-1 text-xs text-gray-500">Поточні 30 днів vs попередні 30 днів, %</p>
+            </AdminAccentRow>
+            <div className="border-t border-gray-100 px-5 pb-5">
+              <div className="h-72 pt-4">
+                {growthBars.length === 0 ? (
+                  <p className="flex h-full items-center justify-center text-sm text-gray-500">
+                    Немає зведення global dashboard
+                  </p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={growthBars} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} stroke="#94a3b8" tickFormatter={(v) => `${v}%`} />
+                      <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} stroke="#64748b" />
+                      <Tooltip
+                        contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
+                        formatter={(v) => {
+                          const n = typeof v === 'number' ? v : Number(v);
+                          return [`${(Number.isFinite(n) ? n : 0).toFixed(1)} %`, 'Δ'];
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      <Bar dataKey="pct" fill="#0ea5e9" name="Зміна, %" radius={[0, 8, 8, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
             </div>
-          </AppCard>
+          </AdminAccentCard>
         </div>
       ) : null}
 
       {tab === 'stations' ? (
-      <AppCard padding={false} className="overflow-hidden">
-        <div className="border-b border-gray-100 px-6 py-4">
+      <AdminAccentCard className="overflow-hidden">
+        <AdminAccentRow>
           <h2 className="text-sm font-semibold text-slate-900">По кожній станції сьогодні</h2>
-         
-        </div>
-        <div className="grid gap-6 p-4 lg:grid-cols-2 lg:p-6">
+        </AdminAccentRow>
+        <div className="grid gap-6 border-t border-gray-100 p-4 lg:grid-cols-2 lg:p-6">
           <div className="min-h-[280px]">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
               Дохід сьогодні, грн
@@ -472,7 +495,7 @@ export default function StationAnalyticsPage() {
             </tbody>
           </table>
         </div>
-      </AppCard>
+      </AdminAccentCard>
       ) : null}
     </div>
   );

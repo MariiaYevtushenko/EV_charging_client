@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
 import { appInputCompactClass } from '../../components/station-admin/formStyles';
-import { ApiError } from '../../api/http';
+import { userFacingApiErrorMessage } from '../../api/http';
 import { fetchForecastBias, saveForecastBias } from '../../api/forecastBias';
 import {
   fetchTariffsList,
@@ -157,7 +157,7 @@ function ForecastBiasCard() {
         setUpdatedNight(data.updatedAtNight);
       })
       .catch((e: unknown) => {
-        setError(e instanceof ApiError ? e.message : 'Не вдалося завантажити bias');
+        setError(userFacingApiErrorMessage(e, 'Не вдалося завантажити корекцію прогнозу'));
       })
       .finally(() => setLoading(false));
   };
@@ -211,7 +211,7 @@ function ForecastBiasCard() {
         window.setTimeout(() => setSavedOk(false), 2500);
       })
       .catch((e: unknown) => {
-        setError(e instanceof ApiError ? e.message : 'Збереження не вдалося');
+        setError(userFacingApiErrorMessage(e, 'Збереження не вдалося'));
       })
       .finally(() => setSaving(false));
   };
@@ -707,7 +707,7 @@ export default function GlobalTariffsPage() {
     void fetchTariffsList()
       .then(setRows)
       .catch((e: unknown) => {
-        setListError(e instanceof ApiError ? e.message : 'Не вдалося завантажити тарифи');
+        setListError(userFacingApiErrorMessage(e, 'Не вдалося завантажити тарифи'));
         setRows([]);
       })
       .finally(() => setListLoading(false));
@@ -723,7 +723,7 @@ export default function GlobalTariffsPage() {
         setNightPrice(String(t.nightPrice));
       })
       .catch((e: unknown) => {
-        setTodayError(e instanceof ApiError ? e.message : 'Не вдалося завантажити тариф на сьогодні');
+        setTodayError(userFacingApiErrorMessage(e, 'Не вдалося завантажити тариф на сьогодні'));
       })
       .finally(() => setTodayLoading(false));
   }, []);
@@ -742,7 +742,10 @@ export default function GlobalTariffsPage() {
       })
       .catch((e: unknown) => {
         setTodayError(
-          e instanceof ApiError ? e.message : 'Не вдалося оновити тариф з зовнішнього API'
+          userFacingApiErrorMessage(e, 'Не вдалося оновити тариф з зовнішнього API', {
+            serverError:
+              'Не вдалося отримати ціну з зовнішнього джерела. Спробуйте пізніше або введіть тариф вручну.',
+          })
         );
       })
       .finally(() => setTodayRefreshingPeriod(null));
@@ -757,7 +760,10 @@ export default function GlobalTariffsPage() {
       } catch (e: unknown) {
         if (!cancelled) {
           setSyncGapError(
-            e instanceof ApiError ? e.message : 'Не вдалося доповнити пропущені дні тарифу'
+            userFacingApiErrorMessage(e, 'Не вдалося доповнити пропущені дні тарифу', {
+              serverError:
+                'Не вдалося автоматично завантажити відсутні дні тарифу з зовнішнього джерела. Спробуйте пізніше або додайте ціни вручну.',
+            })
           );
         }
       }
@@ -815,7 +821,7 @@ export default function GlobalTariffsPage() {
         loadList();
         return true;
       } catch (e: unknown) {
-        setTodayError(e instanceof ApiError ? e.message : 'Збереження не вдалося');
+        setTodayError(userFacingApiErrorMessage(e, 'Збереження не вдалося'));
         return false;
       } finally {
         setTodaySaving(false);
@@ -942,7 +948,7 @@ export default function GlobalTariffsPage() {
               </div>
             ) : null}
             {!listLoading && rows.length === 0 && !listError ? (
-              <p className="px-5 py-8 text-center text-sm text-gray-500">У базі ще немає рядків тарифу.</p>
+              <p className="px-5 py-8 text-center text-sm text-gray-500">Тарифи відсутні</p>
             ) : null}
           </AppCard>
         </div>

@@ -15,7 +15,7 @@ import { mapVehicleApiRowToUserCar, postUserVehicle } from '../../api/userVehicl
 import { ApiError } from '../../api/http';
 import { UserCarFormShell } from '../../components/user-portal/UserCarFormShell';
 
-const labelClass = 'text-sm font-medium text-slate-700';
+const labelClass = 'text-sm font-medium text-gray-700';
 
 function inputClass(err: boolean) {
   return `${appFormInputClass} ${err ? appFormInputErrorModifier : ''}`;
@@ -156,7 +156,7 @@ export default function UserCarNewPage() {
               {fieldErrors.plate}
             </p>
           ) : (
-            <p className="mt-1.5 text-xs text-slate-500">Латиниця або кирилиця, цифри; пробіли за бажанням.</p>
+            <p className="mt-1.5 text-xs text-gray-500">Латиниця або кирилиця, цифри; пробіли за бажанням.</p>
           )}
         </div>
 
@@ -179,11 +179,11 @@ export default function UserCarNewPage() {
               {fieldErrors.batteryCapacity}
             </p>
           ) : (
-            <p className="mt-1.5 text-xs text-slate-500">Типові значення: 40–100 кВт·год для легкових EV.</p>
+            <p className="mt-1.5 text-xs text-gray-500">Типові значення: 40–100 кВт·год для легкових EV.</p>
           )}
         </div>
 
-        <div className="flex flex-wrap gap-3 border-t border-emerald-100/80 pt-6">
+        <div className="flex flex-wrap gap-3 border-t border-gray-100 pt-6">
           <PrimaryButton type="submit" disabled={submitting}>
             {submitting ? 'Збереження…' : 'Зберегти'}
           </PrimaryButton>

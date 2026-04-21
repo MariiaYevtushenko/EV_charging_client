@@ -82,7 +82,7 @@ export default function AdminStationsListPage({ dashboardBase }: AdminStationsLi
   useEffect(() => {
     const st = location.state as StationsListLocationState | null | undefined;
     if (st?.stationNotice !== 'archived') return;
-    setArchiveToastMessage('Станцію переведено в архів.');
+    setArchiveToastMessage('Станцію переведено в архів');
     navigate(
       { pathname: location.pathname, search: location.search, hash: location.hash },
       { replace: true, state: {} }

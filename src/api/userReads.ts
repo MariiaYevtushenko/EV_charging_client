@@ -34,3 +34,12 @@ export function fetchUserSessions(userId: number) {
 export function fetchUserPayments(userId: number) {
   return getJson<UserBillApiRow[]>(`/api/user/${userId}/payments`);
 }
+
+/** POST /api/user/:userId/payments/:paymentId/pay — підтвердити оплату очікуючого рахунку (демо). */
+export function postUserPayBill(
+  userId: number,
+  paymentId: number,
+  body: { paymentMethod: 'CARD' | 'APPLE_PAY' | 'GOOGLE_PAY' }
+) {
+  return postJson<UserBillApiRow>(`/api/user/${userId}/payments/${paymentId}/pay`, body);
+}

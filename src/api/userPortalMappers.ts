@@ -80,13 +80,20 @@ export type UserBillApiRow = {
   id: number;
   sessionId: number;
   calculatedAmount: number | string | { toString(): string };
-  paymentMethod: string;
+  pricePerKwhAtTime?: number | string | { toString(): string } | null;
+  paymentMethod?: string | null;
   paymentStatus: string;
   createdAt: string;
+  paidAt?: string | Date | null;
   session?: {
     id: number;
     stationId: number;
     kwhConsumed?: number | string | { toString(): string };
+    booking?: {
+      id: number;
+      bookingType?: string;
+      prepaymentAmount?: number | string | { toString(): string };
+    } | null;
     vehicle?: {
       brand?: string;
       vehicleModel?: string;
@@ -118,18 +125,47 @@ export function mapBillApiToPaymentRow(b: UserBillApiRow): UserPaymentRow {
     stationName != null && stationName !== ''
       ? `Зарядка · ${stationName}`
       : `Оплата за сесію #${b.sessionId}`;
+  const booking = b.session?.booking;
+  const pricePk = b.pricePerKwhAtTime != null ? num(b.pricePerKwhAtTime) : undefined;
+  const prepay =
+    booking != null && booking.prepaymentAmount != null ? num(booking.prepaymentAmount) : undefined;
+  const bookingType =
+    booking?.bookingType === 'DEPOSIT'
+      ? ('DEPOSIT' as const)
+      : booking?.bookingType === 'CALC'
+        ? ('CALC' as const)
+        : undefined;
+  let paidAtIso: string | null = null;
+  if (b.paidAt != null) {
+    if (typeof b.paidAt === 'string') {
+      paidAtIso = b.paidAt;
+    } else if (b.paidAt instanceof Date) {
+      paidAtIso = b.paidAt.toISOString();
+    } else {
+      paidAtIso = String(b.paidAt);
+    }
+  }
   return {
     id: String(b.id),
     createdAt: typeof b.createdAt === 'string' ? b.createdAt : String(b.createdAt),
+    paidAt: paidAtIso,
     amount: num(b.calculatedAmount),
-    method: b.paymentMethod,
+    method: b.paymentMethod != null && String(b.paymentMethod).trim() !== '' ? String(b.paymentMethod) : '',
     description: desc,
     status: st,
     stationName: stationName || undefined,
     energyKwh: kwh > 0 ? Math.round(kwh * 1000) / 1000 : undefined,
+    pricePerKwhAtTime:
+      pricePk != null && Number.isFinite(pricePk) && pricePk > 0 ? Math.round(pricePk * 10000) / 10000 : undefined,
     sessionId: b.session != null ? String(b.session.id) : String(b.sessionId),
     vehicleLabel,
     vehiclePlate,
+    bookingId:
+      booking != null && booking.id != null && Number.isFinite(Number(booking.id))
+        ? String(booking.id)
+        : undefined,
+    bookingType,
+    prepaymentAmount: prepay !== undefined && Number.isFinite(prepay) ? prepay : undefined,
   };
 }
 
@@ -152,7 +188,7 @@ export type UserBookingApiRow = {
 function mapDbStatusToUi(dbStatus: string, startMs: number, endMs: number): UserBookingStatus {
   const now = Date.now();
   if (dbStatus === 'CANCELLED') return 'cancelled';
-  if (dbStatus === 'NO_ACTION') return 'cancelled';
+  if (dbStatus === 'MISSED' || dbStatus === 'NO_ACTION') return 'missed';
   if (dbStatus === 'COMPLETED') return 'completed';
   if (dbStatus === 'BOOKED') {
     if (endMs <= now) return 'completed';

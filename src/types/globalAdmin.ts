@@ -13,7 +13,7 @@ export interface EndUserBooking {
   /** Номер порту та тип конектора (для картки; `slotLabel` лишається для сумісності). */
   portNumber?: string;
   connectorLabel?: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'paid';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'paid' | 'missed';
   start: string;
   end: string;
 }

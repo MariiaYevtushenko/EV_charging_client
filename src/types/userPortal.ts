@@ -7,6 +7,8 @@ export interface UserCar {
   vehicleModel: string;
   /** Повна назва для відображення та підбору зображення. */
   model: string;
+  /** Ємність акумулятора (кВт·год), з API. */
+  batteryCapacity?: number;
   connector: string;
   imageUrl?: string;
 }
@@ -29,7 +31,7 @@ export interface UserSessionRecord {
   billId?: string;
 }
 
-export type UserBookingStatus = 'upcoming' | 'active' | 'completed' | 'cancelled';
+export type UserBookingStatus = 'upcoming' | 'active' | 'completed' | 'cancelled' | 'missed';
 
 /** Попереднє бронювання: фіксований збір. Динамічне: оплата «за все» зараз (демо-оцінка). */
 export type UserBookingPricingModel = 'reservation_fee' | 'dynamic_prepay';
@@ -62,12 +64,16 @@ export interface UserCurrentSession {
 export interface UserPaymentRow {
   id: string;
   createdAt: string;
+  /** Успішна оплата — ISO; при PENDING зазвичай null */
+  paidAt: string | null;
   amount: number;
   method: string;
   description: string;
   status: 'success' | 'pending' | 'failed';
   /** Кількість кВт·год з сесії, якщо є */
   energyKwh?: number;
+  /** Ціна кВт·год з рахунку (bill), якщо збережено */
+  pricePerKwhAtTime?: number;
   /** Назва станції з сесії */
   stationName?: string;
   /** Для посилання на історію сесій */
@@ -76,4 +82,9 @@ export interface UserPaymentRow {
   vehicleLabel?: string;
   /** Держномер, якщо є */
   vehiclePlate?: string;
+  /** Якщо сесію зарядки було прив’язано до бронювання */
+  bookingId?: string;
+  bookingType?: 'CALC' | 'DEPOSIT';
+  /** Сума передплати з бронювання (грн), для DEPOSIT */
+  prepaymentAmount?: number;
 }

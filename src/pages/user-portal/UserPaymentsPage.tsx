@@ -1,26 +1,75 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import type { NetworkListPeriod } from '../../api/adminNetwork';
 import NetworkListPeriodControl from '../../components/admin/NetworkListPeriodControl';
 import AdminListPagination from '../../components/admin/AdminListPagination';
+import { UserPortalEmptyState } from '../../components/user-portal/UserPortalEmptyState';
+import { UserPortalRowCard, type UserPortalRowAccent } from '../../components/user-portal/UserPortalRowCard';
 import { useUserPortal } from '../../context/UserPortalContext';
-import { AppCard } from '../../components/station-admin/Primitives';
-import { userPortalPageSubtitle, userPortalPageTitle } from '../../styles/userPortalTheme';
+import type { UserPaymentRow } from '../../types/userPortal';
+import {
+  userPortalListPageShell,
+  userPortalPageHeaderRow,
+  userPortalPageTitle,
+  userPortalPrimaryCta,
+} from '../../styles/userPortalTheme';
 import { isOnOrAfterNetworkPeriodCutoff } from '../../utils/networkListPeriod';
 
 const PAYMENTS_PAGE_SIZE = 10;
 
-/** Дата без часу — для списку; час і решта — на сторінці деталей. */
-function fmtDateOnly(dt: string) {
+function shortPaymentDate(dt: string) {
   try {
     return new Date(dt).toLocaleDateString('uk-UA', {
-      day: 'numeric',
-      month: 'long',
+      day: '2-digit',
+      month: '2-digit',
       year: 'numeric',
     });
   } catch {
     return dt;
   }
+}
+
+function BanknoteIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.75}
+        d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+      />
+    </svg>
+  );
+}
+
+function paymentRowVisual(p: UserPaymentRow): {
+  accent: UserPortalRowAccent;
+  statusTextClassName: string;
+  statusLabel: string;
+  icon: ReactElement;
+} {
+  if (p.status === 'success') {
+    return {
+      accent: 'green',
+      statusTextClassName: 'text-emerald-600',
+      statusLabel: 'Успішно',
+      icon: <BanknoteIcon className="h-5 w-5" />,
+    };
+  }
+  if (p.status === 'pending') {
+    return {
+      accent: 'amber',
+      statusTextClassName: 'text-amber-600',
+      statusLabel: 'Очікує на оплату',
+      icon: <BanknoteIcon className="h-5 w-5" />,
+    };
+  }
+  return {
+    accent: 'rose',
+    statusTextClassName: 'text-rose-600',
+    statusLabel: 'Відмовлено',
+    icon: <BanknoteIcon className="h-5 w-5" />,
+  };
 }
 
 export default function UserPaymentsPage() {
@@ -42,52 +91,61 @@ export default function UserPaymentsPage() {
   }, [rows, safePage]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className={userPortalPageTitle}>Платежі</h1>
+    <div className={`space-y-6 ${userPortalListPageShell}`}>
+      <div className={userPortalPageHeaderRow}>
+        <h1 className={`${userPortalPageTitle} shrink-0`}>Платежі</h1>
+        <div className="min-w-0 sm:flex sm:shrink-0 sm:justify-end">
+          <NetworkListPeriodControl
+            value={period}
+            onChange={(p) => {
+              setPeriod(p);
+              setPage(1);
+            }}
+          />
         </div>
-
-      <div className="flex flex-wrap justify-end gap-4">
-        <NetworkListPeriodControl
-          value={period}
-          onChange={(p) => {
-            setPeriod(p);
-            setPage(1);
-          }}
-        />
       </div>
 
       {rows.length === 0 ? (
-        <AppCard className="py-12 text-center text-sm text-gray-500">
-          Платежів ще немає — після зарядок з оплатою вони з’являться тут.
-        </AppCard>
+        <UserPortalEmptyState
+          icon={<BanknoteIcon className="h-8 w-8" />}
+          title="Платежів ще немає"
+          description="Після зарядок з оплатою вони з’являться тут"
+          footer={
+            <Link to="/dashboard" className={userPortalPrimaryCta}>
+              Відкрити карту станцій
+            </Link>
+          }
+        />
       ) : (
-        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
           {pageSlice.map((p) => {
-            const carTitle = p.vehicleLabel?.trim() || 'Авто не вказано';
+            const carLine = [p.vehicleLabel?.trim(), p.vehiclePlate?.trim()].filter(Boolean).join(' · ');
+            const title =
+              p.stationName?.trim() ||
+              (p.description?.trim() ? p.description.trim().slice(0, 88) : '') ||
+              carLine ||
+              'Платіж';
+            const subtitle = carLine && title !== carLine ? carLine : undefined;
+            const vis = paymentRowVisual(p);
+            const sumLine = `${p.amount.toLocaleString('uk-UA', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })} грн`;
             return (
               <li key={p.id}>
-                <Link
+                <UserPortalRowCard
                   to={`/dashboard/payments/${p.id}`}
-                  className="flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm ring-1 ring-slate-900/[0.04] transition hover:border-emerald-200/90 hover:bg-slate-50/80 hover:shadow-md hover:ring-emerald-950/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:p-5"
-                >
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900/55">Авто</p>
-                    <p className="mt-1 text-base font-semibold leading-snug text-slate-900">{carTitle}</p>
-                  </div>
-                  <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-emerald-100/90 pt-4">
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900/55">Дата</p>
-                      <p className="mt-0.5 text-sm font-semibold text-slate-900">{fmtDateOnly(p.createdAt)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900/55">Сума</p>
-                      <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-900">
-                        {p.amount.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} грн
-                      </p>
-                    </div>
-                  </div>
-                </Link>
+                  accent={vis.accent}
+                  icon={vis.icon}
+                  title={title}
+                  subtitle={subtitle}
+                  dateLine={shortPaymentDate(p.createdAt)}
+                  metaLine={sumLine}
+                  statusLabel={vis.statusLabel}
+                  statusTextClassName={vis.statusTextClassName}
+                  statusPlacement="inline"
+                  metaPlacement="bottom-right"
+                />
               </li>
             );
           })}

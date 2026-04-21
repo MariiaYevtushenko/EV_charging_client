@@ -1,4 +1,4 @@
-import { postJson } from "./http";
+import { postJson, putJson } from "./http";
 import type { UserCar } from "../types/userPortal";
 
 /** Відповідь Prisma / JSON для vehicle */
@@ -18,9 +18,23 @@ export type CreateVehicleBody = {
   batteryCapacity: number;
 };
 
+export type UpdateVehicleBody = CreateVehicleBody;
+
 /** POST /api/user/:userId/vehicle */
 export function postUserVehicle(userId: number, body: CreateVehicleBody) {
   return postJson<VehicleApiRow>(`/api/user/${userId}/vehicle`, body);
+}
+
+/** PUT /api/user/:userId/vehicle/:vehicleId */
+export function putUserVehicle(userId: number, vehicleId: number, body: UpdateVehicleBody) {
+  return putJson<VehicleApiRow>(`/api/user/${userId}/vehicle/${vehicleId}`, body);
+}
+
+/** Рядок для поля «ємність акумулятора» у формі. */
+export function userCarBatteryCapacityInput(car: UserCar): string {
+  const b = car.batteryCapacity;
+  if (b == null || !Number.isFinite(b)) return '';
+  return Number.isInteger(b) ? String(b) : String(b).replace('.', ',');
 }
 
 /** Початкові значення бренду/моделі, якщо в об’єкті лише рядок `model` (наприклад, старий стан). */
@@ -35,15 +49,23 @@ export function userCarInitialBrandModel(car: UserCar): { brand: string; vehicle
 }
 
 /** Мапінг у модель кабінету (конектор у БД немає — дефолт для фільтрів бронювання/головної). */
+function parseBatteryCapacity(raw: string | number | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  const n = typeof raw === 'string' ? Number(raw.replace(',', '.')) : Number(raw);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 export function mapVehicleApiRowToUserCar(row: VehicleApiRow, connectorLabel = 'Type 2'): UserCar {
   const brand = row.brand.trim();
   const vehicleModel = row.vehicleModel.trim();
+  const batteryCapacity = parseBatteryCapacity(row.batteryCapacity);
   return {
     id: String(row.id),
     plate: row.licensePlate,
     brand,
     vehicleModel,
     model: `${brand} ${vehicleModel}`.trim(),
+    batteryCapacity,
     connector: connectorLabel,
     imageUrl: undefined,
   };

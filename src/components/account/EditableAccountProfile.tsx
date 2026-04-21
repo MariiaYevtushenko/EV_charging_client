@@ -22,13 +22,9 @@ function phoneFromDto(phoneNumber: string): string {
 }
 
 export type EditableAccountProfileProps = {
-  /** Текст після «Роль: …» у шапці картки */
   roleLabel: string;
-  /** Якщо з БД немає імені для відображення в шапці */
   fallbackDisplayName: string;
-  /** Унікальні id полів форми (напр. `ga`, `station`, `user`) */
   formIdPrefix: string;
-  /** Додаткові класи для зовнішнього контейнера (типово вузька колонка по центру) */
   className?: string;
 };
 
@@ -102,12 +98,19 @@ export default function EditableAccountProfile({
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
-    if (!user?.id) return;
+    if (!user?.id) 
+      return;
+
     setSaveError(null);
-    const v = validateSplitProfile(firstName, surname, email, phone);
-    setFieldErrors(v);
-    if (hasProfileErrors(v)) return;
+
+    const validate = validateSplitProfile(firstName, surname, email, phone);
+    setFieldErrors(validate);
+
+    if (hasProfileErrors(validate)) 
+      return;
+
     setSavingProfile(true);
+    
     try {
       const updated = await updateUserProfile(Number(user.id), {
         name: firstName.trim() || 'Користувач',

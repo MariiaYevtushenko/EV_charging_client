@@ -12,6 +12,47 @@ export class ApiError extends Error {
   }
 }
 
+/** Текст з кирилицею ймовірно вже призначений для користувача (наприклад з HttpError). */
+function hasCyrillic(text: string): boolean {
+  return /[\u0400-\u04FF]/.test(text);
+}
+
+const DEFAULT_SERVER_ERROR_UK =
+  'На сервері сталася несподівана помилка. Спробуйте ще раз пізніше або зверніться до адміністратора.';
+
+export type UserFacingApiErrorOptions = {
+  /** Для 5xx без кирилиці в повідомленні (технічний текст з бекенду) — замість загального речення. */
+  serverError?: string;
+};
+
+/**
+ * Перетворює ApiError на зрозумілий для адміністратора текст: приховує сирі технічні деталі 5xx.
+ */
+export function userFacingApiErrorMessage(
+  e: unknown,
+  fallback: string,
+  options?: UserFacingApiErrorOptions
+): string {
+  if (!(e instanceof ApiError)) return fallback;
+  const { status, message } = e;
+
+  if (status >= 500) {
+    if (!hasCyrillic(message)) {
+      return options?.serverError ?? DEFAULT_SERVER_ERROR_UK;
+    }
+    if (message.startsWith('Internal server error: ')) {
+      return message.slice('Internal server error: '.length);
+    }
+    return message;
+  }
+
+  if (message.startsWith('Request error: ') && hasCyrillic(message)) {
+    return message.slice('Request error: '.length);
+  }
+
+  return message;
+}
+
 function buildUrl(path: string): string {
   const base = apiBaseUrl();
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;
@@ -26,12 +67,10 @@ function throwIfFailed(res: Response, body: unknown): void {
   const errPart = typeof o?.error === "string" ? o.error : res.statusText;
   const detail =
     typeof o?.message === "string" && o.message.trim() !== ""
-      ? o.message
+      ? o.message.trim()
       : null;
-  const msg =
-    detail && errPart && detail !== errPart
-      ? `${errPart}: ${detail}`
-      : detail ?? errPart;
+  /** Бекенд шле `{ error: "Request error", message: "…" }` — для UI достатньо лише `message`. */
+  const msg = detail ?? errPart;
   throw new ApiError(msg || "Request failed", res.status, body);
 }
 

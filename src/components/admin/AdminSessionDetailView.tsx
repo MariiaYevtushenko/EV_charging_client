@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { AdminSessionDetailDto } from '../../api/adminNetwork';
+import { BookingTypeCell } from './BookingTypeCell';
 import { AppCard, StatusPill } from '../station-admin/Primitives';
 
 function sessionTone(s: AdminSessionDetailDto['status']): 'success' | 'warn' | 'muted' | 'danger' | 'info' {
@@ -185,13 +186,10 @@ export default function AdminSessionDetailView({ data, links, sessionControl }: 
         {data.status === 'active' && sessionControl ? (
           <div className="border-b border-emerald-100/80 bg-amber-50/40 px-4 py-3 sm:px-5">
             <p className="text-sm font-semibold text-gray-900">Керування сесією</p>
-            <p className="mt-0.5 text-xs leading-snug text-gray-600">
-              Завершити зарядку: фіксується кінець сесії, статус «Завершено», у базі створюється рахунок
-              (bill) за поточними правилами тарифікації.
-            </p>
+           
             <div className="mt-3 flex flex-col gap-2.5 sm:flex-row sm:items-end sm:gap-3">
               <label className="block min-w-0 flex-1 text-sm">
-                <span className="text-gray-600">Спожито кВт·год (підсумок)</span>
+                <span className="text-gray-600">Спожито кВт·год</span>
                 <input
                   type="number"
                   min={0}
@@ -306,8 +304,13 @@ export default function AdminSessionDetailView({ data, links, sessionControl }: 
           <div className="border-b border-emerald-100/80 bg-gradient-to-br from-emerald-50/80 via-white to-slate-50/40 px-4 py-3.5 sm:px-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-gray-900">Бронювання</h2>
-                
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-sm font-semibold text-gray-900">Бронювання</h2>
+                  <BookingTypeCell
+                    bookingType={booking.bookingType}
+                    prepaymentAmount={booking.prepaymentAmount}
+                  />
+                </div>
               </div>
               <StatusPill
                 tone={
@@ -364,8 +367,8 @@ export default function AdminSessionDetailView({ data, links, sessionControl }: 
         </AppCard>
       ) : (
         <AppCard className="shrink-0 !p-4">
-          <p className="text-sm leading-snug text-gray-600">
-            Немає прив’язаного бронювання <span className="text-gray-400">(walk-in або інший сценарій)</span>
+          <p className="text-sm leading-snug text-gray-600 text-center">
+            Немає прив’язаного бронювання 
           </p>
         </AppCard>
       )}
@@ -432,9 +435,8 @@ export default function AdminSessionDetailView({ data, links, sessionControl }: 
           <div className="flex flex-1 flex-col items-center justify-center p-4 text-center sm:p-5">
             {data.status === 'failed' ? (
               <p className="max-w-md text-sm text-slate-600">
-                Рахунок для цієї сесії не показується: при статусі «Помилка» запис у таблиці{' '}
-                <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">bill</code> не
-                створюється.
+                Рахунок для цієї сесії відсутній
+              
               </p>
             ) : data.status === 'active' ? (
               <p className="max-w-md text-sm text-slate-600">

@@ -1,9 +1,12 @@
 import { Link } from 'react-router-dom';
 import { useStations } from '../../context/StationsContext';
 import { useStationAdminNetwork } from '../../context/StationAdminNetworkContext';
-import { AppCard } from '../../components/station-admin/Primitives';
 import {
-  stationAdminKpiIconTile,
+  AdminAccentCard,
+  AdminAccentRow,
+  AdminAccentSummaryShell,
+} from '../../components/admin/AdminAccentCard';
+import {
   stationAdminLinkAccent,
   stationAdminMapPromo,
   stationAdminPageTitle,
@@ -87,8 +90,8 @@ export default function StationAdminHome() {
       </div>
 
       <div>
-        <h2 className={stationAdminSectionLabel}>Зведення</h2>
-        <AppCard padding={false} className="overflow-hidden !shadow-sm">
+       
+        <AdminAccentSummaryShell>
           <div className="grid divide-y divide-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             <div className="px-4 py-3.5 sm:px-5">
               <p className="text-xs font-medium text-slate-500">Працює</p>
@@ -123,51 +126,48 @@ export default function StationAdminHome() {
               </p>
             </div>
           </div>
-        </AppCard>
+        </AdminAccentSummaryShell>
       </div>
 
       <div>
-        <h2 className={stationAdminSectionLabel}>Швидкий доступ</h2>
+      
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <AppCard className="group !p-5 transition hover:-translate-y-0.5 hover:shadow-md">
-            <div className={stationAdminKpiIconTile}>
-              <IconCalendar className="h-5 w-5" />
-            </div>
-            <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Бронювання</p>
-            <p className="mt-1 text-3xl font-bold tabular-nums text-slate-900">
-              {networkLoading ? '…' : bookingsTotal.toLocaleString('uk-UA')}
-            </p>
-            <Link to="/station-dashboard/bookings" className={`${kpiLinkClass} mt-3`}>
-              Список
-              <IconChevron className="h-4 w-4 transition group-hover:translate-x-0.5" />
-            </Link>
-          </AppCard>
+          <AdminAccentCard hover className="group">
+            <AdminAccentRow icon={<IconCalendar className="h-6 w-6" />}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Бронювання</p>
+              <p className="mt-1 text-3xl font-bold tabular-nums text-slate-900">
+                {networkLoading ? '…' : bookingsTotal.toLocaleString('uk-UA')}
+              </p>
+              <Link to="/station-dashboard/bookings" className={`${kpiLinkClass} mt-3`}>
+                Список
+                <IconChevron className="h-4 w-4 transition group-hover:translate-x-0.5" />
+              </Link>
+            </AdminAccentRow>
+          </AdminAccentCard>
 
-          <AppCard className="group !p-5 transition hover:-translate-y-0.5 hover:shadow-md">
-            <div className={stationAdminKpiIconTile}>
-              <IconChart className="h-5 w-5" />
-            </div>
-            <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Аналітика</p>
-            <p className="mt-1 text-sm leading-relaxed text-slate-600">Графіки та зведення з БД</p>
-            <Link to="/station-dashboard/analytics" className={`${kpiLinkClass} mt-3`}>
-              Відкрити
-              <IconChevron className="h-4 w-4 transition group-hover:translate-x-0.5" />
-            </Link>
-          </AppCard>
+          <AdminAccentCard hover className="group">
+            <AdminAccentRow icon={<IconChart className="h-6 w-6" />}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Аналітика</p>
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">Графіки та зведення з БД</p>
+              <Link to="/station-dashboard/analytics" className={`${kpiLinkClass} mt-3`}>
+                Відкрити
+                <IconChevron className="h-4 w-4 transition group-hover:translate-x-0.5" />
+              </Link>
+            </AdminAccentRow>
+          </AdminAccentCard>
 
-          <AppCard className="group !p-5 transition hover:-translate-y-0.5 hover:shadow-md">
-            <div className={stationAdminKpiIconTile}>
-              <IconBuilding className="h-5 w-5" />
-            </div>
-            <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Станції</p>
-            <p className="mt-1 text-3xl font-bold tabular-nums text-slate-900">
-              {stationsLoading ? '…' : stationsTotal.toLocaleString('uk-UA')}
-            </p>
-            <Link to="/station-dashboard/stations" className={`${kpiLinkClass} mt-3`}>
-              Каталог
-              <IconChevron className="h-4 w-4 transition group-hover:translate-x-0.5" />
-            </Link>
-          </AppCard>
+          <AdminAccentCard hover className="group">
+            <AdminAccentRow icon={<IconBuilding className="h-6 w-6" />}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Станції</p>
+              <p className="mt-1 text-3xl font-bold tabular-nums text-slate-900">
+                {stationsLoading ? '…' : stationsTotal.toLocaleString('uk-UA')}
+              </p>
+              <Link to="/station-dashboard/stations" className={`${kpiLinkClass} mt-3`}>
+                Каталог
+                <IconChevron className="h-4 w-4 transition group-hover:translate-x-0.5" />
+              </Link>
+            </AdminAccentRow>
+          </AdminAccentCard>
         </div>
       </div>
 
