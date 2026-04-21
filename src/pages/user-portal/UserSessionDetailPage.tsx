@@ -77,7 +77,7 @@ function fmtBookingPeriodLine(startIso: string, endIso: string) {
   }
 }
 
-function bookingStatusUi(status: UserBookingStatus): { label: string; tone: 'success' | 'warn' | 'muted' | 'danger' } {
+function bookingStatusUi(status: UserBookingStatus): { label: string; tone: 'success' | 'warn' | 'muted' | 'danger' | 'info' } {
   switch (status) {
     case 'upcoming':
       return { label: 'Очікує', tone: 'warn' };
@@ -86,7 +86,7 @@ function bookingStatusUi(status: UserBookingStatus): { label: string; tone: 'suc
     case 'completed':
       return { label: 'Завершено', tone: 'success' };
     case 'missed':
-      return { label: 'Пропущено', tone: 'warn' };
+      return { label: 'Пропущено', tone: 'info' };
     case 'cancelled':
       return { label: 'Скасовано', tone: 'danger' };
     default:

@@ -54,5 +54,5 @@ export const userPortalBookingStatus = {
   active: 'bg-green-50 text-green-900 ring-green-600/20',
   completed: 'bg-zinc-100 text-zinc-800 ring-zinc-400/20',
   cancelled: 'bg-rose-50 text-rose-900 ring-rose-400/25',
-  missed: 'bg-amber-50 text-amber-950 ring-amber-400/30',
+  missed: 'bg-sky-50 text-sky-900 ring-sky-400/30',
 } as const;

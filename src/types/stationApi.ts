@@ -64,6 +64,16 @@ export type StationUpcomingBookingsResponse = {
   items: StationUpcomingBookingDto[];
 };
 
+/** GET /api/stations/:stationId/available-booking-slots — GetAvailableBookingSlots (SQL). */
+export type AvailableBookingSlotDto = {
+  start: string;
+  end: string;
+};
+
+export type AvailableBookingSlotsResponse = {
+  slots: AvailableBookingSlotDto[];
+};
+
 /** GET /api/stations/:stationId/analytics-energy?period=1d|7d|30d */
 export type StationEnergyPeriod = '1d' | '7d' | '30d';
 

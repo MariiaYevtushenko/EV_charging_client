@@ -64,11 +64,13 @@ const STATUS_UI: Record<
   },
 };
 
-function stationDivIcon(status: StationStatus, selected: boolean) {
+function stationDivIcon(status: StationStatus, selected: boolean, emphasizeSelected: boolean) {
   const u = STATUS_UI[status];
-  const scale = selected ? 1.08 : 1;
+  const scale = selected ? (emphasizeSelected ? 1.12 : 1.08) : 1;
   const ring = selected
-    ? 'filter:drop-shadow(0 0 0 2px #fff) drop-shadow(0 0 0 4px #16a34a) drop-shadow(0 4px 12px rgb(0 0 0 / .25));'
+    ? emphasizeSelected
+      ? 'filter:drop-shadow(0 0 0 3px #fff) drop-shadow(0 0 0 6px #22c55e) drop-shadow(0 0 12px rgb(34 197 94 / .45)) drop-shadow(0 4px 14px rgb(0 0 0 / .28));'
+      : 'filter:drop-shadow(0 0 0 2px #fff) drop-shadow(0 0 0 4px #16a34a) drop-shadow(0 4px 12px rgb(0 0 0 / .25));'
     : 'filter:drop-shadow(0 3px 10px rgb(0 0 0 / .22));';
 
   const html = `
@@ -94,14 +96,30 @@ function stationDivIcon(status: StationStatus, selected: boolean) {
 }
 
 const iconCache = new Map<string, L.DivIcon>();
-function getIcon(status: StationStatus, selected: boolean) {
-  const key = `${status}:${selected}`;
+function getIcon(status: StationStatus, selected: boolean, emphasizeSelected: boolean) {
+  const key = `${status}:${selected}:${emphasizeSelected}`;
   let icon = iconCache.get(key);
   if (!icon) {
-    icon = stationDivIcon(status, selected);
+    icon = stationDivIcon(status, selected, emphasizeSelected);
     iconCache.set(key, icon);
   }
   return icon;
+}
+
+/** Один переліт до маркера (наприклад після переходу з головної з ?stationId=). */
+function FlyToStationOnce({ targetId, stations }: { targetId: string | null; stations: Station[] }) {
+  const map = useMap();
+  const flown = useRef(false);
+
+  useEffect(() => {
+    if (!targetId || flown.current) return;
+    const s = stations.find((x) => x.id === targetId);
+    if (!s) return;
+    flown.current = true;
+    map.flyTo([s.lat, s.lng], 14, { duration: 0.55 });
+  }, [targetId, stations, map]);
+
+  return null;
 }
 
 function ViewportReporter({ onViewportChange }: { onViewportChange: (b: MapViewportBounds) => void }) {
@@ -169,6 +187,8 @@ export default function StationMap({
   onSelect,
   onViewportChange,
   stationDetailPath,
+  emphasizeSelected = false,
+  flyToStationId = null,
 }: {
   stations: Station[];
   selectedId: string;
@@ -177,6 +197,10 @@ export default function StationMap({
   onViewportChange?: (bounds: MapViewportBounds) => void;
   /** Посилання в спливаючій підказці маркера (наприклад `/station-dashboard/stations/:id`). */
   stationDetailPath?: (stationId: string) => string;
+  /** Сильніша підсвітка обраного маркера (кабінет користувача / бронювання). */
+  emphasizeSelected?: boolean;
+  /** Під час першого показу списку — наблизити карту до цієї станції (лише один раз за монтування). */
+  flyToStationId?: string | null;
 }) {
   const viewportMode = Boolean(onViewportChange);
 
@@ -195,11 +219,12 @@ export default function StationMap({
       >
         <TileLayer attribution={TILE.attribution} url={TILE.url} subdomains="abcd" maxZoom={20} />
         <ViewportReporter onViewportChange={onViewportChange!} />
+        <FlyToStationOnce targetId={flyToStationId} stations={stations} />
         {stations.map((s) => (
           <Marker
             key={s.id}
             position={[s.lat, s.lng]}
-            icon={getIcon(s.status, s.id === selectedId)}
+            icon={getIcon(s.status, s.id === selectedId, emphasizeSelected && s.id === selectedId)}
             zIndexOffset={s.id === selectedId ? 800 : 0}
             eventHandlers={{ click: () => onSelect(s.id) }}
           >
@@ -235,11 +260,12 @@ export default function StationMap({
     >
       <TileLayer attribution={TILE.attribution} url={TILE.url} subdomains="abcd" maxZoom={20} />
       <FitStationsBounds stations={stations} />
+      <FlyToStationOnce targetId={flyToStationId} stations={stations} />
       {stations.map((s) => (
         <Marker
           key={s.id}
           position={[s.lat, s.lng]}
-          icon={getIcon(s.status, s.id === selectedId)}
+          icon={getIcon(s.status, s.id === selectedId, emphasizeSelected && s.id === selectedId)}
           zIndexOffset={s.id === selectedId ? 800 : 0}
           eventHandlers={{ click: () => onSelect(s.id) }}
         >

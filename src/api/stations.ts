@@ -1,4 +1,5 @@
 import type {
+  AvailableBookingSlotsResponse,
   PaginatedStationsResponse,
   StationDashboardDto,
   StationEnergyAnalyticsDto,
@@ -64,6 +65,22 @@ export function fetchStationUpcomingBookings(
 ): Promise<StationUpcomingBookingsResponse> {
   return getJson<StationUpcomingBookingsResponse>(
     `/api/stations/${stationId}/upcoming-bookings`
+  );
+}
+
+/** Вільні інтервали на порту за днем (функція БД GetAvailableBookingSlots). */
+export function fetchStationAvailableBookingSlots(
+  stationId: number,
+  query: { portNumber: number; date: string; slotMinutes: number; durationMinutes: number }
+): Promise<AvailableBookingSlotsResponse> {
+  const params = new URLSearchParams({
+    portNumber: String(query.portNumber),
+    date: query.date,
+    slotMinutes: String(query.slotMinutes),
+    durationMinutes: String(query.durationMinutes),
+  });
+  return getJson<AvailableBookingSlotsResponse>(
+    `/api/stations/${stationId}/available-booking-slots?${params.toString()}`
   );
 }
 

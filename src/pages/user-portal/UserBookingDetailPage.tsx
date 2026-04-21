@@ -39,7 +39,7 @@ function statusTone(s: UserBookingStatus): 'success' | 'warn' | 'muted' | 'dange
     case 'completed':
       return 'muted';
     case 'missed':
-      return 'warn';
+      return 'info';
     case 'cancelled':
       return 'danger';
     default:
@@ -65,8 +65,8 @@ function statusLabel(s: UserBookingStatus) {
 }
 
 function pricingTypeLabel(model: UserBookingPricingModel | undefined): string {
-  if (model === 'reservation_fee') return 'Попереднє бронювання';
-  if (model === 'dynamic_prepay') return 'Динамічна ціна';
+  if (model === 'reservation_fee') return 'Фіксована ціна на момент бронювання';
+  if (model === 'dynamic_prepay') return 'Передплата (динамічна ціна)';
   return '—';
 }
 

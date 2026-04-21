@@ -1,9 +1,12 @@
-import { useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import type { NetworkListPeriod } from '../../api/adminNetwork';
 import NetworkListPeriodControl from '../../components/admin/NetworkListPeriodControl';
 import AdminListPagination from '../../components/admin/AdminListPagination';
 import { UserPortalEmptyState } from '../../components/user-portal/UserPortalEmptyState';
+import UserPortalStatusFilterChips, {
+  type UserPortalStatusChipAccent,
+} from '../../components/user-portal/UserPortalStatusFilterChips';
 import { UserPortalRowCard, type UserPortalRowAccent } from '../../components/user-portal/UserPortalRowCard';
 import { useUserPortal } from '../../context/UserPortalContext';
 import type { UserPaymentRow } from '../../types/userPortal';
@@ -72,15 +75,48 @@ function paymentRowVisual(p: UserPaymentRow): {
   };
 }
 
+type PaymentStatusFilter = UserPaymentRow['status'];
+
 export default function UserPaymentsPage() {
   const { payments } = useUserPortal();
   const [period, setPeriod] = useState<NetworkListPeriod>('all');
+  const [statusFilter, setStatusFilter] = useState<PaymentStatusFilter | null>(null);
   const [page, setPage] = useState(1);
 
-  const rows = useMemo(() => {
+  useEffect(() => {
+    setStatusFilter(null);
+  }, [period]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [period, statusFilter]);
+
+  const pool = useMemo(() => {
     const sorted = [...payments].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return sorted.filter((p) => isOnOrAfterNetworkPeriodCutoff(p.createdAt, period));
   }, [payments, period]);
+
+  const rows = useMemo(() => {
+    if (!statusFilter) return pool;
+    return pool.filter((p) => p.status === statusFilter);
+  }, [pool, statusFilter]);
+
+  const paymentStatusChips = useMemo(() => {
+    const defs: {
+      id: PaymentStatusFilter;
+      label: string;
+      badgeClass: string;
+      accent: UserPortalStatusChipAccent;
+    }[] = [
+      { id: 'success', label: 'Успішно', badgeClass: 'bg-emerald-100 text-emerald-900', accent: 'emerald' },
+      { id: 'pending', label: 'Очікує', badgeClass: 'bg-amber-100 text-amber-900', accent: 'amber' },
+      { id: 'failed', label: 'Відмовлено', badgeClass: 'bg-rose-100 text-rose-900', accent: 'rose' },
+    ];
+    return defs.map((d) => ({
+      ...d,
+      count: pool.filter((p) => p.status === d.id).length,
+    }));
+  }, [pool]);
 
   const totalPages = rows.length === 0 ? 1 : Math.max(1, Math.ceil(rows.length / PAYMENTS_PAGE_SIZE));
   const safePage = Math.min(Math.max(1, page), totalPages);
@@ -105,17 +141,33 @@ export default function UserPaymentsPage() {
         </div>
       </div>
 
+      <UserPortalStatusFilterChips
+        chips={paymentStatusChips}
+        selectedId={statusFilter}
+        onChange={(id) => setStatusFilter(id as PaymentStatusFilter | null)}
+        ariaLabel="Фільтр за статусом платежу"
+        gridClassName="grid-cols-2 sm:grid-cols-3"
+      />
+
       {rows.length === 0 ? (
-        <UserPortalEmptyState
-          icon={<BanknoteIcon className="h-8 w-8" />}
-          title="Платежів ще немає"
-          description="Після зарядок з оплатою вони з’являться тут"
-          footer={
-            <Link to="/dashboard" className={userPortalPrimaryCta}>
-              Відкрити карту станцій
-            </Link>
-          }
-        />
+        pool.length === 0 ? (
+          <UserPortalEmptyState
+            icon={<BanknoteIcon className="h-8 w-8" />}
+            title="Платежів ще немає"
+            description="Після зарядок з оплатою вони з’являться тут"
+            footer={
+              <Link to="/dashboard" className={userPortalPrimaryCta}>
+                Відкрити карту станцій
+              </Link>
+            }
+          />
+        ) : (
+          <UserPortalEmptyState
+            icon={<BanknoteIcon className="h-8 w-8" />}
+            title="Немає записів з обраним статусом"
+            description="Натисніть активну картку статусу ще раз, щоб зняти фільтр."
+          />
+        )
       ) : (
         <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
           {pageSlice.map((p) => {

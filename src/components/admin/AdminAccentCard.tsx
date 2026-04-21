@@ -33,7 +33,7 @@ export function AdminAccentCard({
 }) {
   return (
     <div
-      className={`${shellBase} ${hover ? 'transition hover:shadow-md' : ''} ${className}`.trim()}
+      className={`${shellBase} h-full ${hover ? 'transition hover:shadow-md' : ''} ${className}`.trim()}
     >
       {children}
     </div>
@@ -53,16 +53,16 @@ export function AdminAccentRow({
   className?: string;
 }) {
   return (
-    <div className={`flex min-h-[80px] ${className}`.trim()}>
+    <div className={`flex h-full min-h-[80px] ${className}`.trim()}>
       <div
-        className={`flex w-[18%] min-w-[72px] max-w-[100px] shrink-0 items-center justify-center bg-emerald-50/95 py-3 sm:py-4 ${stripClassName}`.trim()}
+        className={`flex w-[18%] min-w-[72px] max-w-[100px] shrink-0 items-center justify-center self-stretch bg-emerald-50/95 py-3 sm:py-4 ${stripClassName}`.trim()}
         aria-hidden
       >
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-200/90 sm:h-12 sm:w-12">
           {icon ?? <AdminLightningIcon />}
         </div>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col justify-center px-4 py-3.5 sm:px-5">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center px-4 py-3.5 sm:px-5">
         {children}
       </div>
     </div>
@@ -75,7 +75,7 @@ export function AdminAccentStatus({ children }: { children: ReactNode }) {
 }
 
 const stripOuter =
-  'flex w-[72px] max-w-[100px] shrink-0 items-center justify-center bg-emerald-50/95 py-4 sm:w-[18%] sm:min-w-[72px] sm:max-w-[100px]';
+  'flex w-[72px] max-w-[100px] shrink-0 items-center justify-center self-stretch bg-emerald-50/95 py-4 sm:w-[18%] sm:min-w-[72px] sm:max-w-[100px]';
 
 /** Блок зведення на головній: смуга зліва + довільний контент (сітка метрик). */
 export function AdminAccentSummaryShell({
@@ -87,7 +87,7 @@ export function AdminAccentSummaryShell({
 }) {
   return (
     <AdminAccentCard className={`overflow-hidden !shadow-sm ${className}`.trim()}>
-      <div className="flex min-h-0">
+      <div className="flex min-h-0 h-full">
         <div className={stripOuter} aria-hidden>
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-200/90 sm:h-12 sm:w-12">
             <AdminLightningIcon />

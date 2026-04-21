@@ -4,6 +4,7 @@ import type { StationPort } from '../../types/station';
 import { useStations } from '../../context/StationsContext';
 import { useUserPortal } from '../../context/UserPortalContext';
 import StationMap from '../../components/station-admin/StationMap';
+import StationMapLegend from '../../components/station-admin/StationMapLegend';
 import {
   AppCard,
   DangerButton,
@@ -13,7 +14,9 @@ import {
 } from '../../components/station-admin/Primitives';
 import { appPrimaryCtaClass, appSelectClass } from '../../components/station-admin/formStyles';
 import { userPortalPageTitle } from '../../styles/userPortalTheme';
+import { eurToUah } from '../../utils/tariffCurrency';
 import { portStatusLabel, portStatusTone, stationStatusLabel, stationStatusTone } from '../../utils/stationLabels';
+import { stationAllowsUserBookingAndCharge, stationVisibleOnUserHomeMap } from '../../utils/stationUserEligibility';
 
 function MapPinIcon({ className }: { className?: string }) {
   return (
@@ -64,7 +67,10 @@ export default function UserHomePage() {
   const { mapStations: mapStationsAll, registerMapViewportBounds } = useStations();
   const { cars, currentSession, endCurrentSession, startSessionAtPort } = useUserPortal();
 
-  const mapStations = useMemo(() => mapStationsAll.filter((s) => !s.archived), [mapStationsAll]);
+  const mapStations = useMemo(
+    () => mapStationsAll.filter(stationVisibleOnUserHomeMap),
+    [mapStationsAll]
+  );
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [chargeConnector, setChargeConnector] = useState('all');
@@ -99,6 +105,7 @@ export default function UserHomePage() {
   }, [selectedId]);
 
   const selected = selectedId ? mapStations.find((s) => s.id === selectedId) : undefined;
+  const canBookOrChargeHere = selected ? stationAllowsUserBookingAndCharge(selected) : false;
 
   const portsForCharge = useMemo(() => {
     if (!selected) return [];
@@ -120,6 +127,10 @@ export default function UserHomePage() {
   const handleStartCharge = () => {
     setChargeError(null);
     if (!selected || !selectedChargePort) return;
+    if (!canBookOrChargeHere) {
+      setChargeError('Ця станція наразі не приймає бронювання та зарядку (обслуговування або недоступність).');
+      return;
+    }
     if (!portSelectable(selectedChargePort)) {
       setChargeError('Оберіть вільний порт.');
       return;
@@ -132,7 +143,7 @@ export default function UserHomePage() {
       stationId: selected.id,
       stationName: selected.name,
       portLabel: `${selectedChargePort.label} · ${selectedChargePort.connector}`,
-      dayTariff: selected.dayTariff,
+      dayTariff: eurToUah(selected.dayTariff),
     });
     if (ok) {
       setChargeOpen(false);
@@ -156,13 +167,15 @@ export default function UserHomePage() {
           className="flex min-h-[min(560px,78dvh)] flex-col overflow-hidden shadow-md shadow-slate-900/[0.04] xl:col-span-3"
           padding={false}
         >
-          <div className="flex min-h-0 flex-1 flex-col p-2 sm:p-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-2 p-2 sm:p-3">
+            <StationMapLegend variant="inline" />
             <div className="relative min-h-[min(400px,55vh)] flex-1 overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200/80">
               <StationMap
                 stations={mapStations}
                 selectedId={selectedId ?? mapStations[0]?.id ?? ''}
                 onSelect={setSelectedId}
                 onViewportChange={registerMapViewportBounds}
+                emphasizeSelected
               />
             </div>
           </div>
@@ -217,7 +230,7 @@ export default function UserHomePage() {
           )}
 
           {selected ? (
-            <AppCard className="space-y-4 shadow-md shadow-slate-900/[0.03]">
+            <AppCard className="space-y-4 shadow-md shadow-emerald-900/10 ring-2 ring-emerald-500/45 ring-offset-2 ring-offset-white transition-shadow">
               <div className="flex items-start justify-between gap-3">
                 <h2 className="min-w-0 text-lg font-semibold leading-snug text-slate-900">{selected.name}</h2>
                 <StatusPill tone={stationStatusTone(selected.status)}>
@@ -231,25 +244,55 @@ export default function UserHomePage() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-xl border border-amber-100/80 bg-amber-50/50 px-3 py-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-900/70">День</p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900">{selected.dayTariff} грн/кВт·год</p>
+                  <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900">
+                    {eurToUah(selected.dayTariff).toLocaleString('uk-UA', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    грн/кВт·год
+                  </p>
                 </div>
                 <div className="rounded-xl border border-sky-100/80 bg-sky-50/50 px-3 py-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-900/70">Ніч</p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900">{selected.nightTariff} грн/кВт·год</p>
+                  <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900">
+                    {eurToUah(selected.nightTariff).toLocaleString('uk-UA', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    грн/кВт·год
+                  </p>
                 </div>
               </div>
 
+              {!canBookOrChargeHere ? (
+                <p className="rounded-xl border border-amber-200/90 bg-amber-50/90 px-3 py-2 text-sm text-amber-950">
+                  Станція на обслуговуванні (ремонт). Бронювання та зарядка на ній тимчасово недоступні — оберіть
+                  іншу точку на карті.
+                </p>
+              ) : null}
+
               <div className="flex flex-col gap-2 sm:flex-row">
-                <Link
-                  to={`/dashboard/bookings/new?stationId=${encodeURIComponent(selected.id)}`}
-                  className={`${appPrimaryCtaClass} flex-1 text-center`}
-                >
-                  Забронювати слот
-                </Link>
+                {canBookOrChargeHere ? (
+                  <Link
+                    to={`/dashboard/bookings/new?stationId=${encodeURIComponent(selected.id)}`}
+                    className={`${appPrimaryCtaClass} flex-1 text-center`}
+                  >
+                    Забронювати слот
+                  </Link>
+                ) : (
+                  <span
+                    className="flex-1 cursor-not-allowed rounded-xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-center text-sm font-semibold text-slate-400"
+                    title="Недоступно для цієї станції"
+                  >
+                    Забронювати слот
+                  </span>
+                )}
                 <OutlineButton
                   type="button"
                   className="flex-1"
+                  disabled={!canBookOrChargeHere}
                   onClick={() => {
+                    if (!canBookOrChargeHere) return;
                     setChargeOpen((o) => !o);
                     setChargeError(null);
                   }}

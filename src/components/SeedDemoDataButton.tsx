@@ -133,14 +133,15 @@ export default function SeedDemoDataButton() {
   const disabled = finished || loading;
 
   if (finished) {
+    const lineText = doneLocal ? 'Готово' : successMessage ?? MSG_ALREADY_FROM_SERVER;
     return (
       <>
         <div role="status" aria-live="polite">
-          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-emerald-700/90">
-            SEED DATA
-          </p>
-          <p className="rounded-xl border border-emerald-100/90 bg-emerald-50/50 px-3 py-2.5 text-xs leading-relaxed text-emerald-950/90">
-            {doneLocal ? 'Готово' : successMessage ?? MSG_ALREADY_FROM_SERVER}
+          <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-xl border border-emerald-100/90 bg-emerald-50/50 px-3 py-2.5 text-xs leading-snug text-emerald-950/90">
+            <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-emerald-700/90">
+              SEED DATA
+            </span>
+            <span className="min-w-0">{lineText}</span>
           </p>
         </div>
         <FloatingToastRegion live="polite">

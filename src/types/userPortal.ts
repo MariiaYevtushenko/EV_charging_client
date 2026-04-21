@@ -13,6 +13,9 @@ export interface UserCar {
   imageUrl?: string;
 }
 
+/** Статус сесії зарядки (з БД session.status). */
+export type UserSessionUiStatus = 'active' | 'completed' | 'failed';
+
 export interface UserSessionRecord {
   id: string;
   stationId: string;
@@ -23,6 +26,7 @@ export interface UserSessionRecord {
   durationMin: number;
   kwh: number;
   cost: number;
+  status: UserSessionUiStatus;
   /** Авто з гаража, якщо сесію прив’язано до vehicle */
   vehicleId?: string;
   /** Якщо сесію запущено з бронювання */

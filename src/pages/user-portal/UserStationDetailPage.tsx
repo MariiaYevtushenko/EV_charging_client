@@ -9,6 +9,7 @@ import {
   stationStatusLabel,
   stationStatusTone,
 } from '../../utils/stationLabels';
+import { eurToUah } from '../../utils/tariffCurrency';
 
 export default function UserStationDetailPage() {
   const { getStation } = useStations();
@@ -43,11 +44,23 @@ export default function UserStationDetailPage() {
       <div className="flex flex-wrap gap-3 rounded-2xl border border-gray-200/90 bg-white p-4 shadow-sm">
         <div className="min-w-[120px] flex-1">
           <p className="text-[10px] font-semibold uppercase text-gray-400">Денний тариф</p>
-          <p className="text-lg font-bold text-amber-700">{station.dayTariff} грн/кВт·год</p>
+          <p className="text-lg font-bold text-amber-700">
+            {eurToUah(station.dayTariff).toLocaleString('uk-UA', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}{' '}
+            грн/кВт·год
+          </p>
         </div>
         <div className="min-w-[120px] flex-1">
           <p className="text-[10px] font-semibold uppercase text-gray-400">Нічний</p>
-          <p className="text-lg font-bold text-sky-700">{station.nightTariff} грн/кВт·год</p>
+          <p className="text-lg font-bold text-sky-700">
+            {eurToUah(station.nightTariff).toLocaleString('uk-UA', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}{' '}
+            грн/кВт·год
+          </p>
         </div>
         <div className="min-w-[100px] flex-1">
           <p className="text-[10px] font-semibold uppercase text-gray-400">Енергія за добу</p>
@@ -68,7 +81,12 @@ export default function UserStationDetailPage() {
                   {p.label} · {p.connector}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {p.powerKw} кВт · {p.pricePerKwh} грн/кВт·год
+                  {p.powerKw} кВт ·{' '}
+                  {eurToUah(p.pricePerKwh).toLocaleString('uk-UA', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{' '}
+                  грн/кВт·год
                 </p>
               </div>
               <StatusPill tone={portStatusTone(p.status)}>{portStatusLabel(p.status)}</StatusPill>
@@ -86,15 +104,7 @@ export default function UserStationDetailPage() {
         </div>
       </div>
 
-      <AppCard className="border-dashed">
-        <p className="text-sm text-gray-600">
-          Забронювати слот або почати зарядку можна в розділі{' '}
-          <Link to="/dashboard/bookings" className="font-semibold text-green-700 hover:underline">
-            Бронювання
-          </Link>
-          .
-        </p>
-      </AppCard>
+     
     </div>
   );
 }

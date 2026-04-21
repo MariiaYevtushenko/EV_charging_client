@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import type { NetworkListPeriod } from '../../api/adminNetwork';
-import NetworkListPeriodControl from '../../components/admin/NetworkListPeriodControl';
 import AdminListPagination from '../../components/admin/AdminListPagination';
+import NetworkListPeriodControl from '../../components/admin/NetworkListPeriodControl';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useUserPortal } from '../../context/UserPortalContext';
 import type { UserBooking } from '../../types/userPortal';
 import { UserPortalEmptyState } from '../../components/user-portal/UserPortalEmptyState';
-import { UserPortalRowCard, type UserPortalRowAccent } from '../../components/user-portal/UserPortalRowCard';
 import {
   userPortalListPageShell,
   userPortalPageHeaderRow,
@@ -16,7 +15,6 @@ import {
   userPortalTabActive,
   userPortalTabBadgeIdle,
   userPortalTabBadgeOnAccent,
-  userPortalTabBar,
   userPortalTabIdle,
 } from '../../styles/userPortalTheme';
 import { isOnOrAfterNetworkPeriodCutoff } from '../../utils/networkListPeriod';
@@ -88,178 +86,96 @@ function XCircleIcon({ className }: { className?: string }) {
   );
 }
 
-function EllipsisVerticalIcon({ className }: { className?: string }) {
+function ChevronRightIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
     </svg>
   );
 }
 
-function BookingCardOverflowMenu({
-  open,
-  onOpenChange,
-  onCancel,
-  cancelling,
-}: {
-  open: boolean;
-  onOpenChange: (next: boolean) => void;
-  onCancel: () => void;
-  cancelling: boolean;
-}) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      const el = wrapRef.current;
-      if (!el || !(e.target instanceof Node)) return;
-      if (!el.contains(e.target)) onOpenChange(false);
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [open, onOpenChange]);
-
-  return (
-    <div className="absolute right-2 top-2 z-20" ref={wrapRef}>
-      <button
-        type="button"
-        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200/90 bg-white text-slate-600 shadow-sm ring-1 ring-slate-900/[0.04] transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        title="Дії"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onOpenChange(!open);
-        }}
-      >
-        <EllipsisVerticalIcon className="h-5 w-5" />
-      </button>
-      {open ? (
-        <div
-          role="menu"
-          className="absolute right-0 top-[calc(100%+0.25rem)] min-w-[11rem] rounded-xl border border-slate-200/90 bg-white py-1 shadow-lg ring-1 ring-slate-900/[0.06]"
-        >
-          <button
-            role="menuitem"
-            type="button"
-            disabled={cancelling}
-            className="flex w-full items-center px-4 py-2.5 text-left text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onCancel();
-              onOpenChange(false);
-            }}
-          >
-            {cancelling ? 'Скасування…' : 'Скасувати'}
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function fmtRange(startIso: string, endIso: string) {
-  try {
-    const a = new Date(startIso);
-    const b = new Date(endIso);
-    const sameDay = a.toDateString() === b.toDateString();
-    const dateOpts: Intl.DateTimeFormatOptions = {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-    };
-    const timeOpts: Intl.DateTimeFormatOptions = {
-      hour: '2-digit',
-      minute: '2-digit',
-    };
-    if (sameDay) {
-      return {
-        dateLine: a.toLocaleDateString('uk-UA', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-        }),
-        timeLine: `${a.toLocaleTimeString('uk-UA', timeOpts)} — ${b.toLocaleTimeString('uk-UA', timeOpts)}`,
-      };
-    }
-    return {
-      dateLine: `${a.toLocaleDateString('uk-UA', dateOpts)} — ${b.toLocaleDateString('uk-UA', dateOpts)}`,
-      timeLine: `${a.toLocaleTimeString('uk-UA', timeOpts)} — ${b.toLocaleTimeString('uk-UA', timeOpts)}`,
-    };
-  } catch {
-    return { dateLine: `${startIso} — ${endIso}`, timeLine: '' };
-  }
-}
-
-function shortBookingDate(iso: string) {
-  try {
-    return new Date(iso).toLocaleDateString('uk-UA', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function bookingRowVisual(b: UserBooking): {
-  accent: UserPortalRowAccent;
-  statusTextClassName: string;
+function bookingVisual(b: UserBooking): {
   statusLabel: string;
+  statusPillClass: string;
+  iconWrapClass: string;
   icon: ReactElement;
+  barClass: string;
 } {
   if (b.status === 'upcoming') {
     return {
-      accent: 'amber',
-      statusTextClassName: 'text-amber-600',
       statusLabel: 'Очікує',
+      statusPillClass: 'bg-amber-100 text-amber-900 ring-amber-400/30',
+      iconWrapClass: 'bg-amber-50 text-amber-600 ring-amber-200/80',
       icon: <ClockIcon className="h-5 w-5" />,
+      barClass: 'bg-amber-400',
     };
   }
   if (b.status === 'active') {
     return {
-      accent: 'green',
-      statusTextClassName: 'text-green-700',
       statusLabel: 'Активне',
+      statusPillClass: 'bg-emerald-100 text-emerald-900 ring-emerald-500/25',
+      iconWrapClass: 'bg-emerald-50 text-emerald-600 ring-emerald-200/80',
       icon: <BoltIcon className="h-5 w-5" />,
+      barClass: 'bg-emerald-500',
     };
   }
   if (b.status === 'completed') {
     return {
-      accent: 'slate',
-      statusTextClassName: 'text-slate-700',
       statusLabel: 'Завершено',
+      statusPillClass: 'bg-slate-100 text-slate-800 ring-slate-400/25',
+      iconWrapClass: 'bg-slate-50 text-slate-600 ring-slate-200/80',
       icon: <CheckCircleIcon className="h-5 w-5" />,
+      barClass: 'bg-slate-400',
     };
   }
   if (b.status === 'missed') {
     return {
-      accent: 'amber',
-      statusTextClassName: 'text-amber-800',
       statusLabel: 'Пропущено',
+      statusPillClass: 'bg-sky-100 text-sky-900 ring-sky-400/30',
+      iconWrapClass: 'bg-sky-50 text-sky-600 ring-sky-200/80',
       icon: <ClockIcon className="h-5 w-5" />,
+      barClass: 'bg-sky-400',
     };
   }
   return {
-    accent: 'rose',
-    statusTextClassName: 'text-rose-600',
     statusLabel: 'Скасовано',
+    statusPillClass: 'bg-rose-100 text-rose-900 ring-rose-400/30',
+    iconWrapClass: 'bg-rose-50 text-rose-600 ring-rose-200/80',
     icon: <XCircleIcon className="h-5 w-5" />,
+    barClass: 'bg-rose-500',
   };
+}
+
+function formatBookingWhen(startIso: string, endIso: string): { dateLabel: string; timeLabel: string } {
+  try {
+    const a = new Date(startIso);
+    const b = new Date(endIso);
+    const dateLabel = a.toLocaleDateString('uk-UA', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    const timeOpts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+    const timeLabel = `${a.toLocaleTimeString('uk-UA', timeOpts)} — ${b.toLocaleTimeString('uk-UA', timeOpts)}`;
+    return { dateLabel, timeLabel };
+  } catch {
+    return { dateLabel: startIso, timeLabel: '' };
+  }
 }
 
 export default function UserBookingsPage() {
   const { bookings, cancelBooking } = useUserPortal();
+
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
   const [period, setPeriod] = useState<NetworkListPeriod>('all');
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [tab, period]);
   const [cancelTarget, setCancelTarget] = useState<UserBooking | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [menuOpenBookingId, setMenuOpenBookingId] = useState<string | null>(null);
 
   const upcoming = useMemo(
     () =>
@@ -271,27 +187,23 @@ export default function UserBookingsPage() {
   const past = useMemo(
     () =>
       bookings
-        .filter(
-          (b) =>
-            b.status === 'completed' || b.status === 'cancelled' || b.status === 'missed',
-        )
+        .filter((b) => b.status === 'completed' || b.status === 'cancelled' || b.status === 'missed')
         .sort((a, b) => b.start.localeCompare(a.start)),
     [bookings]
   );
 
-  const baseList = tab === 'upcoming' ? upcoming : past;
-  const list = useMemo(() => {
-    if (tab === 'upcoming') return baseList;
-    return baseList.filter((b) => isOnOrAfterNetworkPeriodCutoff(b.start, period));
-  }, [baseList, period, tab]);
+  const pool = useMemo(() => {
+    if (tab === 'upcoming') return upcoming;
+    return past.filter((b) => isOnOrAfterNetworkPeriodCutoff(b.start, period));
+  }, [tab, upcoming, past, period]);
 
-  const totalPages = list.length === 0 ? 1 : Math.max(1, Math.ceil(list.length / BOOKINGS_PAGE_SIZE));
+  const totalPages = pool.length === 0 ? 1 : Math.max(1, Math.ceil(pool.length / BOOKINGS_PAGE_SIZE));
   const safePage = Math.min(Math.max(1, page), totalPages);
 
   const pageSlice = useMemo(() => {
     const start = (safePage - 1) * BOOKINGS_PAGE_SIZE;
-    return list.slice(start, start + BOOKINGS_PAGE_SIZE);
-  }, [list, safePage]);
+    return pool.slice(start, start + BOOKINGS_PAGE_SIZE);
+  }, [pool, safePage]);
 
   async function handleConfirmCancel() {
     if (!cancelTarget) return;
@@ -305,116 +217,162 @@ export default function UserBookingsPage() {
   }
 
   return (
-    <div className={`space-y-5 ${userPortalListPageShell}`}>
-      <div className="mx-auto max-w-5xl">
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm ring-1 ring-slate-950/[0.04] sm:p-5">
-          <div className={userPortalPageHeaderRow}>
-            <h1 className={`${userPortalPageTitle} shrink-0`}>Мої бронювання</h1>
-            <div className="flex min-h-0 w-full min-w-0 shrink-0 items-center sm:min-h-[2.75rem] sm:justify-end">
-              <div
-                className={
-                  tab === 'past'
-                    ? 'w-full sm:w-auto'
-                    : 'hidden w-full sm:block sm:w-auto sm:invisible sm:pointer-events-none'
-                }
-                aria-hidden={tab !== 'past'}
-              >
-                <NetworkListPeriodControl
-                  value={period}
-                  onChange={(p) => {
-                    setPeriod(p);
-                    setPage(1);
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 border-t border-slate-100 pt-4">
-            <div className={`${userPortalTabBar} w-full max-w-full sm:w-fit`}>
-              <button
-                type="button"
-                onClick={() => {
-                  setTab('upcoming');
-                  setPage(1);
-                }}
-                className={tab === 'upcoming' ? userPortalTabActive : userPortalTabIdle}
-              >
-                Заплановані
-                <span className={tab === 'upcoming' ? userPortalTabBadgeOnAccent : userPortalTabBadgeIdle}>
-                  {upcoming.length}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTab('past');
-                  setPage(1);
-                }}
-                className={tab === 'past' ? userPortalTabActive : userPortalTabIdle}
-              >
-                Минулі
-                <span className={tab === 'past' ? userPortalTabBadgeOnAccent : userPortalTabBadgeIdle}>
-                  {past.length}
-                </span>
-              </button>
-            </div>
-          </div>
+    <div className={`space-y-5 sm:space-y-6 ${userPortalListPageShell} pb-8`}>
+      <div className={userPortalPageHeaderRow}>
+        <h1 className={`${userPortalPageTitle} shrink-0`}>Бронювання</h1>
+        <div className="min-w-0 sm:flex sm:shrink-0 sm:justify-end">
+          <Link to="/dashboard/bookings/new" className={userPortalPrimaryCta}>
+           + Нове бронювання
+          </Link>
         </div>
       </div>
 
-      {list.length === 0 ? (
-        <UserPortalEmptyState
-          icon={<CalendarDaysIcon className="h-8 w-8" />}
-          title={tab === 'upcoming' ? 'Немає запланованих бронювань' : 'Минулі бронювання відсутні'}
-          description={
-            tab === 'upcoming'
-              ? 'Оформіть нове бронювання на карті та з вибором слоту — тут з’являться майбутні візити'
-              : 'Завершені та скасовані бронювання за обраний період з’являться тут. Спробуйте «Весь час», якщо список порожній'
-          }
-          footer={
-            tab === 'upcoming' ? (
-              <Link to="/dashboard/bookings/new" className={userPortalPrimaryCta}>
-                Оформити бронювання
-              </Link>
-            ) : null
-          }
-        />
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+        <div
+          className="flex w-full max-w-2xl min-w-0 flex-1 items-stretch rounded-xl border border-slate-200 bg-white p-1 shadow-sm"
+          role="tablist"
+          aria-label="Фільтр бронювань"
+        >
+          <button
+            type="button"
+            role="tab"
+            id="bookings-tab-upcoming"
+            aria-selected={tab === 'upcoming'}
+            aria-controls="bookings-list-panel"
+            onClick={() => setTab('upcoming')}
+            className={`${tab === 'upcoming' ? userPortalTabActive : userPortalTabIdle} min-w-0 flex-1 gap-1.5`}
+          >
+            <span className="truncate">Заплановані</span>
+            <span className={tab === 'upcoming' ? userPortalTabBadgeOnAccent : userPortalTabBadgeIdle}>
+              {upcoming.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="bookings-tab-past"
+            aria-selected={tab === 'past'}
+            aria-controls="bookings-list-panel"
+            onClick={() => setTab('past')}
+            className={`${tab === 'past' ? userPortalTabActive : userPortalTabIdle} min-w-0 flex-1 gap-1.5`}
+          >
+            <span className="truncate">У минулому</span>
+            <span className={tab === 'past' ? userPortalTabBadgeOnAccent : userPortalTabBadgeIdle}>
+              {past.length}
+            </span>
+          </button>
+        </div>
+
+        <div className="shrink-0 lg:pt-0.5">
+          <NetworkListPeriodControl
+            value={period}
+            disabled={tab === 'upcoming'}
+            onChange={(p) => {
+              setPeriod(p);
+              setPage(1);
+            }}
+          />
+        </div>
+      </div>
+
+      {pool.length === 0 ? (
+        <div
+          id="bookings-list-panel"
+          role="tabpanel"
+          aria-labelledby={tab === 'upcoming' ? 'bookings-tab-upcoming' : 'bookings-tab-past'}
+        >
+          <UserPortalEmptyState
+            icon={<CalendarDaysIcon className="h-8 w-8" />}
+            title={tab === 'upcoming' ? 'Немає запланованих бронювань' : 'Минулі бронювання відсутні'}
+            description={
+              tab === 'upcoming'
+                ? 'Створіть броню з вибором станції та часового слота — тут з’являться майбутні візити.'
+                : 'Завершені, пропущені та скасовані записи за обраний період (7 / 30 днів або весь час) з’являться тут.'
+            }
+            footer={
+              tab === 'upcoming' ? (
+                <Link to="/dashboard/bookings/new" className={userPortalPrimaryCta}>
+                  Оформити бронювання
+                </Link>
+              ) : null
+            }
+          />
+        </div>
       ) : (
-        <ul className="mx-auto grid max-w-5xl grid-cols-1 gap-3 lg:grid-cols-2">
+        <ul
+          id="bookings-list-panel"
+          role="tabpanel"
+          aria-labelledby={tab === 'upcoming' ? 'bookings-tab-upcoming' : 'bookings-tab-past'}
+          className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4"
+        >
           {pageSlice.map((b) => {
-            const { timeLine } = fmtRange(b.start, b.end);
+            const vis = bookingVisual(b);
+            const { dateLabel, timeLabel } = formatBookingWhen(b.start, b.end);
             const isUpcomingTab = tab === 'upcoming';
-            const canCancel =
-              isUpcomingTab && (b.status === 'upcoming' || b.status === 'active');
-            const vis = bookingRowVisual(b);
-            const dateTimeLine = timeLine
-              ? `${shortBookingDate(b.start)} · ${timeLine}`
-              : shortBookingDate(b.start);
+            const canCancel = isUpcomingTab && (b.status === 'upcoming' || b.status === 'active');
 
             return (
               <li key={b.id} className="min-w-0">
-                <div className="relative w-full min-w-0">
-                  <UserPortalRowCard
-                    to={`/dashboard/bookings/${b.id}`}
-                    accent={vis.accent}
-                    icon={vis.icon}
-                    title={b.stationName}
-                    subtitle={b.slotLabel}
-                    dateLine={dateTimeLine}
-                    statusLabel={vis.statusLabel}
-                    statusTextClassName={vis.statusTextClassName}
-                    statusPlacement="inline"
-                    className={canCancel ? 'min-h-[4.75rem] pr-12 sm:pr-14' : ''}
-                    onClick={() => setMenuOpenBookingId(null)}
-                  />
-                  {canCancel ? (
-                    <BookingCardOverflowMenu
-                      open={menuOpenBookingId === b.id}
-                      onOpenChange={(next) => setMenuOpenBookingId(next ? b.id : null)}
-                      onCancel={() => setCancelTarget(b)}
-                      cancelling={cancellingId === b.id}
-                    />
-                  ) : null}
+                <div className="group relative flex min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-950/[0.04] transition hover:border-slate-300/90 hover:shadow-md">
+                  <div className={`absolute left-0 top-0 h-full w-1 ${vis.barClass}`} aria-hidden />
+                  <div className="flex flex-1 flex-col gap-4 pl-4 pr-3 py-4 sm:pl-5 sm:pr-4">
+                    <div className="flex min-w-0 flex-1 gap-3">
+                      <div
+                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ring-2 ring-offset-2 ring-offset-white ${vis.iconWrapClass}`}
+                      >
+                        {vis.icon}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          to={`/dashboard/bookings/${b.id}`}
+                          className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <h2 className="line-clamp-2 text-base font-bold leading-snug text-slate-900 group-hover:text-slate-800">
+                                {b.stationName}
+                              </h2>
+                              <p className="mt-0.5 text-sm text-slate-500">{b.slotLabel}</p>
+                            </div>
+                            <span
+                              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${vis.statusPillClass}`}
+                            >
+                              {vis.statusLabel}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-sm font-medium capitalize text-slate-800">{dateLabel}</p>
+                          {timeLabel ? (
+                            <p className="mt-0.5 text-sm tabular-nums text-slate-600">{timeLabel}</p>
+                          ) : null}
+                        </Link>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                      <Link
+                        to={`/dashboard/bookings/${b.id}`}
+                        className="inline-flex items-center gap-1 text-sm font-semibold text-green-700 hover:text-green-900"
+                      >
+                        Деталі
+                        <ChevronRightIcon className="h-4 w-4" />
+                      </Link>
+                      {canCancel ? (
+                        <button
+                          type="button"
+                          disabled={cancellingId === b.id}
+                          className="text-sm font-semibold text-rose-700 transition hover:text-rose-900 disabled:opacity-50"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setCancelTarget(b);
+                          }}
+                        >
+                          {cancellingId === b.id ? 'Скасування…' : 'Скасувати'}
+                        </button>
+                      ) : (
+                        <span className="hidden sm:block sm:h-5" aria-hidden />
+                      )}
+                    </div>
+                  </div>
                 </div>
               </li>
             );
@@ -422,25 +380,19 @@ export default function UserBookingsPage() {
         </ul>
       )}
 
-      {list.length > 0 ? (
-        <div className="mx-auto max-w-5xl">
-          <AdminListPagination
-            page={safePage}
-            pageSize={BOOKINGS_PAGE_SIZE}
-            total={list.length}
-            onPageChange={setPage}
-          />
-        </div>
+      {pool.length > 0 ? (
+        <AdminListPagination
+          page={safePage}
+          pageSize={BOOKINGS_PAGE_SIZE}
+          total={pool.length}
+          onPageChange={setPage}
+        />
       ) : null}
 
       <ConfirmDialog
         open={Boolean(cancelTarget)}
         title="Скасувати бронювання?"
-        description={
-          cancelTarget
-            ? `${cancelTarget.stationName} · ${cancelTarget.slotLabel}`
-            : undefined
-        }
+        description={cancelTarget ? `${cancelTarget.stationName} · ${cancelTarget.slotLabel}` : undefined}
         confirmLabel="Скасувати бронювання"
         cancelLabel="Назад"
         variant="danger"

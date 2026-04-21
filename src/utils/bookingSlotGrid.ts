@@ -40,19 +40,11 @@ function rangeOverlapsOccupied(startMs: number, endMs: number, occupied: [number
   return occupied.some(([os, oe]) => startMs < oe && endMs > os);
 }
 
-/** Псевдо-зайнятість «інших» клієнтів для демо. */
-export function demoSlotBusy(stationId: string, slotStartMs: number): boolean {
-  const h = new Date(slotStartMs).getHours();
-  const seed = stationId.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const idx = Math.floor(slotStartMs / (SLOT_MINUTES * 60 * 1000));
-  return h >= 11 && h <= 19 && (idx + seed) % 7 === 0;
-}
-
 export function canBookDuration(
   startMs: number,
   durationMin: number,
   occupied: [number, number][],
-  stationId: string
+  _stationId: string
 ): boolean {
   if (durationMin % SLOT_MINUTES !== 0) return false;
   const step = SLOT_MINUTES * 60 * 1000;
@@ -61,7 +53,16 @@ export function canBookDuration(
     const s = startMs + i * step;
     const e = s + step;
     if (rangeOverlapsOccupied(s, e, occupied)) return false;
-    if (demoSlotBusy(stationId, s)) return false;
   }
   return true;
+}
+
+/** Локальний ключ HH:mm для зіставлення відповіді БД (timestamptz) зі слотами сітки. */
+export function localHmFromMs(ms: number): string {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+export function localYmd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }

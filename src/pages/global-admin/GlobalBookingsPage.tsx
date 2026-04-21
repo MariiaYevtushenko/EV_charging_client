@@ -54,7 +54,7 @@ function bookingTone(s: string): 'success' | 'warn' | 'muted' | 'danger' | 'info
     case 'pending':
       return 'warn';
     case 'missed':
-      return 'warn';
+      return 'info';
     case 'cancelled':
       return 'danger';
     default:

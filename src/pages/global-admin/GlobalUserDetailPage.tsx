@@ -52,6 +52,8 @@ function bookingLabel(s: string) {
       return 'Скасовано';
     case 'paid':
       return 'Завершено';
+    case 'missed':
+      return 'Пропущено';
     default:
       return s;
   }
@@ -68,6 +70,8 @@ function bookingStatusTextClass(status: EndUserBooking['status']): string {
       return 'text-green-700';
     case 'cancelled':
       return 'text-red-700';
+    case 'missed':
+      return 'text-sky-700';
     default:
       return 'text-slate-600';
   }
@@ -200,12 +204,12 @@ function BookingStatusIcon({ status }: { status: EndUserBooking['status'] }) {
       );
     case 'missed':
       return (
-        <HistoryCardStatusIconShell stripClass="bg-amber-100">
+        <HistoryCardStatusIconShell stripClass="bg-sky-100">
           {historyCardIconCircle(
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>,
-            'bg-white text-amber-700 ring-1 ring-amber-200/90'
+            'bg-white text-sky-600 ring-1 ring-sky-200/90'
           )}
         </HistoryCardStatusIconShell>
       );

@@ -4,6 +4,7 @@ import type {
   UserBookingStatus,
   UserPaymentRow,
   UserSessionRecord,
+  UserSessionUiStatus,
 } from '../types/userPortal';
 
 /** Відповідь GET /api/user/:userId/sessions (Prisma session + port.station + bill). */
@@ -13,6 +14,8 @@ export type UserSessionApiRow = {
   portNumber: number;
   vehicleId?: number | null;
   bookingId?: number | null;
+  /** Prisma SessionStatus: ACTIVE | COMPLETED | FAILED */
+  status?: string;
   startTime: string;
   endTime: string | null;
   kwhConsumed: number | string | { toString(): string };
@@ -38,6 +41,13 @@ function num(v: unknown): number {
     return Number.isFinite(n) ? n : 0;
   }
   return 0;
+}
+
+function mapSessionUiStatus(raw: string | undefined): UserSessionUiStatus {
+  const u = String(raw ?? 'COMPLETED').toUpperCase();
+  if (u === 'ACTIVE') return 'active';
+  if (u === 'FAILED') return 'failed';
+  return 'completed';
 }
 
 export function mapUserSessionApiToRecord(row: UserSessionApiRow): UserSessionRecord {
@@ -69,6 +79,7 @@ export function mapUserSessionApiToRecord(row: UserSessionApiRow): UserSessionRe
     durationMin,
     kwh: Math.round(kwh * 1000) / 1000,
     cost: Math.round(cost * 100) / 100,
+    status: mapSessionUiStatus(row.status),
     vehicleId,
     bookingId,
     billId,

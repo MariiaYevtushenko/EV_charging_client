@@ -22,6 +22,7 @@ import SortableTableTh, {
   defaultDirForSortColumn,
   type SortDir,
 } from '../../components/admin/SortableTableTh';
+import TariffForecastChartCard from '../../components/admin/TariffForecastChartCard';
 
 const TARIFF_LIST_PAGE_SIZE = 20;
 
@@ -221,37 +222,28 @@ function ForecastBiasCard() {
   return (
     <AppCard className="space-y-4 border border-violet-100/90 bg-gradient-to-br from-violet-50/80 via-white to-slate-50/30 shadow-sm">
       <div>
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-bold text-slate-900">Корекція прогнозу</h2>
-          {!editing && !loading ? (
-            <button
-              type="button"
-              onClick={startEdit}
-              className="rounded-lg p-2 text-gray-500 transition hover:bg-violet-100/80 hover:text-slate-900"
-              aria-label="Редагувати корекцію прогнозу"
-              title="Редагувати"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-                className="h-5 w-5"
-                aria-hidden
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
-                />
-              </svg>
-            </button>
-          ) : null}
+        <h2 className="text-lg font-bold text-slate-900">Корекція прогнозу</h2>
+        <div
+          id="forecast-bias-help"
+          className={`mt-2 space-y-2 text-sm leading-relaxed text-gray-600 ${loading ? 'hidden' : ''}`}
+        >
+          <p>
+            До ціни з моделі SARIMA (таблиця <span className="font-medium text-slate-800">tariff_prediction</span>) для
+            кожного періоду додається <span className="font-medium text-slate-800">зміщення (bias)</span> у{' '}
+            <span className="font-medium text-slate-800">грн за кВт·год</span>. Це саме значення потім використовується в
+            бронюваннях і на графіку прогнозу вище.
+          </p>
+          <ul className="list-inside list-disc space-y-1 text-gray-600">
+            <li>
+              <span className="font-medium text-slate-700">Як змінити:</span> натисніть «Змінити корекцію», введіть нові
+              числа (можна від’ємні — зниження ціни), потім «Зберегти».
+            </li>
+            <li>
+              <span className="font-medium text-slate-700">Оновити з бази:</span> підтягнути поточні збережені значення з
+              БД, якщо їх змінили в іншому місці (редагування не відкривається).
+            </li>
+          </ul>
         </div>
-        <p className={`mt-2 text-sm leading-relaxed text-gray-600 ${loading ? 'hidden' : ''}`}>
-          Коефіцієнти зміщення для зовнішнього прогнозу цін (окремо для денного та нічного інтервалу).
-        </p>
       </div>
 
       {loading ? (
@@ -260,8 +252,9 @@ function ForecastBiasCard() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="text-sm font-medium text-gray-700" htmlFor={editing ? 'fb-day' : undefined}>
-              Денний
+              Денний тариф — зміщення
             </label>
+            <p className="text-xs text-gray-500">грн/кВт·год, додається до денного прогнозу</p>
             {editing ? (
               <input
                 id="fb-day"
@@ -270,18 +263,24 @@ function ForecastBiasCard() {
                 className={fieldClass}
                 inputMode="decimal"
                 disabled={saving}
+                aria-describedby="forecast-bias-help"
+                placeholder="0"
               />
             ) : (
-              <p className="mt-2 text-lg font-semibold tabular-nums text-slate-900">{dayBias}</p>
+              <p className="mt-2 text-lg font-semibold tabular-nums text-slate-900">
+                {dayBias}{' '}
+                <span className="text-sm font-normal text-gray-500">грн/кВт·год</span>
+              </p>
             )}
             {updatedDay ? (
-              <p className="mt-1 text-xs text-gray-500">Оновлено: {new Date(updatedDay).toLocaleString('uk-UA')}</p>
+              <p className="mt-1 text-xs text-gray-500">Збережено в БД: {new Date(updatedDay).toLocaleString('uk-UA')}</p>
             ) : null}
           </div>
           <div>
             <label className="text-sm font-medium text-gray-700" htmlFor={editing ? 'fb-night' : undefined}>
-              Нічний
+              Нічний тариф — зміщення
             </label>
+            <p className="text-xs text-gray-500">грн/кВт·год, додається до нічного прогнозу</p>
             {editing ? (
               <input
                 id="fb-night"
@@ -290,12 +289,17 @@ function ForecastBiasCard() {
                 className={fieldClass}
                 inputMode="decimal"
                 disabled={saving}
+                aria-describedby="forecast-bias-help"
+                placeholder="0"
               />
             ) : (
-              <p className="mt-2 text-lg font-semibold tabular-nums text-slate-900">{nightBias}</p>
+              <p className="mt-2 text-lg font-semibold tabular-nums text-slate-900">
+                {nightBias}{' '}
+                <span className="text-sm font-normal text-gray-500">грн/кВт·год</span>
+              </p>
             )}
             {updatedNight ? (
-              <p className="mt-1 text-xs text-gray-500">Оновлено: {new Date(updatedNight).toLocaleString('uk-UA')}</p>
+              <p className="mt-1 text-xs text-gray-500">Збережено в БД: {new Date(updatedNight).toLocaleString('uk-UA')}</p>
             ) : null}
           </div>
         </div>
@@ -304,24 +308,29 @@ function ForecastBiasCard() {
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {savedOk ? (
         <p className="rounded-xl border border-green-200 bg-green-50/90 px-4 py-3 text-sm text-green-900">
-          Збережено в базі.
+          Корекцію збережено — оновіть графік прогнозу кнопкою «Оновити графік» вище, щоб побачити нові лінії.
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-2 border-t border-violet-100 pt-4">
+      <div className="flex flex-wrap items-center gap-2 border-t border-violet-100 pt-4">
         {editing ? (
           <>
             <PrimaryButton type="button" disabled={loading || saving} onClick={handleSave}>
-              {saving ? 'Збереження…' : 'Зберегти bias'}
+              {saving ? 'Збереження…' : 'Зберегти корекцію'}
             </PrimaryButton>
             <OutlineButton type="button" disabled={loading || saving} onClick={cancelEdit}>
               Скасувати
             </OutlineButton>
           </>
         ) : (
-          <OutlineButton type="button" disabled={loading || saving} onClick={load}>
-            Оновити з сервера
-          </OutlineButton>
+          <>
+            <PrimaryButton type="button" disabled={loading || saving} onClick={startEdit}>
+              Змінити корекцію
+            </PrimaryButton>
+            <OutlineButton type="button" disabled={loading || saving} onClick={load}>
+              Оновити з бази
+            </OutlineButton>
+          </>
         )}
       </div>
     </AppCard>
@@ -953,7 +962,10 @@ export default function GlobalTariffsPage() {
           </AppCard>
         </div>
       ) : (
-        <ForecastBiasCard />
+        <div className="space-y-5">
+          <TariffForecastChartCard />
+          <ForecastBiasCard />
+        </div>
       )}
 
       <FloatingToastRegion>
