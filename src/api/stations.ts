@@ -42,6 +42,17 @@ export type MapBoundsQuery = {
   limit?: number;
 };
 
+/** Відповідь GET /api/stations/tariffs/today — рядки з `tariff` на поточний день (грн/кВт·год). */
+export type TodayGridTariffsDto = {
+  date: string;
+  dayPriceUah: number;
+  nightPriceUah: number;
+};
+
+export function fetchStationTariffsToday(): Promise<TodayGridTariffsDto> {
+  return getJson<TodayGridTariffsDto>("/api/stations/tariffs/today");
+}
+
 export function fetchStationsMapBounds(q: MapBoundsQuery): Promise<StationsMapResponse> {
   const params = new URLSearchParams({
     minLat: String(q.minLat),

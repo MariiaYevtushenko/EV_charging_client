@@ -1,9 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { useUserPortal } from '../../context/UserPortalContext';
 import { appChipSelectedClass, appPrimaryCtaClass } from '../../components/station-admin/formStyles';
 import { UserCarFormShell } from '../../components/user-portal/UserCarFormShell';
-import { userCarInitialBrandModel } from '../../api/userVehicles';
+import {
+  fetchUserVehicleAggregates,
+  userCarInitialBrandModel,
+  type UserVehicleAggregatesDto,
+} from '../../api/userVehicles';
 import { DEFAULT_CAR_IMAGE, suggestCarImageByModel } from '../../utils/carImageSuggest';
 import { carStatsForIdInPeriod, type CarDetailPeriod } from '../../utils/carStatsForCar';
 
@@ -21,10 +26,25 @@ const PERIOD_OPTIONS: { id: CarDetailPeriod; label: string }[] = [
   { id: 'all', label: 'Весь час' },
 ];
 
+function dbBucketForPeriod(p: CarDetailPeriod): keyof Omit<UserVehicleAggregatesDto, 'vehicleId'> {
+  if (p === 'today') return 'today';
+  if (p === '7d') return 'last7d';
+  if (p === '30d') return 'last30d';
+  return 'all';
+}
+
+function isPersistedVehicleId(id: string): boolean {
+  return /^\d+$/.test(id.trim());
+}
+
 export default function UserCarDetailPage() {
   const { carId } = useParams<{ carId: string }>();
+  const { user } = useAuth();
   const { cars, sessions } = useUserPortal();
   const [period, setPeriod] = useState<CarDetailPeriod>('30d');
+  const [dbAgg, setDbAgg] = useState<UserVehicleAggregatesDto | null>(null);
+  const [dbLoading, setDbLoading] = useState(false);
+  const [dbError, setDbError] = useState<string | null>(null);
 
   const car = useMemo(() => (carId ? cars.find((c) => c.id === carId) : undefined), [cars, carId]);
 
@@ -37,6 +57,45 @@ export default function UserCarDetailPage() {
     () => (car ? carStatsForIdInPeriod(car.id, sessions, period) : null),
     [car, sessions, period]
   );
+
+  const dbStatsForPeriod = useMemo(() => {
+    if (!dbAgg) return null;
+    return dbAgg[dbBucketForPeriod(period)];
+  }, [dbAgg, period]);
+
+  useEffect(() => {
+    if (!car || !isPersistedVehicleId(car.id)) {
+      setDbAgg(null);
+      setDbError(null);
+      setDbLoading(false);
+      return;
+    }
+    const uid = Number(user?.id);
+    const vid = Number(car.id);
+    if (!Number.isFinite(uid) || uid <= 0 || !Number.isFinite(vid)) {
+      setDbAgg(null);
+      return;
+    }
+    let cancelled = false;
+    setDbLoading(true);
+    setDbError(null);
+    fetchUserVehicleAggregates(uid, vid)
+      .then((data) => {
+        if (!cancelled) setDbAgg(data);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDbAgg(null);
+          setDbError('Не вдалося отримати агрегати з БД');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDbLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [car, user?.id]);
 
   if (!carId || !car) {
     return <Navigate to="/dashboard/cars" replace />;
@@ -106,36 +165,82 @@ export default function UserCarDetailPage() {
           </div>
         </div>
 
-        {detailStats ? (
-          <div className="grid grid-cols-1 gap-3 rounded-xl border border-gray-100 bg-gray-50/90 p-3 sm:grid-cols-3 sm:gap-3">
-            <div>
-              <p className={sectionLabel}>Сесій</p>
-              <p className="mt-1 text-lg font-bold tabular-nums text-gray-900 sm:text-xl">
-                {detailStats.sessionCount.toLocaleString('uk-UA')}
-              </p>
+        <div className="rounded-xl border border-emerald-100/90 bg-emerald-50/40 p-3 sm:p-4">
+          <p className={`${sectionLabel} text-emerald-900/80`}>Агрегати з бази даних</p>
+          
+          {!isPersistedVehicleId(car.id) ? (
+            <p className="mt-3 text-sm text-gray-600">
+              Після збереження авто в обліковому записі з’явиться зв’язок з БД. Нижче — оцінка зі списку сесій, завантаженого в
+              кабінет.
+            </p>
+          ) : null}
+          {dbError ? <p className="mt-2 text-xs font-medium text-amber-800">{dbError}</p> : null}
+          {dbLoading && isPersistedVehicleId(car.id) ? (
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {[1, 2, 3].map((k) => (
+                <div key={k} className="h-14 animate-pulse rounded-lg bg-white/50" />
+              ))}
             </div>
-            <div>
-              <p className={sectionLabel}>Спожито енергії</p>
-              <p className="mt-1 text-lg font-bold tabular-nums text-gray-900 sm:text-xl">
-                {detailStats.kwhTotal.toLocaleString('uk-UA', {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 3,
-                })}{' '}
-                <span className="text-sm font-semibold text-gray-600">кВт·год</span>
-              </p>
+          ) : dbStatsForPeriod ? (
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-3">
+              <div>
+                <p className={sectionLabel}>Сесій</p>
+                <p className="mt-1 text-lg font-bold tabular-nums text-gray-900 sm:text-xl">
+                  {dbStatsForPeriod.sessionCount.toLocaleString('uk-UA')}
+                </p>
+              </div>
+              <div>
+                <p className={sectionLabel}>Спожито енергії</p>
+                <p className="mt-1 text-lg font-bold tabular-nums text-gray-900 sm:text-xl">
+                  {dbStatsForPeriod.kwhTotal.toLocaleString('uk-UA', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 3,
+                  })}{' '}
+                  <span className="text-sm font-semibold text-gray-600">кВт·год</span>
+                </p>
+              </div>
+              <div>
+                <p className={sectionLabel}>Сума рахунків</p>
+                <p className="mt-1 text-lg font-bold tabular-nums text-emerald-800 sm:text-xl">
+                  {dbStatsForPeriod.revenueUah.toLocaleString('uk-UA', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{' '}
+                  <span className="text-sm font-semibold text-gray-600">грн</span>
+                </p>
+              </div>
             </div>
-            <div>
-              <p className={sectionLabel}>Сума зарядок</p>
-              <p className="mt-1 text-lg font-bold tabular-nums text-emerald-800 sm:text-xl">
-                {detailStats.costTotal.toLocaleString('uk-UA', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}{' '}
-                <span className="text-sm font-semibold text-gray-600">грн</span>
-              </p>
+          ) : detailStats && (!isPersistedVehicleId(car.id) || dbError) ? (
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-3">
+              <div>
+                <p className={sectionLabel}>Сесій (кабінет)</p>
+                <p className="mt-1 text-lg font-bold tabular-nums text-gray-900 sm:text-xl">
+                  {detailStats.sessionCount.toLocaleString('uk-UA')}
+                </p>
+              </div>
+              <div>
+                <p className={sectionLabel}>Спожито енергії (кабінет)</p>
+                <p className="mt-1 text-lg font-bold tabular-nums text-gray-900 sm:text-xl">
+                  {detailStats.kwhTotal.toLocaleString('uk-UA', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 3,
+                  })}{' '}
+                  <span className="text-sm font-semibold text-gray-600">кВт·год</span>
+                </p>
+              </div>
+              <div>
+                <p className={sectionLabel}>Сума зарядок (кабінет)</p>
+                <p className="mt-1 text-lg font-bold tabular-nums text-emerald-800 sm:text-xl">
+                  {detailStats.costTotal.toLocaleString('uk-UA', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{' '}
+                  <span className="text-sm font-semibold text-gray-600">грн</span>
+                </p>
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
         <div className="border-t border-gray-100 pt-4">
           <Link

@@ -1,4 +1,4 @@
-import { postJson, putJson } from "./http";
+import { getJson, postJson, putJson } from "./http";
 import type { UserCar } from "../types/userPortal";
 
 /** Відповідь Prisma / JSON для vehicle */
@@ -19,6 +19,25 @@ export type CreateVehicleBody = {
 };
 
 export type UpdateVehicleBody = CreateVehicleBody;
+
+/** GET /api/user/:userId/vehicle/:vehicleId/stats — агрегати session + bill. */
+export type UserVehiclePeriodAgg = {
+  sessionCount: number;
+  kwhTotal: number;
+  revenueUah: number;
+};
+
+export type UserVehicleAggregatesDto = {
+  vehicleId: number;
+  all: UserVehiclePeriodAgg;
+  today: UserVehiclePeriodAgg;
+  last7d: UserVehiclePeriodAgg;
+  last30d: UserVehiclePeriodAgg;
+};
+
+export function fetchUserVehicleAggregates(userId: number, vehicleId: number) {
+  return getJson<UserVehicleAggregatesDto>(`/api/user/${userId}/vehicle/${vehicleId}/stats`);
+}
 
 /** POST /api/user/:userId/vehicle */
 export function postUserVehicle(userId: number, body: CreateVehicleBody) {

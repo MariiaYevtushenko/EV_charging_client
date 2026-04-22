@@ -1,22 +1,4 @@
-import { getJson, putJson } from "./http";
-
-export type ForecastBiasDto = {
-  day: number;
-  night: number;
-  updatedAtDay: string | null;
-  updatedAtNight: string | null;
-};
-
-export function fetchForecastBias(): Promise<ForecastBiasDto> {
-  return getJson<ForecastBiasDto>("/api/admin/forecast/bias");
-}
-
-export function saveForecastBias(patch: {
-  day: number;
-  night: number;
-}): Promise<ForecastBiasDto> {
-  return putJson<ForecastBiasDto>("/api/admin/forecast/bias", patch);
-}
+import { getJson } from "./http";
 
 export type ForecastPredictionPointDto = {
   date: string;
@@ -31,7 +13,7 @@ export type ForecastPredictionsDto = {
   points: ForecastPredictionPointDto[];
 };
 
-/** Серія прогнозів з `tariff_prediction` (Python SARIMA) + bias; за замовчуванням 21 день уперед. */
+/** Серія прогнозів з `tariff_prediction` (Python SARIMA); за замовчуванням 21 день уперед. */
 export function fetchForecastPredictions(days = 21): Promise<ForecastPredictionsDto> {
   const q = new URLSearchParams();
   q.set("days", String(days));

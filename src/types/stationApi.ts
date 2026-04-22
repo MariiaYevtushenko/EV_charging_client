@@ -88,6 +88,8 @@ export type StationEnergyPeriod = '1d' | '7d' | '30d';
 export type StationEnergyAnalyticsPointDto = {
   bucketStart: string;
   kwh: number;
+  sessions: number;
+  revenueUah: number;
 };
 
 export type StationEnergyAnalyticsDto = {
@@ -96,4 +98,5 @@ export type StationEnergyAnalyticsDto = {
   points: StationEnergyAnalyticsPointDto[];
   totalKwh: number;
   sessionCount: number;
+  totalRevenueUah: number;
 };

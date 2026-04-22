@@ -14,7 +14,7 @@ import {
 } from '../../components/station-admin/Primitives';
 import { appPrimaryCtaClass, appSelectClass } from '../../components/station-admin/formStyles';
 import { userPortalPageTitle } from '../../styles/userPortalTheme';
-import { eurToUah } from '../../utils/tariffCurrency';
+import { useTodayGridTariffsFromDb } from '../../hooks/useTodayGridTariffsFromDb';
 import { portStatusLabel, portStatusTone, stationStatusLabel, stationStatusTone } from '../../utils/stationLabels';
 import { stationAllowsUserBookingAndCharge, stationVisibleOnUserHomeMap } from '../../utils/stationUserEligibility';
 
@@ -66,6 +66,8 @@ function portSelectable(p: StationPort): boolean {
 export default function UserHomePage() {
   const { mapStations: mapStationsAll, registerMapViewportBounds } = useStations();
   const { cars, currentSession, endCurrentSession, startSessionAtPort } = useUserPortal();
+  const { data: todayTariffs, loading: todayTariffsLoading, error: todayTariffsError } =
+    useTodayGridTariffsFromDb();
 
   const mapStations = useMemo(
     () => mapStationsAll.filter(stationVisibleOnUserHomeMap),
@@ -139,11 +141,12 @@ export default function UserHomePage() {
       setChargeError('Спочатку завершіть поточну сесію кнопкою «Зупинити зарядку».');
       return;
     }
+    const dayUah = todayTariffs?.dayPriceUah ?? 0;
     const ok = startSessionAtPort({
       stationId: selected.id,
       stationName: selected.name,
       portLabel: `${selectedChargePort.label} · ${selectedChargePort.connector}`,
-      dayTariff: eurToUah(selected.dayTariff),
+      dayTariff: dayUah,
     });
     if (ok) {
       setChargeOpen(false);
@@ -160,7 +163,8 @@ export default function UserHomePage() {
       <div>
         <h1 className={userPortalPageTitle}>Карта станцій</h1>
         <p className="mt-1 max-w-xl text-xs leading-relaxed text-slate-500">
-          Тарифи на сьогодні для обраної на карті станції — у картці справа над «Поточна зарядка» / «Немає активної зарядки».
+          Денний і нічний тариф на сьогодні беруться з таблиці <span className="font-medium">tariff</span> у БД
+          (актуальні значення на поточний календарний день).
         </p>
       </div>
 
@@ -186,30 +190,39 @@ export default function UserHomePage() {
         <div className="flex flex-col gap-5 xl:col-span-2">
           {selected ? (
             <AppCard className="border border-slate-200/90 bg-gradient-to-br from-white to-slate-50/40 px-4 py-3 shadow-sm">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                Тарифи на сьогодні
-              </p>
-              <p className="mt-0.5 text-xs text-slate-600">
-                Для обраної станції: <span className="font-medium text-slate-800">{selected.name}</span>
-              </p>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  Тарифи на сьогодні (БД)
+                </p>
+                {todayTariffs?.date ? (
+                  <p className="text-[10px] tabular-nums text-slate-400">{todayTariffs.date}</p>
+                ) : null}
+              </div>
+              {todayTariffsError ? (
+                <p className="mt-2 text-xs text-amber-800">{todayTariffsError}</p>
+              ) : null}
               <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-stretch">
                 <div className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border border-amber-100/80 bg-amber-50/50 px-3 py-2 sm:flex-col sm:items-start sm:justify-center">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-900/70">День</p>
                   <p className="text-sm font-bold tabular-nums text-slate-900 sm:mt-0.5">
-                    {eurToUah(selected.dayTariff).toLocaleString('uk-UA', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{' '}
+                    {todayTariffsLoading
+                      ? '…'
+                      : (todayTariffs?.dayPriceUah ?? 0).toLocaleString('uk-UA', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{' '}
                     <span className="font-semibold text-slate-600">грн/кВт·год</span>
                   </p>
                 </div>
                 <div className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border border-sky-100/80 bg-sky-50/50 px-3 py-2 sm:flex-col sm:items-start sm:justify-center">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-900/70">Ніч</p>
                   <p className="text-sm font-bold tabular-nums text-slate-900 sm:mt-0.5">
-                    {eurToUah(selected.nightTariff).toLocaleString('uk-UA', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{' '}
+                    {todayTariffsLoading
+                      ? '…'
+                      : (todayTariffs?.nightPriceUah ?? 0).toLocaleString('uk-UA', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{' '}
                     <span className="font-semibold text-slate-600">грн/кВт·год</span>
                   </p>
                 </div>

@@ -10,6 +10,7 @@ import type {
   StationEnergyPeriod,
   StationUpcomingBookingDto,
 } from '../../types/stationApi';
+import { formatStationEnergyChartAxisLabel } from '../../utils/stationEnergyChartLabels';
 import {
   Bar,
   BarChart,
@@ -69,17 +70,6 @@ function tabFromHash(hash: string): DetailTab {
   if (hash === '#station-bookings') return 'bookings';
   if (hash === '#station-ports') return 'ports';
   return 'analytics';
-}
-
-function formatChartAxisLabel(iso: string, period: StationEnergyPeriod): string {
-  const d = new Date(iso);
-  if (period === '1d') {
-    return d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
-  }
-  if (period === '7d') {
-    return d.toLocaleDateString('uk-UA', { weekday: 'short', day: 'numeric', month: 'short' });
-  }
-  return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
 }
 
 function fmtBookingRange(startIso: string, endIso: string) {
@@ -157,8 +147,10 @@ export default function StationDetailPage() {
   const chartRows = useMemo(() => {
     if (!energyAnalytics?.points.length) return [];
     return energyAnalytics.points.map((p) => ({
-      t: formatChartAxisLabel(p.bucketStart, energyAnalytics.period),
+      t: formatStationEnergyChartAxisLabel(p.bucketStart, energyAnalytics.period),
       kwh: p.kwh,
+      sessions: p.sessions,
+      revenueUah: p.revenueUah,
       fullLabel: new Date(p.bucketStart).toLocaleString('uk-UA'),
     }));
   }, [energyAnalytics]);
@@ -645,7 +637,16 @@ export default function StationDetailPage() {
                   </span>
                   <span className="text-gray-500">
                     {' '}
-                    · сесій у відрізку: {energyAnalytics.sessionCount}
+                    · сесій: {energyAnalytics.sessionCount}
+                    {' '}
+                    · сума рахунків:{' '}
+                    <span className="font-semibold text-gray-800">
+                      {energyAnalytics.totalRevenueUah.toLocaleString('uk-UA', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}{' '}
+                      грн
+                    </span>
                   </span>
                 </p>
               ) : null}
@@ -700,20 +701,42 @@ export default function StationDetailPage() {
                 />
                 <YAxis tick={{ fontSize: 10 }} stroke="#9ca3af" />
                 <Tooltip
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: '1px solid #e5e7eb',
-                    fontSize: 12,
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const row = payload[0]?.payload as {
+                      fullLabel?: string;
+                      kwh?: number;
+                      sessions?: number;
+                      revenueUah?: number;
+                    };
+                    return (
+                      <div
+                        className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs shadow-md"
+                        style={{ fontSize: 12 }}
+                      >
+                        <p className="font-medium text-gray-900">{row.fullLabel ?? ''}</p>
+                        <p className="mt-1 text-gray-700">
+                          Енергія:{' '}
+                          <span className="font-semibold tabular-nums">
+                            {(row.kwh ?? 0).toLocaleString('uk-UA')} кВт·год
+                          </span>
+                        </p>
+                        <p className="text-gray-700">
+                          Сесій: <span className="font-semibold tabular-nums">{row.sessions ?? 0}</span>
+                        </p>
+                        <p className="text-gray-700">
+                          Рахунки:{' '}
+                          <span className="font-semibold tabular-nums">
+                            {(row.revenueUah ?? 0).toLocaleString('uk-UA', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}{' '}
+                            грн
+                          </span>
+                        </p>
+                      </div>
+                    );
                   }}
-                  formatter={(value) => {
-                    const n = typeof value === 'number' ? value : Number(value);
-                    return [`${Number.isFinite(n) ? n.toLocaleString('uk-UA') : '—'} кВт·год`, 'Споживання'];
-                  }}
-                  labelFormatter={(_label, payload) =>
-                    payload?.[0]?.payload?.fullLabel != null
-                      ? String(payload[0].payload.fullLabel)
-                      : ''
-                  }
                 />
                 <Bar dataKey="kwh" fill="#22c55e" radius={[6, 6, 0, 0]} name="кВт·год" />
               </BarChart>
