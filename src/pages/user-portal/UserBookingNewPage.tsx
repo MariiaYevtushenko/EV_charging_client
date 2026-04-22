@@ -6,7 +6,10 @@ import { useAuth } from '../../context/AuthContext';
 import { useStations } from '../../context/StationsContext';
 import { useUserPortal } from '../../context/UserPortalContext';
 import { ASSUMED_CHARGE_KW, RESERVATION_FEE_UAH } from '../../config/publicEnv';
-import { fetchStationAvailableBookingSlots } from '../../api/stations';
+import {
+  fetchStationAvailableBookingSlots,
+  fetchStationBookingDayLoad,
+} from '../../api/stations';
 import { createUserBooking, fetchUserBookings } from '../../api/userReads';
 import { mapBookingApiToUserBooking } from '../../api/userPortalMappers';
 import StationMap from '../../components/station-admin/StationMap';
@@ -130,6 +133,13 @@ export default function UserBookingNewPage() {
   const [pricingInfoOpen, setPricingInfoOpen] = useState(false);
   /** Для dynamic_prepay — id авто з гаража (обовʼязково для броні). */
   const [bookingVehicleId, setBookingVehicleId] = useState<string | null>(null);
+  /** Завантаженість дня + надбавка (API) для динамічної ціни. */
+  const [bookingDayLoad, setBookingDayLoad] = useState<{
+    loadPct: number;
+    surchargeUahPerKwh: number;
+  } | null>(null);
+  const [bookingDayLoadLoading, setBookingDayLoadLoading] = useState(false);
+  const [bookingDayLoadError, setBookingDayLoadError] = useState<string | null>(null);
 
   const stationIdFromUrl = searchParams.get('stationId');
 
@@ -254,6 +264,37 @@ export default function UserBookingNewPage() {
     });
   }, [pricingModel, cars]);
 
+  useEffect(() => {
+    if (pricingModel !== 'dynamic_prepay' || !selected) {
+      setBookingDayLoad(null);
+      setBookingDayLoadLoading(false);
+      setBookingDayLoadError(null);
+      return;
+    }
+    const ac = new AbortController();
+    const dateStr = localYmd(selectedDay);
+    setBookingDayLoad(null);
+    setBookingDayLoadLoading(true);
+    setBookingDayLoadError(null);
+    void fetchStationBookingDayLoad(Number(selected.id), dateStr)
+      .then((res) => {
+        if (ac.signal.aborted) return;
+        setBookingDayLoad({
+          loadPct: res.loadPct,
+          surchargeUahPerKwh: res.surchargeUahPerKwh,
+        });
+      })
+      .catch(() => {
+        if (ac.signal.aborted) return;
+        setBookingDayLoad({ loadPct: 0, surchargeUahPerKwh: 0 });
+        setBookingDayLoadError('Не вдалося завантажити заповненість дня; надбавка не врахована в оцінці (сервер перерахує).');
+      })
+      .finally(() => {
+        if (!ac.signal.aborted) setBookingDayLoadLoading(false);
+      });
+    return () => ac.abort();
+  }, [pricingModel, selected?.id, selectedDay]);
+
   const selectedBookingCar = useMemo(() => {
     if (!bookingVehicleId) return undefined;
     return cars.find((c) => c.id === bookingVehicleId);
@@ -273,16 +314,33 @@ export default function UserBookingNewPage() {
     return dataMiningTariffUahPerKwhForDay(selected, selectedDay);
   }, [selected, selectedDay]);
 
-  const estimatedDynamicKwh = useMemo(() => {
-    if (pricingModel !== 'dynamic_prepay') return null;
-    return estimatedKwhForBooking(durationMin, selectedBookingCar?.batteryCapacity, effectiveChargeKw);
-  }, [pricingModel, durationMin, selectedBookingCar, effectiveChargeKw]);
+  const loadSurchargeUahPerKwh = bookingDayLoad?.surchargeUahPerKwh ?? 0;
+
+  const dynamicDayLoadReady = pricingModel !== 'dynamic_prepay' || bookingDayLoad !== null;
+
+  /** Базовий прогноз + надбавка за заповненістю дня (як на сервері для CALC). */
+  const effectiveDynamicTariffUahPerKwh = useMemo(
+    () => Math.max(0.01, dynamicTariffUahPerKwh + loadSurchargeUahPerKwh),
+    [dynamicTariffUahPerKwh, loadSurchargeUahPerKwh]
+  );
 
   const payNow = useMemo(() => {
     if (!selected) return 0;
     if (pricingModel === 'reservation_fee') return RESERVATION_FEE_UAH;
-    return estimateDynamicPrepayUah(durationMin, selectedBookingCar, effectiveChargeKw, dynamicTariffUahPerKwh);
-  }, [selected, pricingModel, durationMin, selectedBookingCar, effectiveChargeKw, dynamicTariffUahPerKwh]);
+    return estimateDynamicPrepayUah(
+      durationMin,
+      selectedBookingCar,
+      effectiveChargeKw,
+      effectiveDynamicTariffUahPerKwh
+    );
+  }, [
+    selected,
+    pricingModel,
+    durationMin,
+    selectedBookingCar,
+    effectiveChargeKw,
+    effectiveDynamicTariffUahPerKwh,
+  ]);
 
   const dynamicVehicleOk =
     pricingModel !== 'dynamic_prepay' ||
@@ -298,7 +356,8 @@ export default function UserBookingNewPage() {
     slotStartMs !== null &&
     !slotsLoading &&
     allowedHm.has(localHmFromMs(slotStartMs)) &&
-    dynamicVehicleOk;
+    dynamicVehicleOk &&
+    dynamicDayLoadReady;
 
   const handleConfirm = () => {
     if (!selected || !selectedPort || slotStartMs === null || !canConfirm) return;
@@ -665,7 +724,13 @@ export default function UserBookingNewPage() {
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-900/90">
                         Розрахунок динамічної ціни
                       </p>
-                      <div className="grid grid-cols-3 gap-2">
+                      {bookingDayLoadLoading ? (
+                        <p className="text-[11px] text-emerald-800/90">Завантаження заповненості дня…</p>
+                      ) : null}
+                      {bookingDayLoadError ? (
+                        <p className="text-[11px] text-amber-800">{bookingDayLoadError}</p>
+                      ) : null}
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         <div className="rounded-lg border border-white/80 bg-white/90 px-2 py-2.5 text-center shadow-sm">
                           <p className="text-[10px] font-medium uppercase leading-tight text-slate-500">Потужність</p>
                           <p className="mt-1 text-sm font-bold tabular-nums text-slate-900">
@@ -675,24 +740,52 @@ export default function UserBookingNewPage() {
                             })}{' '}
                             <span className="text-xs font-semibold">кВт</span>
                           </p>
-                          </div>
+                        </div>
                         <div className="rounded-lg border border-white/80 bg-white/90 px-2 py-2.5 text-center shadow-sm">
                           <p className="text-[10px] font-medium uppercase leading-tight text-slate-500">Тривалість</p>
                           <p className="mt-1 text-sm font-bold tabular-nums text-slate-900">{durationChipLabel(durationMin)}</p>
-                          
                         </div>
-                        <div className="rounded-lg border border-white/80 bg-white/90 px-2 py-2.5 text-center shadow-sm">
-                          <p className="text-[10px] font-medium uppercase leading-tight text-slate-500">Тариф е/е</p>
+                        <div className="rounded-lg border border-white/80 bg-white/90 px-2 py-2.5 text-center shadow-sm sm:col-span-1">
+                          <p className="text-[10px] font-medium uppercase leading-tight text-slate-500">Базовий тариф</p>
                           <p className="mt-1 text-sm font-bold tabular-nums text-slate-900">
                             {dynamicTariffUahPerKwh.toLocaleString('uk-UA', {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 4,
                             })}
                           </p>
-                         
+                          <p className="mt-0.5 text-[9px] text-slate-500">грн / кВт·год</p>
+                        </div>
+                        <div className="rounded-lg border border-white/80 bg-white/90 px-2 py-2.5 text-center shadow-sm">
+                          <p className="text-[10px] font-medium uppercase leading-tight text-slate-500">Заповненість дня</p>
+                          <p className="mt-1 text-sm font-bold tabular-nums text-slate-900">
+                            {bookingDayLoad != null
+                              ? `${bookingDayLoad.loadPct.toLocaleString('uk-UA', { maximumFractionDigits: 1 })}%`
+                              : '—'}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-white/80 bg-white/90 px-2 py-2.5 text-center shadow-sm">
+                          <p className="text-[10px] font-medium uppercase leading-tight text-slate-500">Надбавка</p>
+                          <p className="mt-1 text-sm font-bold tabular-nums text-slate-900">
+                            {bookingDayLoad != null
+                              ? `+${loadSurchargeUahPerKwh.toLocaleString('uk-UA', {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 4,
+                                })}`
+                              : '—'}
+                          </p>
+                          <p className="mt-0.5 text-[9px] text-slate-500">грн / кВт·год</p>
+                        </div>
+                        <div className="rounded-lg border border-emerald-300/80 bg-white/95 px-2 py-2.5 text-center shadow-sm ring-1 ring-emerald-600/15">
+                          <p className="text-[10px] font-medium uppercase leading-tight text-emerald-900/90">Разом тариф</p>
+                          <p className="mt-1 text-sm font-bold tabular-nums text-emerald-950">
+                            {effectiveDynamicTariffUahPerKwh.toLocaleString('uk-UA', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 4,
+                            })}
+                          </p>
+                          <p className="mt-0.5 text-[9px] text-emerald-800/80">грн / кВт·год</p>
                         </div>
                       </div>
-                    
                     </div>
                   ) : null}
 

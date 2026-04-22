@@ -85,7 +85,7 @@ export default function UserCarNewPage() {
   return (
     <UserCarFormShell
       title="Додати авто"
-      description="Ілюстрація на картці підбирається за брендом і моделлю під час введення. Усі поля обов’язкові."
+      description=""
       previewSrc={previewSrc}
     >
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
@@ -156,7 +156,7 @@ export default function UserCarNewPage() {
               {fieldErrors.plate}
             </p>
           ) : (
-            <p className="mt-1.5 text-xs text-gray-500">Латиниця або кирилиця, цифри; пробіли за бажанням.</p>
+            <p className="mt-1.5 text-xs text-gray-500"></p>
           )}
         </div>
 
@@ -179,7 +179,7 @@ export default function UserCarNewPage() {
               {fieldErrors.batteryCapacity}
             </p>
           ) : (
-            <p className="mt-1.5 text-xs text-gray-500">Типові значення: 40–100 кВт·год для легкових EV.</p>
+            <p className="mt-1.5 text-xs text-gray-500"></p>
           )}
         </div>
 

@@ -89,7 +89,7 @@ export default function TariffForecastChartCard() {
   return (
     <AppCard className="space-y-4 border border-indigo-100/90 bg-gradient-to-br from-indigo-50/60 via-white to-slate-50/30 shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-      
+       
         <OutlineButton type="button" disabled={loading} onClick={load} className="shrink-0">
           {loading ? 'Оновлення…' : 'Оновити графік'}
         </OutlineButton>

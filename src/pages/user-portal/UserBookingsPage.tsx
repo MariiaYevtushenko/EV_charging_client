@@ -12,14 +12,22 @@ import {
   userPortalPageHeaderRow,
   userPortalPageTitle,
   userPortalPrimaryCta,
-  userPortalTabActive,
-  userPortalTabBadgeIdle,
-  userPortalTabBadgeOnAccent,
-  userPortalTabIdle,
 } from '../../styles/userPortalTheme';
+import {
+  stationAdminUnderlineTabActive,
+  stationAdminUnderlineTabIdle,
+} from '../../styles/stationAdminTheme';
 import { isOnOrAfterNetworkPeriodCutoff } from '../../utils/networkListPeriod';
 
 const BOOKINGS_PAGE_SIZE = 10;
+
+const bookingsTabClass = (active: boolean) =>
+  active ? stationAdminUnderlineTabActive : stationAdminUnderlineTabIdle;
+
+const bookingsTabBadgeClass = (active: boolean) =>
+  active
+    ? 'shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-green-800'
+    : 'shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-600';
 
 function CalendarDaysIcon({ className }: { className?: string }) {
   return (
@@ -227,9 +235,9 @@ export default function UserBookingsPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
-        <div
-          className="flex w-full max-w-2xl min-w-0 flex-1 items-stretch rounded-xl border border-slate-200 bg-white p-1 shadow-sm"
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-6">
+        <nav
+          className="-mx-1 flex min-w-0 max-w-2xl flex-1 items-center gap-8 overflow-x-auto border-b border-gray-200 px-1"
           role="tablist"
           aria-label="Фільтр бронювань"
         >
@@ -240,12 +248,10 @@ export default function UserBookingsPage() {
             aria-selected={tab === 'upcoming'}
             aria-controls="bookings-list-panel"
             onClick={() => setTab('upcoming')}
-            className={`${tab === 'upcoming' ? userPortalTabActive : userPortalTabIdle} min-w-0 flex-1 gap-1.5`}
+            className={`${bookingsTabClass(tab === 'upcoming')} inline-flex min-w-0 items-center gap-1.5`}
           >
             <span className="truncate">Заплановані</span>
-            <span className={tab === 'upcoming' ? userPortalTabBadgeOnAccent : userPortalTabBadgeIdle}>
-              {upcoming.length}
-            </span>
+            <span className={bookingsTabBadgeClass(tab === 'upcoming')}>{upcoming.length}</span>
           </button>
           <button
             type="button"
@@ -254,16 +260,14 @@ export default function UserBookingsPage() {
             aria-selected={tab === 'past'}
             aria-controls="bookings-list-panel"
             onClick={() => setTab('past')}
-            className={`${tab === 'past' ? userPortalTabActive : userPortalTabIdle} min-w-0 flex-1 gap-1.5`}
+            className={`${bookingsTabClass(tab === 'past')} inline-flex min-w-0 items-center gap-1.5`}
           >
             <span className="truncate">У минулому</span>
-            <span className={tab === 'past' ? userPortalTabBadgeOnAccent : userPortalTabBadgeIdle}>
-              {past.length}
-            </span>
+            <span className={bookingsTabBadgeClass(tab === 'past')}>{past.length}</span>
           </button>
-        </div>
+        </nav>
 
-        <div className="shrink-0 lg:pt-0.5">
+        <div className="shrink-0 lg:pb-3">
           <NetworkListPeriodControl
             value={period}
             disabled={tab === 'upcoming'}

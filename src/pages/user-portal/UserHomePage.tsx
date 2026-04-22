@@ -159,7 +159,9 @@ export default function UserHomePage() {
     <div className="space-y-6">
       <div>
         <h1 className={userPortalPageTitle}>Карта станцій</h1>
-        
+        <p className="mt-1 max-w-xl text-xs leading-relaxed text-slate-500">
+          Тарифи на сьогодні для обраної на карті станції — у картці справа над «Поточна зарядка» / «Немає активної зарядки».
+        </p>
       </div>
 
       <div className="grid gap-6 lg:gap-8 xl:grid-cols-5">
@@ -182,6 +184,39 @@ export default function UserHomePage() {
         </AppCard>
 
         <div className="flex flex-col gap-5 xl:col-span-2">
+          {selected ? (
+            <AppCard className="border border-slate-200/90 bg-gradient-to-br from-white to-slate-50/40 px-4 py-3 shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Тарифи на сьогодні
+              </p>
+              <p className="mt-0.5 text-xs text-slate-600">
+                Для обраної станції: <span className="font-medium text-slate-800">{selected.name}</span>
+              </p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                <div className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border border-amber-100/80 bg-amber-50/50 px-3 py-2 sm:flex-col sm:items-start sm:justify-center">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-900/70">День</p>
+                  <p className="text-sm font-bold tabular-nums text-slate-900 sm:mt-0.5">
+                    {eurToUah(selected.dayTariff).toLocaleString('uk-UA', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    <span className="font-semibold text-slate-600">грн/кВт·год</span>
+                  </p>
+                </div>
+                <div className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border border-sky-100/80 bg-sky-50/50 px-3 py-2 sm:flex-col sm:items-start sm:justify-center">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-900/70">Ніч</p>
+                  <p className="text-sm font-bold tabular-nums text-slate-900 sm:mt-0.5">
+                    {eurToUah(selected.nightTariff).toLocaleString('uk-UA', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    <span className="font-semibold text-slate-600">грн/кВт·год</span>
+                  </p>
+                </div>
+              </div>
+            </AppCard>
+          ) : null}
+
           {currentSession ? (
             <AppCard className="space-y-4 border-emerald-200/60 bg-gradient-to-b from-emerald-50/40 to-white ring-emerald-500/10">
               <div className="flex items-start justify-between gap-2">
@@ -241,28 +276,6 @@ export default function UserHomePage() {
                 <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                 <span>{selected.address}</span>
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl border border-amber-100/80 bg-amber-50/50 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-900/70">День</p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900">
-                    {eurToUah(selected.dayTariff).toLocaleString('uk-UA', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{' '}
-                    грн/кВт·год
-                  </p>
-                </div>
-                <div className="rounded-xl border border-sky-100/80 bg-sky-50/50 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-900/70">Ніч</p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900">
-                    {eurToUah(selected.nightTariff).toLocaleString('uk-UA', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{' '}
-                    грн/кВт·год
-                  </p>
-                </div>
-              </div>
 
               {!canBookOrChargeHere ? (
                 <p className="rounded-xl border border-amber-200/90 bg-amber-50/90 px-3 py-2 text-sm text-amber-950">

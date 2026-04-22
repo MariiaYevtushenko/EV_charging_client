@@ -74,6 +74,14 @@ export type AvailableBookingSlotsResponse = {
   slots: AvailableBookingSlotDto[];
 };
 
+/** GET /api/stations/:stationId/booking-day-load?date=YYYY-MM-DD */
+export type StationBookingDayLoadDto = {
+  loadPct: number;
+  bookedMinutes: number;
+  capacityMinutes: number;
+  surchargeUahPerKwh: number;
+};
+
 /** GET /api/stations/:stationId/analytics-energy?period=1d|7d|30d */
 export type StationEnergyPeriod = '1d' | '7d' | '30d';
 

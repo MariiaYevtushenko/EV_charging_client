@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppCard, OutlineButton, PrimaryButton } from '../../components/station-admin/Primitives';
 import { appInputCompactClass } from '../../components/station-admin/formStyles';
 import { userFacingApiErrorMessage } from '../../api/http';
-import { fetchForecastBias, saveForecastBias } from '../../api/forecastBias';
 import {
   fetchTariffsList,
   fetchTariffsToday,
@@ -23,6 +22,7 @@ import SortableTableTh, {
   type SortDir,
 } from '../../components/admin/SortableTableTh';
 import TariffForecastChartCard from '../../components/admin/TariffForecastChartCard';
+import TariffHistoryChartCard from '../../components/admin/TariffHistoryChartCard';
 
 const TARIFF_LIST_PAGE_SIZE = 20;
 
@@ -129,212 +129,6 @@ function groupTariffsByDate(rows: TariffListItemDto[]): TariffGroupedRow[] {
     dayPrice: v.day,
     nightPrice: v.night,
   }));
-}
-
-function ForecastBiasCard() {
-  const [dayBias, setDayBias] = useState('');
-  const [nightBias, setNightBias] = useState('');
-  const [draftDay, setDraftDay] = useState('');
-  const [draftNight, setDraftNight] = useState('');
-  const [editing, setEditing] = useState(false);
-  const [updatedDay, setUpdatedDay] = useState<string | null>(null);
-  const [updatedNight, setUpdatedNight] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [savedOk, setSavedOk] = useState(false);
-
-  const load = () => {
-    setLoading(true);
-    setError(null);
-    setEditing(false);
-    void fetchForecastBias()
-      .then((data) => {
-        setDayBias(String(data.day));
-        setNightBias(String(data.night));
-        setDraftDay(String(data.day));
-        setDraftNight(String(data.night));
-        setUpdatedDay(data.updatedAtDay);
-        setUpdatedNight(data.updatedAtNight);
-      })
-      .catch((e: unknown) => {
-        setError(userFacingApiErrorMessage(e, 'Не вдалося завантажити корекцію прогнозу'));
-      })
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  useEffect(() => {
-    if (!editing) {
-      setDraftDay(dayBias);
-      setDraftNight(nightBias);
-    }
-  }, [dayBias, nightBias, editing]);
-
-  const startEdit = () => {
-    setDraftDay(dayBias);
-    setDraftNight(nightBias);
-    setEditing(true);
-    setError(null);
-    setSavedOk(false);
-  };
-
-  const cancelEdit = () => {
-    setDraftDay(dayBias);
-    setDraftNight(nightBias);
-    setEditing(false);
-    setError(null);
-  };
-
-  const handleSave = () => {
-    const d = parseFloat(draftDay.replace(',', '.'));
-    const n = parseFloat(draftNight.replace(',', '.'));
-    if (!Number.isFinite(d) || !Number.isFinite(n)) {
-      setError('Введіть числа для денного та нічного зміщення');
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    setSavedOk(false);
-    void saveForecastBias({ day: d, night: n })
-      .then((data) => {
-        setDayBias(String(data.day));
-        setNightBias(String(data.night));
-        setDraftDay(String(data.day));
-        setDraftNight(String(data.night));
-        setUpdatedDay(data.updatedAtDay);
-        setUpdatedNight(data.updatedAtNight);
-        setSavedOk(true);
-        setEditing(false);
-        window.setTimeout(() => setSavedOk(false), 2500);
-      })
-      .catch((e: unknown) => {
-        setError(userFacingApiErrorMessage(e, 'Збереження не вдалося'));
-      })
-      .finally(() => setSaving(false));
-  };
-
-  const fieldClass = `mt-1 ${appInputCompactClass}`;
-
-  return (
-    <AppCard className="space-y-4 border border-violet-100/90 bg-gradient-to-br from-violet-50/80 via-white to-slate-50/30 shadow-sm">
-      <div>
-        <h2 className="text-lg font-bold text-slate-900">Корекція прогнозу</h2>
-        <div
-          id="forecast-bias-help"
-          className={`mt-2 space-y-2 text-sm leading-relaxed text-gray-600 ${loading ? 'hidden' : ''}`}
-        >
-          <p>
-            До ціни з моделі SARIMA (таблиця <span className="font-medium text-slate-800">tariff_prediction</span>) для
-            кожного періоду додається <span className="font-medium text-slate-800">зміщення (bias)</span> у{' '}
-            <span className="font-medium text-slate-800">грн за кВт·год</span>. Це саме значення потім використовується в
-            бронюваннях і на графіку прогнозу вище.
-          </p>
-          <ul className="list-inside list-disc space-y-1 text-gray-600">
-            <li>
-              <span className="font-medium text-slate-700">Як змінити:</span> натисніть «Змінити корекцію», введіть нові
-              числа (можна від’ємні — зниження ціни), потім «Зберегти».
-            </li>
-            <li>
-              <span className="font-medium text-slate-700">Оновити з бази:</span> підтягнути поточні збережені значення з
-              БД, якщо їх змінили в іншому місці (редагування не відкривається).
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      {loading ? (
-        <p className="text-sm text-gray-500">Завантаження…</p>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="text-sm font-medium text-gray-700" htmlFor={editing ? 'fb-day' : undefined}>
-              Денний тариф — зміщення
-            </label>
-            <p className="text-xs text-gray-500">грн/кВт·год, додається до денного прогнозу</p>
-            {editing ? (
-              <input
-                id="fb-day"
-                value={draftDay}
-                onChange={(e) => setDraftDay(e.target.value)}
-                className={fieldClass}
-                inputMode="decimal"
-                disabled={saving}
-                aria-describedby="forecast-bias-help"
-                placeholder="0"
-              />
-            ) : (
-              <p className="mt-2 text-lg font-semibold tabular-nums text-slate-900">
-                {dayBias}{' '}
-                <span className="text-sm font-normal text-gray-500">грн/кВт·год</span>
-              </p>
-            )}
-            {updatedDay ? (
-              <p className="mt-1 text-xs text-gray-500">Збережено в БД: {new Date(updatedDay).toLocaleString('uk-UA')}</p>
-            ) : null}
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700" htmlFor={editing ? 'fb-night' : undefined}>
-              Нічний тариф — зміщення
-            </label>
-            <p className="text-xs text-gray-500">грн/кВт·год, додається до нічного прогнозу</p>
-            {editing ? (
-              <input
-                id="fb-night"
-                value={draftNight}
-                onChange={(e) => setDraftNight(e.target.value)}
-                className={fieldClass}
-                inputMode="decimal"
-                disabled={saving}
-                aria-describedby="forecast-bias-help"
-                placeholder="0"
-              />
-            ) : (
-              <p className="mt-2 text-lg font-semibold tabular-nums text-slate-900">
-                {nightBias}{' '}
-                <span className="text-sm font-normal text-gray-500">грн/кВт·год</span>
-              </p>
-            )}
-            {updatedNight ? (
-              <p className="mt-1 text-xs text-gray-500">Збережено в БД: {new Date(updatedNight).toLocaleString('uk-UA')}</p>
-            ) : null}
-          </div>
-        </div>
-      )}
-
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {savedOk ? (
-        <p className="rounded-xl border border-green-200 bg-green-50/90 px-4 py-3 text-sm text-green-900">
-          Корекцію збережено — оновіть графік прогнозу кнопкою «Оновити графік» вище, щоб побачити нові лінії.
-        </p>
-      ) : null}
-
-      <div className="flex flex-wrap items-center gap-2 border-t border-violet-100 pt-4">
-        {editing ? (
-          <>
-            <PrimaryButton type="button" disabled={loading || saving} onClick={handleSave}>
-              {saving ? 'Збереження…' : 'Зберегти корекцію'}
-            </PrimaryButton>
-            <OutlineButton type="button" disabled={loading || saving} onClick={cancelEdit}>
-              Скасувати
-            </OutlineButton>
-          </>
-        ) : (
-          <>
-            <PrimaryButton type="button" disabled={loading || saving} onClick={startEdit}>
-              Змінити корекцію
-            </PrimaryButton>
-            <OutlineButton type="button" disabled={loading || saving} onClick={load}>
-              Оновити з бази
-            </OutlineButton>
-          </>
-        )}
-      </div>
-    </AppCard>
-  );
 }
 
 function TodayTariffEditIconButton({
@@ -791,6 +585,12 @@ export default function GlobalTariffsPage() {
     return [...g].sort((a, b) => cmpTariffRows(a, b, tariffSortKey, tariffSortDir));
   }, [rows, tariffSortKey, tariffSortDir]);
 
+  /** Хронологія для графіка (незалежно від сортування таблиці). */
+  const chartSeriesAsc = useMemo(() => {
+    const g = groupTariffsByDate(rows);
+    return [...g].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+  }, [rows]);
+
   const pagedRows = useMemo(() => {
     const start = (listPage - 1) * TARIFF_LIST_PAGE_SIZE;
     return groupedRows.slice(start, start + TARIFF_LIST_PAGE_SIZE);
@@ -880,91 +680,103 @@ export default function GlobalTariffsPage() {
             refreshingPeriod={todayRefreshingPeriod}
           />
 
-          <AppCard padding={false} className="overflow-hidden shadow-sm">
-           
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="border-b border-gray-100 bg-gray-50/80 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  <tr>
-                    <SortableTableTh
-                      label="Дата"
-                      columnKey="effectiveDate"
-                      activeKey={tariffSortKey}
-                      dir={tariffSortDir}
-                      onSort={onTariffSort}
-                      thClassName="px-5 py-3"
-                    />
-                    <SortableTableTh
-                      label="День (грн)"
-                      columnKey="dayPrice"
-                      activeKey={tariffSortKey}
-                      dir={tariffSortDir}
-                      onSort={onTariffSort}
-                      align="right"
-                      thClassName="px-5 py-3"
-                    />
-                    <SortableTableTh
-                      label="Ніч (грн)"
-                      columnKey="nightPrice"
-                      activeKey={tariffSortKey}
-                      dir={tariffSortDir}
-                      onSort={onTariffSort}
-                      align="right"
-                      thClassName="px-5 py-3"
-                    />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {listLoading && rows.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} className="px-5 py-8 text-center text-gray-500">
-                        Завантаження…
-                      </td>
-                    </tr>
-                  ) : null}
-                  {pagedRows.map((r) => {
-                    const isToday = todayDate && r.effectiveDate === todayDate;
-                    return (
-                      <tr
-                        key={r.effectiveDate}
-                        className={
-                          isToday ? 'bg-green-50/80 hover:bg-green-50' : 'bg-white hover:bg-gray-50/80'
-                        }
-                      >
-                        <td className="whitespace-nowrap px-5 py-3 text-gray-800">
-                          {formatTariffCalendarDate(r.effectiveDate)}
-                        </td>
-                        <td className="px-5 py-3 text-right tabular-nums font-medium text-slate-900">
-                          {formatUahPerKwh(r.dayPrice)}
-                        </td>
-                        <td className="px-5 py-3 text-right tabular-nums font-medium text-slate-900">
-                          {formatUahPerKwh(r.nightPrice)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {groupedRows.length > 0 ? (
-              <div className="border-t border-gray-100 px-5 py-4">
-                <AdminListPagination
-                  page={listPage}
-                  pageSize={TARIFF_LIST_PAGE_SIZE}
-                  total={groupedRows.length}
-                  onPageChange={setListPage}
-                />
-              </div>
-            ) : null}
-            {!listLoading && rows.length === 0 && !listError ? (
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[3fr_2fr] xl:items-start">
+          <div className="min-w-0 self-start">
+            <TariffHistoryChartCard seriesAsc={chartSeriesAsc} loading={listLoading} />
+          </div>
+
+          <AppCard
+            padding={false}
+            className="flex min-h-0 min-w-0 flex-col overflow-hidden shadow-sm"
+          >
+            {listError ? (
+              <p className="px-5 py-8 text-center text-sm text-red-600">{listError}</p>
+            ) : !listLoading && rows.length === 0 ? (
               <p className="px-5 py-8 text-center text-sm text-gray-500">Тарифи відсутні</p>
-            ) : null}
+            ) : (
+              <>
+                <div className="min-h-0 max-h-[min(28rem,calc(100dvh-22rem))] overflow-y-auto overflow-x-auto overscroll-y-contain">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500 shadow-sm">
+                      <tr>
+                        <SortableTableTh
+                          label="Дата"
+                          columnKey="effectiveDate"
+                          activeKey={tariffSortKey}
+                          dir={tariffSortDir}
+                          onSort={onTariffSort}
+                          thClassName="bg-gray-50 px-5 py-3"
+                        />
+                        <SortableTableTh
+                          label="День (грн)"
+                          columnKey="dayPrice"
+                          activeKey={tariffSortKey}
+                          dir={tariffSortDir}
+                          onSort={onTariffSort}
+                          align="right"
+                          thClassName="bg-gray-50 px-5 py-3"
+                        />
+                        <SortableTableTh
+                          label="Ніч (грн)"
+                          columnKey="nightPrice"
+                          activeKey={tariffSortKey}
+                          dir={tariffSortDir}
+                          onSort={onTariffSort}
+                          align="right"
+                          thClassName="bg-gray-50 px-5 py-3"
+                        />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {listLoading && rows.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="px-5 py-8 text-center text-gray-500">
+                            Завантаження…
+                          </td>
+                        </tr>
+                      ) : null}
+                      {pagedRows.map((r) => {
+                        const isToday = todayDate && r.effectiveDate === todayDate;
+                        return (
+                          <tr
+                            key={r.effectiveDate}
+                            className={
+                              isToday ? 'bg-green-50/80 hover:bg-green-50' : 'bg-white hover:bg-gray-50/80'
+                            }
+                          >
+                            <td className="whitespace-nowrap px-5 py-3 text-gray-800">
+                              {formatTariffCalendarDate(r.effectiveDate)}
+                            </td>
+                            <td className="px-5 py-3 text-right tabular-nums font-medium text-slate-900">
+                              {formatUahPerKwh(r.dayPrice)}
+                            </td>
+                            <td className="px-5 py-3 text-right tabular-nums font-medium text-slate-900">
+                              {formatUahPerKwh(r.nightPrice)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {groupedRows.length > 0 ? (
+                  <div className="shrink-0 border-t border-gray-100 bg-white px-5 py-4">
+                    <AdminListPagination
+                      page={listPage}
+                      pageSize={TARIFF_LIST_PAGE_SIZE}
+                      total={groupedRows.length}
+                      onPageChange={setListPage}
+                    />
+                  </div>
+                ) : null}
+              </>
+            )}
           </AppCard>
+          </div>
         </div>
       ) : (
         <div className="space-y-5">
           <TariffForecastChartCard />
-          <ForecastBiasCard />
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import type {
   AvailableBookingSlotsResponse,
   PaginatedStationsResponse,
+  StationBookingDayLoadDto,
   StationDashboardDto,
   StationEnergyAnalyticsDto,
   StationEnergyPeriod,
@@ -81,6 +82,17 @@ export function fetchStationAvailableBookingSlots(
   });
   return getJson<AvailableBookingSlotsResponse>(
     `/api/stations/${stationId}/available-booking-slots?${params.toString()}`
+  );
+}
+
+/** Завантаженість станції за днем бронювання + надбавка ₴/кВт·год (динамічна ціна). */
+export function fetchStationBookingDayLoad(
+  stationId: number,
+  dateYmd: string
+): Promise<StationBookingDayLoadDto> {
+  const params = new URLSearchParams({ date: dateYmd });
+  return getJson<StationBookingDayLoadDto>(
+    `/api/stations/${stationId}/booking-day-load?${params.toString()}`
   );
 }
 

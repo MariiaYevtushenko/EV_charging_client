@@ -165,7 +165,7 @@ function UserCarEditForm({ car, carId }: { car: UserCar; carId: string }) {
               {fieldErrors.plate}
             </p>
           ) : (
-            <p className="mt-1.5 text-xs text-gray-500">Латиниця або кирилиця, цифри; пробіли за бажанням.</p>
+            <p className="mt-1.5 text-xs text-gray-500"></p>
           )}
         </div>
 
