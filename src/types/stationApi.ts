@@ -100,3 +100,18 @@ export type StationEnergyAnalyticsDto = {
   sessionCount: number;
   totalRevenueUah: number;
 };
+
+/** GET /api/stations/:id/session-sql-stats?period= — вікно як у адмін-аналітиці (SQL-функція). */
+export type StationSessionSqlPeriod = 'today' | '7d' | '30d' | 'all';
+
+export type StationSessionSqlStatsDto = {
+  period: StationSessionSqlPeriod;
+  periodFrom: string;
+  periodTo: string;
+  partial: boolean;
+  totalSessions: number;
+  avgDurationMinutes: number | null;
+  avgKwh: number | null;
+  totalRevenue: number;
+  avgBillAmount: number | null;
+};

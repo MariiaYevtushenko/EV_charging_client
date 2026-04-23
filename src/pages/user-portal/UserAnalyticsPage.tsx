@@ -16,16 +16,14 @@ import {
   type UserAnalyticsPeriod,
   type UserAnalyticsViewsResponse,
 } from '../../api/userAnalytics';
-import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
+import { AppCard } from '../../components/station-admin/Primitives';
+import { PeriodSegmentedControl } from '../../components/analytics/PeriodSegmentedControl';
 import {
   userPortalBookingStatus,
   userPortalIconTileMd,
   userPortalListPageShell,
   userPortalPageHeaderRow,
   userPortalPageTitle,
-  userPortalTabActive,
-  userPortalTabBar,
-  userPortalTabIdle,
 } from '../../styles/userPortalTheme';
 
 const PERIOD_OPTIONS: { value: UserAnalyticsPeriod; label: string }[] = [
@@ -51,19 +49,6 @@ function fmtKwh(n: number) {
   return n.toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
-function fmtPct(p: number | null | undefined, digits = 1): string {
-  if (p == null || !Number.isFinite(p)) return '—';
-  const sign = p > 0 ? '+' : '';
-  return `${sign}${p.toFixed(digits)}%`;
-}
-
-function pctTone(p: number | null | undefined): 'success' | 'danger' | 'muted' {
-  if (p == null || !Number.isFinite(p)) return 'muted';
-  if (p > 0) return 'success';
-  if (p < 0) return 'danger';
-  return 'muted';
-}
-
 /** Фон квадратика «% успішності» (завершені / усі бронювання в періоді). */
 function bookingSuccessRateStripClass(pct: number): string {
   if (pct >= 80) return 'bg-emerald-100 text-emerald-950 ring-emerald-500/45';
@@ -79,13 +64,20 @@ function sessionDeltaStatusUa(delta: number): string {
   return 'без змін';
 }
 
-/** Відсоток зі знаком: мінус окремо перед числом, символ % в кінці (для блоку енергії / витрат). */
-function pctWithLeadingSign(p: number | null, digits = 1): { sign: '−' | '+' | null; abs: string } {
-  if (p == null || !Number.isFinite(p)) return { sign: null, abs: '—' };
-  if (p === 0) return { sign: null, abs: (0).toLocaleString('uk-UA', { maximumFractionDigits: digits }) };
-  const sign: '−' | '+' = p < 0 ? '−' : '+';
-  const abs = Math.abs(p).toLocaleString('uk-UA', { maximumFractionDigits: digits });
-  return { sign, abs };
+function pctDeltaStatusUa(pct: number): string {
+  if (pct > 0) return 'більше';
+  if (pct < 0) return 'менше';
+  return 'без змін';
+}
+
+function fmtAbsPctOne(p: number): string {
+  return Math.abs(p).toLocaleString('uk-UA', { maximumFractionDigits: 1, minimumFractionDigits: 0 });
+}
+
+function deltaToneClass(delta: number): string {
+  if (delta < 0) return 'text-emerald-700';
+  if (delta > 0) return 'text-rose-700';
+  return 'text-slate-600';
 }
 
 function SparkIcon({ className }: { className?: string }) {
@@ -221,21 +213,13 @@ export default function UserAnalyticsPage() {
         <div className="min-w-0">
           <h1 className={userPortalPageTitle}>Аналітика</h1>
         </div>
-        <div className={userPortalTabBar} role="tablist" aria-label="Період аналітики">
-          {PERIOD_OPTIONS.map((o) => (
-            <button
-              key={o.value}
-              type="button"
-              role="tab"
-              aria-selected={period === o.value}
-              disabled={loading}
-              className={period === o.value ? userPortalTabActive : userPortalTabIdle}
-              onClick={() => setPeriod(o.value)}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
+        <PeriodSegmentedControl
+          value={period}
+          onChange={(v) => setPeriod(v as UserAnalyticsPeriod)}
+          options={PERIOD_OPTIONS}
+          disabled={loading}
+          className="sm:justify-end"
+        />
       </header>
 
       {data?.partial ? (
@@ -302,7 +286,7 @@ export default function UserAnalyticsPage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <KpiCard title="Сесії" value={String(ps?.sessionCount ?? 0)} />
               <KpiCard title="Енергія" value={`${fmtKwh(ps?.totalKwh ?? 0)} кВт·год`} />
-              <KpiCard title="Витрати (рахунки)" value={`${fmtMoney(ps?.totalSpent ?? 0)} ₴`} />
+              <KpiCard title="Витрати" value={`${fmtMoney(ps?.totalSpent ?? 0)} ₴`} />
             </div>
           </section>
 
@@ -367,61 +351,53 @@ export default function UserAnalyticsPage() {
 
               {showCalendarMonthCard && cm ? (
                 <AppCard padding className="border-slate-200">
-                  <h2 className="text-sm font-semibold text-slate-900">Витрати за календарні місяці</h2>
-                  <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-500">
-                    Поточний місяць (з 1-го до сьогодні) vs повний попередній. Друге число в блоці сесій — різниця
-                    кількості сесій; для енергії та грошей — % зміни (мінус окремо перед числом, % у кінці).
-                  </p>
+                  <h2 className="text-sm font-semibold text-slate-900">Порівняння з попереднім місяцем</h2>
+                
                   <div className="mt-4 grid gap-4 sm:grid-cols-3">
                     <div className="rounded-xl border border-slate-100 bg-slate-50/90 p-4">
-                      <p className="text-xs font-medium capitalize text-slate-500">
-                        Сесії — {calendarMonthSpendLabels.current}
+                      <p className="text-xs font-medium text-slate-500">Кількість сесій</p>
+                      <p
+                        className={`mt-3 text-2xl font-bold leading-tight tracking-tight sm:text-3xl ${deltaToneClass(sessionCalDelta)}`}
+                      >
+                        {sessionCalDelta === 0
+                          ? 'Без змін'
+                          : `На ${Math.abs(sessionCalDelta)} ${sessionDeltaStatusUa(sessionCalDelta)}`}
                       </p>
-                      <p className="mt-2 text-3xl font-bold tabular-nums tracking-tight text-slate-900">
-                        {cm.current.sessionCount}
+                      <p className="mt-1 text-[11px] leading-snug text-slate-500">
+                        порівняно з {calendarMonthSpendLabels.previous}
                       </p>
-                      <p className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm text-slate-700">
-                        <span
-                          className={`text-2xl font-semibold tabular-nums ${
-                            sessionCalDelta > 0
-                              ? 'text-emerald-700'
-                              : sessionCalDelta < 0
-                                ? 'text-rose-700'
-                                : 'text-slate-600'
-                          }`}
-                        >
-                          {sessionCalDelta === 0 ? '0' : `${sessionCalDelta > 0 ? '+' : ''}${sessionCalDelta}`}
-                        </span>
-                        <span className="text-xs font-normal text-slate-500">до попереднього місяця</span>
-                      </p>
-                      <p className="mt-1 text-[11px] text-slate-500">
-                        <span className="font-medium text-slate-600">({sessionDeltaStatusUa(sessionCalDelta)})</span>
+                      <p className="mt-3 text-[11px] leading-snug text-slate-500">
+                        Поточний місяць:{' '}
+                        <span className="font-semibold tabular-nums text-slate-700">{cm.current.sessionCount}</span>
                         {' · '}
-                        було <span className="font-medium tabular-nums">{cm.previous.sessionCount}</span>
+                        Попередній:{' '}
+                        <span className="font-semibold tabular-nums text-slate-700">{cm.previous.sessionCount}</span>
                       </p>
                     </div>
                     <div className="rounded-xl border border-slate-100 bg-white p-4">
                       <p className="text-xs font-medium text-slate-500">Спожито енергії</p>
                       {mom?.kwhPct != null && Number.isFinite(mom.kwhPct) ? (
                         <>
-                          {(() => {
-                            const k = pctWithLeadingSign(mom.kwhPct, 1);
-                            return (
-                              <p className="mt-2 flex items-baseline gap-0.5 text-3xl font-bold tabular-nums tracking-tight text-slate-900">
-                                {k.sign ? <span className="text-slate-500">{k.sign}</span> : null}
-                                <span>{k.abs}</span>
-                                <span className="text-xl font-bold text-slate-500">%</span>
-                              </p>
-                            );
-                          })()}
-                          <p className="mt-2 text-[11px] leading-snug text-slate-500">
-                            За {calendarMonthSpendLabels.previous}:{' '}
+                          <p
+                            className={`mt-3 text-2xl font-bold leading-tight tracking-tight sm:text-3xl ${deltaToneClass(mom.kwhPct)}`}
+                          >
+                            {mom.kwhPct === 0
+                              ? 'Без змін'
+                              : `На ${fmtAbsPctOne(mom.kwhPct)}% ${pctDeltaStatusUa(mom.kwhPct)}`}
+                          </p>
+                          <p className="mt-1 text-[11px] leading-snug text-slate-500">
+                            порівняно з {calendarMonthSpendLabels.previous}
+                          </p>
+                          <p className="mt-3 text-[11px] leading-snug text-slate-500">
+                            Поточний місяць:{' '}
+                            <span className="font-semibold tabular-nums text-slate-700">
+                              {fmtKwh(cm.current.totalKwh)} кВт·год
+                            </span>
+                            {' · '}
+                            Попередній:{' '}
                             <span className="font-semibold tabular-nums text-slate-700">
                               {fmtKwh(cm.previous.totalKwh)} кВт·год
                             </span>
-                          </p>
-                          <p className="mt-1 text-[11px] text-slate-400">
-                            Зараз у місяці: {fmtKwh(cm.current.totalKwh)} кВт·год
                           </p>
                         </>
                       ) : (
@@ -432,30 +408,27 @@ export default function UserAnalyticsPage() {
                       <p className="text-xs font-medium text-slate-600">Витрачено коштів</p>
                       {mom?.spentPct != null && Number.isFinite(mom.spentPct) ? (
                         <>
-                          {(() => {
-                            const s = pctWithLeadingSign(mom.spentPct, 1);
-                            return (
-                              <p className="mt-2 flex items-baseline gap-0.5 text-3xl font-bold tabular-nums tracking-tight text-slate-900">
-                                {s.sign ? <span className="text-slate-500">{s.sign}</span> : null}
-                                <span>{s.abs}</span>
-                                <span className="text-xl font-bold text-slate-500">%</span>
-                              </p>
-                            );
-                          })()}
-                          <p className="mt-2 text-[11px] leading-snug text-slate-600">
-                            За {calendarMonthSpendLabels.previous}:{' '}
+                          <p
+                            className={`mt-3 text-2xl font-bold leading-tight tracking-tight sm:text-3xl ${deltaToneClass(mom.spentPct)}`}
+                          >
+                            {mom.spentPct === 0
+                              ? 'Без змін'
+                              : `На ${fmtAbsPctOne(mom.spentPct)}% ${pctDeltaStatusUa(mom.spentPct)}`}
+                          </p>
+                          <p className="mt-1 text-[11px] leading-snug text-slate-600">
+                            порівняно з {calendarMonthSpendLabels.previous}
+                          </p>
+                          <p className="mt-3 text-[11px] leading-snug text-slate-600">
+                            Поточний місяць:{' '}
+                            <span className="font-semibold tabular-nums text-slate-800">
+                              {fmtMoney(cm.current.totalSpentUah)} ₴
+                            </span>
+                            {' · '}
+                            Попередній:{' '}
                             <span className="font-semibold tabular-nums text-slate-800">
                               {fmtMoney(cm.previous.totalSpentUah)} ₴
                             </span>
                           </p>
-                          <p className="mt-1 text-[11px] text-slate-500">
-                            Зараз у місяці: {fmtMoney(cm.current.totalSpentUah)} ₴
-                          </p>
-                          <div className="mt-2">
-                            <StatusPill tone={pctTone(mom.spentPct)} size="sm">
-                              {fmtPct(mom.spentPct)} до попереднього
-                            </StatusPill>
-                          </div>
                         </>
                       ) : (
                         <p className="mt-2 text-2xl font-semibold text-slate-400">—</p>
@@ -476,7 +449,6 @@ export default function UserAnalyticsPage() {
                 <AppCard padding className="h-full min-w-0">
                   <div className="mb-4">
                     <h2 className="text-sm font-semibold text-slate-900">{chartTitleKwh}</h2>
-                   
                   </div>
                   {trendChart.length === 0 ? (
                     <p className="py-12 text-center text-sm text-slate-500">Немає даних для графіка в цьому інтервалі.</p>
@@ -517,7 +489,6 @@ export default function UserAnalyticsPage() {
                 <AppCard padding className="h-full min-w-0">
                   <div className="mb-4">
                     <h2 className="text-sm font-semibold text-slate-900">{chartTitleSpend}</h2>
-                   
                   </div>
                   {trendChart.length === 0 ? (
                     <p className="py-12 text-center text-sm text-slate-500">Немає даних для графіка в цьому інтервалі.</p>
@@ -662,12 +633,10 @@ export default function UserAnalyticsPage() {
             {sectionTab === 'cars' && (
               <div className="space-y-6">
                 <AppCard padding>
-                  <h2 className="text-sm font-semibold text-slate-900">Авто в періоді</h2>
-                  <p className="mt-0.5 text-xs text-slate-500">Сесії та витрати за обраний період</p>
                   {(data?.vehicleSpendInPeriod ?? []).length === 0 ? (
-                    <p className="mt-8 text-center text-sm text-slate-500">Немає зарядок для авто в цьому інтервалі.</p>
+                    <p className="mt-2 text-center text-sm text-slate-500">Немає зарядок для авто в цьому інтервалі.</p>
                   ) : (
-                    <div className="mt-4 overflow-x-auto">
+                    <div className="mt-2 overflow-x-auto">
                       <table className="w-full min-w-[480px] text-left text-sm">
                         <thead>
                           <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500">

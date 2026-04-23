@@ -147,7 +147,7 @@ export default function StationAdminHome() {
 
           <AdminAccentCard hover className="group">
             <AdminAccentRow icon={<IconChart className="h-6 w-6" />}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Аналітика</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Показники мережі</p>
               <p className="mt-1 text-sm leading-relaxed text-slate-600">Графіки та зведення з БД</p>
               <Link to="/station-dashboard/analytics" className={`${kpiLinkClass} mt-3`}>
                 Відкрити

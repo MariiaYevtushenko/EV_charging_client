@@ -5,6 +5,8 @@ import type {
   StationDashboardDto,
   StationEnergyAnalyticsDto,
   StationEnergyPeriod,
+  StationSessionSqlPeriod,
+  StationSessionSqlStatsDto,
   StationUpcomingBookingsResponse,
   StationsMapResponse,
 } from "../types/stationApi";
@@ -114,6 +116,17 @@ export function fetchStationEnergyAnalytics(
   const params = new URLSearchParams({ period });
   return getJson<StationEnergyAnalyticsDto>(
     `/api/stations/${stationId}/analytics-energy?${params.toString()}`
+  );
+}
+
+/** Підсумок сесій за період (`GetStationSessionStatsForPeriod` у БД). */
+export function fetchStationSessionSqlStats(
+  stationId: number,
+  period: StationSessionSqlPeriod
+): Promise<StationSessionSqlStatsDto> {
+  const params = new URLSearchParams({ period });
+  return getJson<StationSessionSqlStatsDto>(
+    `/api/stations/${stationId}/session-sql-stats?${params.toString()}`
   );
 }
 

@@ -3,11 +3,14 @@ import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-route
 import {
   fetchStationDashboard,
   fetchStationEnergyAnalytics,
+  fetchStationSessionSqlStats,
   fetchStationUpcomingBookings,
 } from '../../api/stations';
 import type {
   StationEnergyAnalyticsDto,
   StationEnergyPeriod,
+  StationSessionSqlPeriod,
+  StationSessionSqlStatsDto,
   StationUpcomingBookingDto,
 } from '../../types/stationApi';
 import { formatStationEnergyChartAxisLabel } from '../../utils/stationEnergyChartLabels';
@@ -70,6 +73,24 @@ function tabFromHash(hash: string): DetailTab {
   if (hash === '#station-bookings') return 'bookings';
   if (hash === '#station-ports') return 'ports';
   return 'analytics';
+}
+
+const SESSION_SQL_PERIOD_OPTIONS: { value: StationSessionSqlPeriod; label: string }[] = [
+  { value: 'today', label: '1 день' },
+  { value: '7d', label: '7 днів' },
+  { value: '30d', label: '30 днів' },
+  { value: 'all', label: 'Увесь час' },
+];
+
+function fmtSqlStatsWindow(fromIso: string, toIso: string) {
+  try {
+    const a = new Date(fromIso);
+    const b = new Date(toIso);
+    const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+    return `${a.toLocaleString('uk-UA', { ...opts, hour: '2-digit', minute: '2-digit' })} — ${b.toLocaleString('uk-UA', { ...opts, hour: '2-digit', minute: '2-digit' })}`;
+  } catch {
+    return `${fromIso} — ${toIso}`;
+  }
 }
 
 function fmtBookingRange(startIso: string, endIso: string) {
@@ -148,6 +169,11 @@ export default function StationDetailPage() {
   const [energyAnalytics, setEnergyAnalytics] = useState<StationEnergyAnalyticsDto | null>(null);
   const [energyLoading, setEnergyLoading] = useState(false);
   const [energyError, setEnergyError] = useState<string | null>(null);
+
+  const [sessionSqlPeriod, setSessionSqlPeriod] = useState<StationSessionSqlPeriod>('30d');
+  const [sessionSqlStats, setSessionSqlStats] = useState<StationSessionSqlStatsDto | null>(null);
+  const [sessionSqlLoading, setSessionSqlLoading] = useState(false);
+  const [sessionSqlError, setSessionSqlError] = useState<string | null>(null);
   const [stationSuccessMessage, setStationSuccessMessage] = useState<string | null>(null);
   const successToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -278,6 +304,31 @@ export default function StationDetailPage() {
       cancelled = true;
     };
   }, [station?.id, tab, energyPeriod]);
+
+  useEffect(() => {
+    if (!station || tab !== 'analytics') return;
+    const sid = Number(station.id);
+    if (!Number.isFinite(sid)) return;
+    let cancelled = false;
+    setSessionSqlLoading(true);
+    setSessionSqlError(null);
+    fetchStationSessionSqlStats(sid, sessionSqlPeriod)
+      .then((data) => {
+        if (!cancelled) setSessionSqlStats(data);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSessionSqlStats(null);
+          setSessionSqlError('Не вдалося завантажити підсумок сесій (SQL)');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setSessionSqlLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [station?.id, tab, sessionSqlPeriod]);
 
   const openPortsEditor = () => {
     if (!station) return;
@@ -636,7 +687,113 @@ export default function StationDetailPage() {
       ) : null}
 
       {tab === 'analytics' ? (
-        <AppCard className="space-y-4">
+        <>
+          <AppCard className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">Підсумок сесій</h2>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Дані з БД за обраний період (функція GetStationSessionStatsForPeriod).
+                </p>
+                {sessionSqlLoading ? (
+                  <p className="mt-2 text-xs text-gray-400">Завантаження…</p>
+                ) : sessionSqlError ? (
+                  <p className="mt-2 text-xs text-red-600">{sessionSqlError}</p>
+                ) : sessionSqlStats ? (
+                  <>
+                    <p className="mt-2 text-xs text-gray-600">
+                      Вікно:{' '}
+                      <span className="font-medium text-gray-800">
+                        {fmtSqlStatsWindow(sessionSqlStats.periodFrom, sessionSqlStats.periodTo)}
+                      </span>
+                    </p>
+                    {sessionSqlStats.partial ? (
+                      <p className="mt-1 text-xs text-amber-700">
+                        Частина SQL-запитів не виконалась; показані доступні значення.
+                      </p>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+              <div
+                className="flex shrink-0 flex-wrap gap-1.5 rounded-xl border border-gray-200/90 bg-gray-50/80 p-1"
+                role="group"
+                aria-label="Період підсумку сесій"
+              >
+                {SESSION_SQL_PERIOD_OPTIONS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setSessionSqlPeriod(value)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                      sessionSqlPeriod === value
+                        ? 'bg-green-600 text-white shadow-sm'
+                        : 'text-gray-600 hover:bg-white hover:text-gray-900'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {sessionSqlStats && !sessionSqlLoading ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="rounded-xl border border-gray-100 bg-gray-50/80 px-3 py-2.5">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Сесій</p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums text-gray-900">
+                    {sessionSqlStats.totalSessions.toLocaleString('uk-UA')}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-gray-50/80 px-3 py-2.5">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                    Середня тривалість
+                  </p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums text-gray-900">
+                    {sessionSqlStats.avgDurationMinutes == null
+                      ? '—'
+                      : `${sessionSqlStats.avgDurationMinutes.toLocaleString('uk-UA', {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 1,
+                        })} хв`}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-gray-50/80 px-3 py-2.5">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Середнє кВт·год</p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums text-gray-900">
+                    {sessionSqlStats.avgKwh == null
+                      ? '—'
+                      : sessionSqlStats.avgKwh.toLocaleString('uk-UA', {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 3,
+                        })}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-gray-50/80 px-3 py-2.5">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Прибуток</p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums text-gray-900">
+                    {sessionSqlStats.totalRevenue.toLocaleString('uk-UA', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    <span className="text-sm font-medium text-gray-600">грн</span>
+                  </p>
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-gray-50/80 px-3 py-2.5 sm:col-span-2 lg:col-span-1">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Середній чек</p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums text-gray-900">
+                    {sessionSqlStats.avgBillAmount == null
+                      ? '—'
+                      : `${sessionSqlStats.avgBillAmount.toLocaleString('uk-UA', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })} грн`}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </AppCard>
+
+          <AppCard className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="text-sm font-semibold text-gray-900">Споживання енергії</h2>
@@ -758,6 +915,7 @@ export default function StationDetailPage() {
             </ResponsiveContainer>
           </div>
         </AppCard>
+        </>
       ) : null}
 
       {tab === 'ports' ? (

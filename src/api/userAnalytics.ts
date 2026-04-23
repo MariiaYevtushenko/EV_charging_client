@@ -46,6 +46,8 @@ export type VehicleSpendInPeriodRow = {
 
 export type UserAnalyticsViewsResponse = {
   period: UserAnalyticsPeriod;
+  /** `month` — SQL GetUserEnergySpendByMonth (період «Увесь час»); `day` — GetUserEnergySpendByDay (сьогодні / 7 / 30 днів). */
+  trendGranularity?: "day" | "month";
   comparison: Record<string, unknown> | null;
   stationLoyalty: Record<string, unknown>[];
   activeSessions: Record<string, unknown>[];
