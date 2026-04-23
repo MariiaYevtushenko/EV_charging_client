@@ -53,6 +53,7 @@ type StationsContextValue = {
   mapStationDtos: StationDashboardDto[];
   loading: boolean;
   error: string | null;
+  clearStationsError: () => void;
   reload: () => Promise<void>;
   stationsPage: number;
   stationsTotal: number;
@@ -193,6 +194,10 @@ export function StationsProvider({ children }: { children: ReactNode }) {
     setStationsPageState(Math.max(1, page));
   }, []);
 
+  const clearStationsError = useCallback(() => {
+    setError(null);
+  }, []);
+
   const reload = useCallback(async () => {
     await loadPage();
     if (lastBoundsRef.current) {
@@ -233,29 +238,45 @@ export function StationsProvider({ children }: { children: ReactNode }) {
 
   const updateStation = useCallback(
     async (id: string, patch: Partial<Station>) => {
+      const numericId = Number(id);
+      if (!Number.isFinite(numericId)) {
+        setError('Некоректний ідентифікатор станції');
+        return;
+      }
+
       const cur = stations.find((s) => s.id === id) ?? mapStations.find((s) => s.id === id);
+
+      const keys = Object.keys(patch);
+      const onlyStatus =
+        keys.length === 1 &&
+        keys[0] === 'status' &&
+        patch.status !== undefined &&
+        !(cur?.archived ?? false);
+
+      /**
+       * PATCH /status не потребує повного рядка в контексті. Раніше `if (!cur) return` ламав
+       * кнопки «Працює / Оффлайн / Обслуговування» на сторінці деталей, якщо станції не було
+       * в поточній сторінці списку чи viewport карти — тихо без запиту й без toast помилки.
+       */
+      if (onlyStatus) {
+        setError(null);
+        try {
+          await patchStationStatusApi(numericId, patch.status!);
+          await reload();
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          setError(msg);
+          throw e;
+        }
+        return;
+      }
+
       if (!cur) return;
+
       setError(null);
       try {
         const merged: Station = { ...cur, ...patch };
-        const numericId = Number(id);
-        if (!Number.isFinite(numericId)) {
-          setError('Некоректний ідентифікатор станції');
-          return;
-        }
-
-        const keys = Object.keys(patch);
-        const onlyStatus =
-          keys.length === 1 &&
-          keys[0] === 'status' &&
-          patch.status !== undefined &&
-          !merged.archived;
-
-        if (onlyStatus) {
-          await patchStationStatusApi(numericId, patch.status!);
-        } else {
-          await updateStationApi(numericId, stationToUpdateBody(merged));
-        }
+        await updateStationApi(numericId, stationToUpdateBody(merged));
         await reload();
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -334,6 +355,7 @@ export function StationsProvider({ children }: { children: ReactNode }) {
       mapStationDtos,
       loading,
       error,
+      clearStationsError,
       reload,
       stationsPage,
       stationsTotal,
@@ -367,6 +389,7 @@ export function StationsProvider({ children }: { children: ReactNode }) {
       mapStationDtos,
       loading,
       error,
+      clearStationsError,
       reload,
       stationsPage,
       stationsTotal,

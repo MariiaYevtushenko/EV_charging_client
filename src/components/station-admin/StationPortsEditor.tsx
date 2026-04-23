@@ -9,13 +9,18 @@ function newPortId() {
   return `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+/** Дефолтна потужність нового порту (кВт), випадково 20…150 для наочності. */
+function randomDefaultPortPowerKw(): number {
+  return 20 + Math.floor(Math.random() * (150 - 20 + 1));
+}
+
 export function emptyPort(priceDefault = 0): StationPort {
   return {
     id: newPortId(),
     portNumber: 1,
     label: 'Порт A',
     connector: 'Type 2',
-    powerKw: 22,
+    powerKw: randomDefaultPortPowerKw(),
     pricePerKwh: priceDefault,
     status: 'available',
   };
@@ -74,7 +79,7 @@ export default function StationPortsEditor({
         portNumber: n,
         label: `Порт ${letter}`,
         connector: 'Type 2',
-        powerKw: 22,
+        powerKw: randomDefaultPortPowerKw(),
         pricePerKwh: onlyMaxPower ? 0 : Number.isFinite(priceDefault) ? priceDefault : 7.5,
         status: 'available',
       },

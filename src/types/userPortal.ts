@@ -54,17 +54,6 @@ export interface UserBooking {
   payNowAmount?: number;
 }
 
-export interface UserCurrentSession {
-  stationId: string;
-  stationName: string;
-  portLabel: string;
-  progressPct: number;
-  kwhSoFar: number;
-  costSoFar: number;
-  startedAt: string;
-  elapsedLabel: string;
-}
-
 export interface UserPaymentRow {
   id: string;
   createdAt: string;

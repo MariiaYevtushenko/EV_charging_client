@@ -113,7 +113,14 @@ export default function StationDetailPage() {
     ? '/admin-dashboard'
     : '/station-dashboard';
   const isGlobalAdminDash = location.pathname.startsWith('/admin-dashboard');
-  const { getStation, unarchiveStation, updateStation, archiveStation } = useStations();
+  const {
+    getStation,
+    unarchiveStation,
+    updateStation,
+    archiveStation,
+    error: stationsError,
+    clearStationsError,
+  } = useStations();
   /** Глобальний адмін: без редагування портів на цій сторінці (олівець → окрема форма). Статус і архів — як у адміна станції. */
   const readOnlyStationDetail = isGlobalAdminDash;
   const { stationId } = useParams<{ stationId: string }>();
@@ -323,16 +330,24 @@ export default function StationDetailPage() {
   const confirmArchive = async () => {
     try {
       await archiveStation(station.id);
-      setArchiveConfirmOpen(false);
       setStationSuccessMessage('Станцію переведено в архів');
     } catch {
-      /* помилка в контексті */
+      /* помилка в StationsContext (toast stationsError) */
+    } finally {
+      setArchiveConfirmOpen(false);
     }
   };
 
   return (
     <div className="space-y-6">
-      <FloatingToastRegion>
+      <FloatingToastRegion live={stationsError ? 'assertive' : 'polite'}>
+        <FloatingToast
+          show={Boolean(stationsError)}
+          tone="danger"
+          onDismiss={() => clearStationsError()}
+        >
+          {stationsError}
+        </FloatingToast>
         <FloatingToast
           show={Boolean(stationSuccessMessage)}
           tone="success"

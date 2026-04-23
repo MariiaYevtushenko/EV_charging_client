@@ -4,6 +4,7 @@ export function stationApiStatusLabel(status: string): string {
   switch (status) {
     case "WORK":
       return "Працює";
+    case "NOT_WORKING":
     case "NO_CONNECTION":
       return "Немає зв'язку";
     case "FIX":
@@ -23,6 +24,7 @@ export function stationApiStatusTone(
       return "success";
     case "FIX":
       return "warn";
+    case "NOT_WORKING":
     case "NO_CONNECTION":
       return "muted";
     case "ARCHIVED":

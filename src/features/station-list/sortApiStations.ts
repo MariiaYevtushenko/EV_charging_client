@@ -4,6 +4,7 @@ import type { StationSortDir, StationSortKey } from "../../context/StationsConte
 const statusOrder: Record<string, number> = {
   WORK: 0,
   FIX: 1,
+  NOT_WORKING: 2,
   NO_CONNECTION: 2,
   ARCHIVED: 3,
 };

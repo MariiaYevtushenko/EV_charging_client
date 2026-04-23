@@ -3,18 +3,21 @@ import {
   useCallback,
   useContext,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import { useAuth } from './AuthContext';
-import { deleteUserBooking, fetchUserBookings } from '../api/userReads';
-import { mapBookingApiToUserBooking } from '../api/userPortalMappers';
-import type { UserBooking, UserCar, UserCurrentSession, UserPaymentRow, UserSessionRecord } from '../types/userPortal';
+import { deleteUserBooking, fetchUserBookings, fetchUserPayments, fetchUserSessions } from '../api/userReads';
+import { createUserSession } from '../api/userSessions';
+import {
+  mapBillApiToPaymentRow,
+  mapBookingApiToUserBooking,
+  mapUserSessionApiToRecord,
+} from '../api/userPortalMappers';
+import type { UserBooking, UserCar, UserPaymentRow, UserSessionRecord } from '../types/userPortal';
 
 type UserPortalContextValue = {
   cars: UserCar[];
-  /** Повна заміна списку (наприклад після завантаження з API). */
   replaceCars: (cars: UserCar[]) => void;
   addCar: (car: Omit<UserCar, 'id'>) => void;
   updateCar: (id: string, patch: Partial<Omit<UserCar, 'id'>>) => void;
@@ -24,15 +27,15 @@ type UserPortalContextValue = {
   bookings: UserBooking[];
   replaceBookings: (rows: UserBooking[]) => void;
   cancelBooking: (id: string) => Promise<void>;
-  currentSession: UserCurrentSession | null;
-  endCurrentSession: () => void;
-  /** Почати зарядку на обраному порту (якщо сесія вже є — ігнорується). */
+  reloadSessionsAndPayments: () => Promise<void>;
   startSessionAtPort: (params: {
     stationId: string;
+    portNumber: number;
     stationName: string;
     portLabel: string;
-    dayTariff: number;
-  }) => boolean;
+    /** ID авто з гаража (обовʼязково для старту сесії з UI). */
+    vehicleId: string;
+  }) => Promise<boolean>;
   payments: UserPaymentRow[];
   replacePayments: (rows: UserPaymentRow[]) => void;
 };
@@ -41,7 +44,6 @@ const UserPortalContext = createContext<UserPortalContextValue | undefined>(unde
 
 export function UserPortalProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const sessionRef = useRef<UserCurrentSession | null>(null);
   const [cars, setCars] = useState<UserCar[]>([]);
 
   const replaceCars = useCallback((next: UserCar[]) => {
@@ -55,19 +57,18 @@ export function UserPortalProvider({ children }: { children: ReactNode }) {
   const replaceBookings = useCallback((rows: UserBooking[]) => {
     setBookings(rows);
   }, []);
-  const [currentSession, setCurrentSessionState] = useState<UserCurrentSession | null>(null);
-
-  const setCurrentSession = useCallback((next: UserCurrentSession | null | ((prev: UserCurrentSession | null) => UserCurrentSession | null)) => {
-    setCurrentSessionState((prev) => {
-      const resolved = typeof next === 'function' ? next(prev) : next;
-      sessionRef.current = resolved;
-      return resolved;
-    });
-  }, []);
   const [payments, setPayments] = useState<UserPaymentRow[]>([]);
   const replacePayments = useCallback((rows: UserPaymentRow[]) => {
     setPayments(rows);
   }, []);
+
+  const reloadSessionsAndPayments = useCallback(async () => {
+    const uid = Number(user?.id);
+    if (!Number.isFinite(uid)) return;
+    const [sessRows, payRows] = await Promise.all([fetchUserSessions(uid), fetchUserPayments(uid)]);
+    setSessions(sessRows.map((r) => mapUserSessionApiToRecord(r)));
+    setPayments(payRows.map((r) => mapBillApiToPaymentRow(r)));
+  }, [user?.id]);
 
   const addCar = useCallback((car: Omit<UserCar, 'id'>) => {
     const id = `uc-${Date.now().toString(36)}`;
@@ -97,29 +98,28 @@ export function UserPortalProvider({ children }: { children: ReactNode }) {
     [user?.id]
   );
 
-  const endCurrentSession = useCallback(() => {
-    setCurrentSession(null);
-  }, [setCurrentSession]);
-
   const startSessionAtPort = useCallback(
-    (params: { stationId: string; stationName: string; portLabel: string; dayTariff: number }) => {
-      if (sessionRef.current) return false;
-      const kwh = 0.45;
-      const next: UserCurrentSession = {
-        stationId: params.stationId,
-        stationName: params.stationName,
-        portLabel: params.portLabel,
-        progressPct: 5,
-        kwhSoFar: kwh,
-        costSoFar: Math.round(params.dayTariff * kwh * 100) / 100,
-        startedAt: new Date().toISOString().slice(0, 19),
-        elapsedLabel: '00:02:40',
+    async (params: {
+      stationId: string;
+      portNumber: number;
+      stationName: string;
+      portLabel: string;
+      vehicleId: string;
+    }) => {
+      const uid = Number(user?.id);
+      if (!Number.isFinite(uid)) return false;
+      const vid = Number(params.vehicleId);
+      if (!Number.isFinite(vid) || vid <= 0) return false;
+      const body: Record<string, unknown> = {
+        stationId: Number(params.stationId),
+        portNumber: params.portNumber,
+        vehicleId: vid,
       };
-      sessionRef.current = next;
-      setCurrentSessionState(next);
+      await createUserSession(uid, body);
+      await reloadSessionsAndPayments();
       return true;
     },
-    []
+    [user?.id, reloadSessionsAndPayments]
   );
 
   const value = useMemo(
@@ -134,8 +134,7 @@ export function UserPortalProvider({ children }: { children: ReactNode }) {
       bookings,
       replaceBookings,
       cancelBooking,
-      currentSession,
-      endCurrentSession,
+      reloadSessionsAndPayments,
       startSessionAtPort,
       payments,
       replacePayments,
@@ -151,8 +150,7 @@ export function UserPortalProvider({ children }: { children: ReactNode }) {
       bookings,
       replaceBookings,
       cancelBooking,
-      currentSession,
-      endCurrentSession,
+      reloadSessionsAndPayments,
       startSessionAtPort,
       payments,
       replacePayments,

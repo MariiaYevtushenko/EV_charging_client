@@ -131,8 +131,9 @@ export default function UserAnalyticsPage() {
         <div>
           <h1 className={userPortalPageTitle}>Аналітика</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            Підсумки за період з таблиць сесій і рахунків; блоки з SQL VIEW (як у курсовій схемі) — порівняння
-            тижнів, авто, улюблені станції, активні сесії та бронювання.
+            Підсумки за період: SQL-функції з <code className="rounded bg-slate-100 px-1">User_analytics.sql</code> (сесії,
+            графіки, ТОП станцій, бронювання); блоки з SQL VIEW — порівняння тижнів, авто, улюблені станції, активні сесії
+            та майбутні бронювання.
           </p>
         </div>
         <div className={userPortalTabBar} role="tablist" aria-label="Період аналітики">
@@ -166,7 +167,8 @@ export default function UserAnalyticsPage() {
       {!loading && data?.partial ? (
         <AppCard className="!border-amber-200 !bg-amber-50/80 !p-4">
           <p className="text-sm text-amber-900">
-            Частина SQL VIEW недоступна (перевірте, чи застосовано <code className="rounded bg-white/60 px-1">View.sql</code> у БД).
+            Частина даних недоступна (перевірте <code className="rounded bg-white/60 px-1">View.sql</code> та{" "}
+            <code className="rounded bg-white/60 px-1">User_analytics.sql</code> у БД).
           </p>
         </AppCard>
       ) : null}
@@ -221,6 +223,44 @@ export default function UserAnalyticsPage() {
               ) : null}
             </AppCard>
           </div>
+
+          {data.bookingPeriod && data.bookingPeriod.totalBookings > 0 ? (
+            <AppCard className="!p-5">
+              <h2 className="text-sm font-semibold text-slate-900">Бронювання за період</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                <code className="rounded bg-slate-100 px-1">GetUserBookingStatsForPeriod</code> — інтервал збігається з
+                підсумками сесій вище.
+              </p>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
+                  <dt className="text-xs text-slate-500">Усього</dt>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
+                    {data.bookingPeriod.totalBookings}
+                  </dd>
+                </div>
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
+                  <dt className="text-xs text-slate-500">Завершені</dt>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
+                    {data.bookingPeriod.cntCompleted}
+                  </dd>
+                </div>
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
+                  <dt className="text-xs text-slate-500">Пропущені / скасовані</dt>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
+                    {data.bookingPeriod.cntMissed + data.bookingPeriod.cntCancelled}
+                  </dd>
+                </div>
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
+                  <dt className="text-xs text-slate-500">% завершених</dt>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
+                    {data.bookingPeriod.pctCompleted != null
+                      ? `${data.bookingPeriod.pctCompleted.toFixed(1)}%`
+                      : '—'}
+                  </dd>
+                </div>
+              </dl>
+            </AppCard>
+          ) : null}
 
           {data.comparison ? (
             <AppCard className="!p-5">

@@ -43,7 +43,15 @@ export default function StationEditPage() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const dashBase = pathname.startsWith('/admin-dashboard') ? '/admin-dashboard' : '/station-dashboard';
-  const { getStation, updateStation, archiveStation, unarchiveStation, uniqueCities } = useStations();
+  const {
+    getStation,
+    updateStation,
+    archiveStation,
+    unarchiveStation,
+    uniqueCities,
+    error: stationsError,
+    clearStationsError,
+  } = useStations();
   const base = stationId ? getStation(stationId) : undefined;
 
   const [name, setName] = useState('');
@@ -230,11 +238,14 @@ export default function StationEditPage() {
     <div className={stationFormPageShell}>
       <FloatingToastRegion live="assertive">
         <FloatingToast
-          show={Boolean(submitError)}
+          show={Boolean(submitError ?? stationsError)}
           tone="danger"
-          onDismiss={() => setSubmitError(null)}
+          onDismiss={() => {
+            setSubmitError(null);
+            clearStationsError();
+          }}
         >
-          {submitError}
+          {submitError ?? stationsError}
         </FloatingToast>
       </FloatingToastRegion>
       <div className={stationFormPageHeaderRow}>

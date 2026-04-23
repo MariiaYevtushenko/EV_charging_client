@@ -5,6 +5,7 @@ function mapStationStatus(api: string): StationStatus {
   switch (api) {
     case "WORK":
       return "working";
+    case "NOT_WORKING":
     case "NO_CONNECTION":
       return "offline";
     case "FIX":
@@ -37,10 +38,10 @@ function mapPortStatus(api: string): PortStatus {
   switch (api) {
     case "FREE":
       return "available";
-    case "BOOKED":
     case "USED":
       return "busy";
     case "REPAIRED":
+    case "NOT_WORKING":
     default:
       return "offline";
   }

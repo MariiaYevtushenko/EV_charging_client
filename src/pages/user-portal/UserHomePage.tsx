@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { StationPort } from '../../types/station';
+import { useAuth } from '../../context/AuthContext';
 import { useStations } from '../../context/StationsContext';
 import { useUserPortal } from '../../context/UserPortalContext';
+import { completeUserSession } from '../../api/userSessions';
+import { userFacingApiErrorMessage } from '../../api/http';
+import { prefetchSessionCompleteNotificationPermission } from '../../utils/sessionCompleteNotifications';
 import StationMap from '../../components/station-admin/StationMap';
 import StationMapLegend from '../../components/station-admin/StationMapLegend';
 import {
@@ -17,6 +21,7 @@ import { userPortalPageTitle } from '../../styles/userPortalTheme';
 import { useTodayGridTariffsFromDb } from '../../hooks/useTodayGridTariffsFromDb';
 import { portStatusLabel, portStatusTone, stationStatusLabel, stationStatusTone } from '../../utils/stationLabels';
 import { stationAllowsUserBookingAndCharge, stationVisibleOnUserHomeMap } from '../../utils/stationUserEligibility';
+import { liveKwhSoFarAt } from '../../utils/liveSessionKwh';
 
 function MapPinIcon({ className }: { className?: string }) {
   return (
@@ -63,9 +68,19 @@ function portSelectable(p: StationPort): boolean {
   return p.status === 'available';
 }
 
+function formatElapsedMs(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
 export default function UserHomePage() {
-  const { mapStations: mapStationsAll, registerMapViewportBounds } = useStations();
-  const { cars, currentSession, endCurrentSession, startSessionAtPort } = useUserPortal();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { mapStations: mapStationsAll, registerMapViewportBounds, getStation } = useStations();
+  const { cars, sessions, reloadSessionsAndPayments, startSessionAtPort } = useUserPortal();
   const { data: todayTariffs, loading: todayTariffsLoading, error: todayTariffsError } =
     useTodayGridTariffsFromDb();
 
@@ -78,7 +93,54 @@ export default function UserHomePage() {
   const [chargeConnector, setChargeConnector] = useState('all');
   const [chargePortId, setChargePortId] = useState<string | null>(null);
   const [chargeOpen, setChargeOpen] = useState(false);
+  const [chargeVehicleId, setChargeVehicleId] = useState<string | null>(null);
   const [chargeError, setChargeError] = useState<string | null>(null);
+  const [confirmEndOpen, setConfirmEndOpen] = useState(false);
+  const [endingSession, setEndingSession] = useState(false);
+  const [endSessionError, setEndSessionError] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  const activeSession = useMemo(
+    () => sessions.find((s) => s.status === 'active') ?? null,
+    [sessions]
+  );
+
+  useEffect(() => {
+    if (!activeSession) return;
+    const t = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [activeSession]);
+
+  useEffect(() => {
+    if (!activeSession) return;
+    const t = setInterval(() => {
+      void reloadSessionsAndPayments();
+    }, 30000);
+    return () => clearInterval(t);
+  }, [activeSession, reloadSessionsAndPayments]);
+
+  useEffect(() => {
+    if (activeSession && chargeOpen) {
+      setChargeOpen(false);
+      setChargePortId(null);
+      setChargeError(null);
+    }
+  }, [activeSession, chargeOpen]);
+
+  const liveSessionDisplay = useMemo(() => {
+    if (!activeSession) return null;
+    const started = new Date(activeSession.startedAt).getTime();
+    const elapsedMs = Number.isFinite(started) ? Math.max(0, nowTick - started) : 0;
+    const progressPct = Math.min(99, Math.max(3, (elapsedMs / (4 * 3600 * 1000)) * 100));
+    const kwhSoFar = liveKwhSoFarAt(activeSession, nowTick, getStation);
+    return {
+      stationName: activeSession.stationName,
+      portLabel: activeSession.portLabel,
+      progressPct,
+      kwhSoFar,
+      elapsedLabel: formatElapsedMs(elapsedMs),
+    };
+  }, [activeSession, nowTick, getStation]);
 
   const connectorOptions = useMemo(() => {
     const fromCars = [...new Set(cars.map((c) => c.connector))];
@@ -95,16 +157,34 @@ export default function UserHomePage() {
       setSelectedId(null);
       return;
     }
-    setSelectedId((prev) =>
-      prev && mapStations.some((s) => s.id === prev) ? prev : mapStations[0].id
-    );
-  }, [mapStations]);
+    setSelectedId((prev) => {
+      if (activeSession && mapStations.some((s) => s.id === activeSession.stationId)) {
+        return activeSession.stationId;
+      }
+      if (prev && mapStations.some((s) => s.id === prev)) return prev;
+      return mapStations[0]!.id;
+    });
+  }, [mapStations, activeSession]);
 
   useEffect(() => {
     setChargeOpen(false);
     setChargePortId(null);
+    setChargeVehicleId(null);
     setChargeError(null);
   }, [selectedId]);
+
+  useEffect(() => {
+    if (!chargeOpen) return;
+    if (cars.length === 0) {
+      setChargeVehicleId(null);
+      return;
+    }
+    if (cars.length === 1) {
+      setChargeVehicleId(cars[0]!.id);
+      return;
+    }
+    setChargeVehicleId((prev) => (prev && cars.some((c) => c.id === prev) ? prev : null));
+  }, [chargeOpen, cars]);
 
   const selected = selectedId ? mapStations.find((s) => s.id === selectedId) : undefined;
   const canBookOrChargeHere = selected ? stationAllowsUserBookingAndCharge(selected) : false;
@@ -126,7 +206,13 @@ export default function UserHomePage() {
     ? portsForCharge.find((p) => p.id === effectiveChargePortId)
     : undefined;
 
-  const handleStartCharge = () => {
+  const resolvedChargeVehicleId = useMemo(() => {
+    if (cars.length === 0) return null;
+    if (cars.length === 1) return cars[0]!.id;
+    return chargeVehicleId && cars.some((c) => c.id === chargeVehicleId) ? chargeVehicleId : null;
+  }, [cars, chargeVehicleId]);
+
+  const handleStartCharge = async () => {
     setChargeError(null);
     if (!selected || !selectedChargePort) return;
     if (!canBookOrChargeHere) {
@@ -137,22 +223,64 @@ export default function UserHomePage() {
       setChargeError('Оберіть вільний порт.');
       return;
     }
-    if (currentSession) {
-      setChargeError('Спочатку завершіть поточну сесію кнопкою «Зупинити зарядку».');
+    if (activeSession) {
+      setChargeError(
+        'Неможливо почати нову сесію зарядки: у вас уже триває зарядка. Спочатку завершіть поточну сесію (блок «Поточна зарядка» або «Завершити сесію»).'
+      );
       return;
     }
-    const dayUah = todayTariffs?.dayPriceUah ?? 0;
-    const ok = startSessionAtPort({
-      stationId: selected.id,
-      stationName: selected.name,
-      portLabel: `${selectedChargePort.label} · ${selectedChargePort.connector}`,
-      dayTariff: dayUah,
-    });
-    if (ok) {
+    if (cars.length === 0) {
+      setChargeError('Додайте авто в розділі «Мої авто», щоб почати зарядку.');
+      return;
+    }
+    if (!resolvedChargeVehicleId) {
+      setChargeError('Оберіть автомобіль, який заряджаєте.');
+      return;
+    }
+    const portNumber = selectedChargePort.portNumber;
+    if (!Number.isFinite(portNumber) || (portNumber as number) <= 0) {
+      setChargeError('Не вдалося визначити номер порту. Оновіть сторінку або оберіть іншу станцію.');
+      return;
+    }
+    try {
+      await startSessionAtPort({
+        stationId: selected.id,
+        portNumber: portNumber as number,
+        stationName: selected.name,
+        portLabel: `${selectedChargePort.label} · ${selectedChargePort.connector}`,
+        vehicleId: resolvedChargeVehicleId,
+      });
       setChargeOpen(false);
       setChargePortId(null);
-    } else {
-      setChargeError('Не вдалося стартувати сесію (можливо, вже є активна зарядка).');
+      setChargeVehicleId(null);
+    } catch (e) {
+      setChargeError(userFacingApiErrorMessage(e, 'Не вдалося стартувати сесію'));
+    }
+  };
+
+  const handleConfirmEndSession = async () => {
+    if (!activeSession) return;
+    const uid = Number(user?.id);
+    if (!Number.isFinite(uid)) return;
+    const completedSessionId = String(activeSession.id);
+    setEndSessionError(null);
+    setEndingSession(true);
+    try {
+      await completeUserSession(uid, Number(activeSession.id), {
+        kwhConsumed: Math.max(0, liveKwhSoFarAt(activeSession, nowTick, getStation)),
+      });
+      setConfirmEndOpen(false);
+      await reloadSessionsAndPayments();
+      window.setTimeout(() => {
+        void navigate(`/dashboard/sessions/${completedSessionId}`, {
+          replace: false,
+          state: { showSessionCompleteHints: true },
+        });
+      }, 80);
+    } catch (e) {
+      setEndSessionError(userFacingApiErrorMessage(e, 'Не вдалося завершити сесію'));
+    } finally {
+      setEndingSession(false);
     }
   };
 
@@ -162,20 +290,17 @@ export default function UserHomePage() {
     <div className="space-y-6">
       <div>
         <h1 className={userPortalPageTitle}>Карта станцій</h1>
-        <p className="mt-1 max-w-xl text-xs leading-relaxed text-slate-500">
-          Денний і нічний тариф на сьогодні беруться з таблиці <span className="font-medium">tariff</span> у БД
-          (актуальні значення на поточний календарний день).
-        </p>
+       
       </div>
 
-      <div className="grid gap-6 lg:gap-8 xl:grid-cols-5">
+      <div className="grid gap-6 lg:gap-8 xl:grid-cols-5 xl:items-stretch">
         <AppCard
-          className="flex min-h-[min(560px,78dvh)] flex-col overflow-hidden shadow-md shadow-slate-900/[0.04] xl:col-span-3"
+          className="flex min-h-[min(560px,78dvh)] flex-col overflow-hidden shadow-md shadow-slate-900/[0.04] xl:sticky xl:top-6 xl:col-span-3 xl:min-h-0 xl:h-[calc(100dvh-11rem)] xl:max-h-[calc(100dvh-11rem)]"
           padding={false}
         >
           <div className="flex min-h-0 flex-1 flex-col gap-2 p-2 sm:p-3">
             <StationMapLegend variant="inline" />
-            <div className="relative min-h-[min(400px,55vh)] flex-1 overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200/80">
+            <div className="relative min-h-[min(400px,55vh)] flex-1 overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200/80 xl:min-h-0">
               <StationMap
                 stations={mapStations}
                 selectedId={selectedId ?? mapStations[0]?.id ?? ''}
@@ -187,7 +312,7 @@ export default function UserHomePage() {
           </div>
         </AppCard>
 
-        <div className="flex flex-col gap-5 xl:col-span-2">
+        <div className="flex min-h-0 flex-col gap-5 xl:col-span-2 xl:h-[calc(100dvh-11rem)] xl:max-h-[calc(100dvh-11rem)] xl:overflow-y-auto xl:overflow-x-hidden xl:overscroll-y-contain xl:pr-1">
           {selected ? (
             <AppCard className="border border-slate-200/90 bg-gradient-to-br from-white to-slate-50/40 px-4 py-3 shadow-sm">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -230,39 +355,43 @@ export default function UserHomePage() {
             </AppCard>
           ) : null}
 
-          {currentSession ? (
+          {liveSessionDisplay ? (
             <AppCard className="space-y-4 border-emerald-200/60 bg-gradient-to-b from-emerald-50/40 to-white ring-emerald-500/10">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Поточна зарядка</p>
-                  <h2 className="mt-1 text-lg font-bold text-slate-900">{currentSession.stationName}</h2>
+                  <h2 className="mt-1 text-lg font-bold text-slate-900">{liveSessionDisplay.stationName}</h2>
                   <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-600">
                     <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">
                       <MapPinIcon className="h-3.5 w-3.5" />
                     </span>
-                    {currentSession.portLabel}
+                    {liveSessionDisplay.portLabel}
                   </p>
                 </div>
               </div>
-              <SessionRing pct={currentSession.progressPct} />
-              <div className="grid grid-cols-3 gap-2 text-center">
+              <SessionRing pct={liveSessionDisplay.progressPct} />
+              <div className="grid grid-cols-2 gap-2 text-center">
                 <div className="rounded-xl border border-slate-100 bg-white/80 py-2.5 shadow-sm">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Енергія</p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900">{currentSession.kwhSoFar} кВт·год</p>
+                  <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900">
+                    {liveSessionDisplay.kwhSoFar.toLocaleString('uk-UA', { maximumFractionDigits: 3 })} кВт·год
+                  </p>
                 </div>
                 <div className="rounded-xl border border-slate-100 bg-white/80 py-2.5 shadow-sm">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Час</p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900">{currentSession.elapsedLabel}</p>
-                </div>
-                <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 py-2.5 shadow-sm">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700/80">Вартість</p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-emerald-800">
-                    {currentSession.costSoFar.toLocaleString('uk-UA')} грн
-                  </p>
+                  <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900">{liveSessionDisplay.elapsedLabel}</p>
                 </div>
               </div>
-              <DangerButton type="button" className="w-full" onClick={endCurrentSession}>
-                Зупинити зарядку
+              <DangerButton
+                type="button"
+                className="w-full"
+                onClick={() => {
+                  setEndSessionError(null);
+                  prefetchSessionCompleteNotificationPermission();
+                  setConfirmEndOpen(true);
+                }}
+              >
+                Завершити сесію
               </DangerButton>
             </AppCard>
           ) : (
@@ -316,9 +445,17 @@ export default function UserHomePage() {
                 <OutlineButton
                   type="button"
                   className="flex-1"
-                  disabled={!canBookOrChargeHere}
+                  disabled={!canBookOrChargeHere || !!activeSession}
+                  title={
+                    !canBookOrChargeHere
+                      ? 'Недоступно для цієї станції'
+                      : activeSession
+                        ? 'Неможливо почати нову сесію, поки триває поточна зарядка'
+                        : undefined
+                  }
                   onClick={() => {
                     if (!canBookOrChargeHere) return;
+                    if (activeSession) return;
                     setChargeOpen((o) => !o);
                     setChargeError(null);
                   }}
@@ -327,8 +464,58 @@ export default function UserHomePage() {
                 </OutlineButton>
               </div>
 
+              {activeSession ? (
+                <p
+                  className="rounded-xl border border-amber-200/90 bg-amber-50/90 px-3 py-2.5 text-sm leading-relaxed text-amber-950"
+                  role="status"
+                >
+                  <span className="font-semibold">Уже триває зарядка</span> на «{activeSession.stationName}». Почати ще
+                  одну сесію на цій або іншій станції неможливо, доки не завершите поточну — скористайтеся блоком
+                  «Поточна зарядка» вище та кнопкою «Завершити сесію».
+                </p>
+              ) : null}
+
               {chargeOpen ? (
                 <div className="space-y-3 border-t border-emerald-100/80 pt-4">
+                  <div>
+                    <label
+                      htmlFor="home-charge-vehicle"
+                      className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Яке авто заряджаєте?
+                    </label>
+                    {cars.length === 0 ? (
+                      <p className="mt-2 text-sm text-amber-800">
+                        У гаражі немає авто.{' '}
+                        <Link
+                          to="/dashboard/cars"
+                          className="font-semibold text-emerald-800 underline hover:text-emerald-950"
+                        >
+                          Додайте авто
+                        </Link>
+                        , щоб почати зарядку.
+                      </p>
+                    ) : (
+                      <select
+                        id="home-charge-vehicle"
+                        value={chargeVehicleId ?? (cars.length === 1 ? cars[0]!.id : '')}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setChargeVehicleId(v || null);
+                          setChargeError(null);
+                        }}
+                        className={`mt-1.5 ${selectClass}`}
+                      >
+                        {cars.length > 1 ? <option value="">— Оберіть авто —</option> : null}
+                        {cars.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.plate} · {c.model}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
                   <div>
                     <label htmlFor="home-charge-conn" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Тип порту
@@ -398,9 +585,13 @@ export default function UserHomePage() {
                     disabled={
                       !selectedChargePort ||
                       !portSelectable(selectedChargePort) ||
-                      !!currentSession
+                      !!activeSession ||
+                      cars.length === 0 ||
+                      !resolvedChargeVehicleId
                     }
-                    onClick={handleStartCharge}
+                    onClick={() => {
+                      void handleStartCharge();
+                    }}
                   >
                     Почати заряджати
                   </PrimaryButton>
@@ -416,6 +607,50 @@ export default function UserHomePage() {
           ) : null}
         </div>
       </div>
+
+      {confirmEndOpen && activeSession ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+          role="presentation"
+          onClick={() => !endingSession && setConfirmEndOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-end-session-title"
+            className="max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="confirm-end-session-title" className="text-lg font-bold text-slate-900">
+              Завершити зарядку?
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              Ви точно хочете завершити сесію на станції «{activeSession.stationName}»? Буде створено рахунок за
+              спожиту енергію.
+            </p>
+            {endSessionError ? <p className="mt-3 text-sm text-red-700">{endSessionError}</p> : null}
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <OutlineButton
+                type="button"
+                className="sm:min-w-[120px]"
+                disabled={endingSession}
+                onClick={() => setConfirmEndOpen(false)}
+              >
+                Скасувати
+              </OutlineButton>
+              <DangerButton
+                type="button"
+                className="sm:min-w-[160px]"
+                disabled={endingSession}
+                onClick={() => void handleConfirmEndSession()}
+              >
+                {endingSession ? 'Завершення…' : 'Так, завершити'}
+              </DangerButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
     </div>
   );
 }
