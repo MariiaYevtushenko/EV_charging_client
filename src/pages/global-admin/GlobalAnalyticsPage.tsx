@@ -5,6 +5,8 @@ import {
   CartesianGrid,
   Cell,
   Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -28,6 +30,8 @@ import {
 import { AdminAccentCard, AdminAccentRow } from '../../components/admin/AdminAccentCard';
 
 const PIE_COLORS = ['#16a34a', '#64748b', '#d97706', '#0284c7', '#7c3aed', '#e11d48'];
+
+const DOW_UK = ['', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
 
 type TabId = 'pulse' | 'network' | 'users' | 'live';
 
@@ -186,6 +190,8 @@ export default function GlobalAnalyticsPage() {
   const todayRev = active.reduce((a, s) => a + s.todayRevenue, 0);
 
   const g = data?.globalDashboard;
+  const ga = data?.globalAdminSnapshot;
+  const stSnap = data?.stationAdminSnapshot;
 
   const growthBars = useMemo(() => {
     if (!g) return [];
@@ -252,6 +258,61 @@ export default function GlobalAnalyticsPage() {
     return [...counts.entries()].map(([name, value]) => ({ name, value }));
   }, [data?.userSegments]);
 
+  const sqlDailyTrend = useMemo(() => {
+    const rows = ga?.networkRevenueTrendDaily ?? [];
+    return rows.map((r) => {
+      const raw = r.bucket_date;
+      const d = typeof raw === 'string' ? new Date(raw) : raw instanceof Date ? raw : null;
+      const label = d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' }) : str(raw);
+      return {
+        label,
+        revenue: num(r.total_revenue),
+        kwh: num(r.total_kwh),
+        sessions: num(r.session_count),
+      };
+    });
+  }, [ga?.networkRevenueTrendDaily]);
+
+  const sqlPeakByHour = useMemo(() => {
+    const rows = ga?.networkPeakHours ?? [];
+    const acc = new Map<number, number>();
+    for (const r of rows) {
+      const h = Math.floor(num(r.hour_of_day));
+      if (h < 0 || h > 23) continue;
+      acc.set(h, (acc.get(h) ?? 0) + num(r.session_count));
+    }
+    return Array.from({ length: 24 }, (_, h) => ({
+      hour: `${String(h).padStart(2, '0')}:00`,
+      sessions: acc.get(h) ?? 0,
+    }));
+  }, [ga?.networkPeakHours]);
+
+  const sqlHeatmapTop = useMemo(() => {
+    const rows = [...(ga?.networkPeakHours ?? [])];
+    return rows
+      .map((r) => ({
+        dow: Math.floor(num(r.iso_dow)),
+        hour: Math.floor(num(r.hour_of_day)),
+        n: num(r.session_count),
+      }))
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 12);
+  }, [ga?.networkPeakHours]);
+
+  const dayNightLabel = (band: string) =>
+    band === 'DAY_WINDOW' ? 'Денне вікно (07–21)' : band === 'NIGHT_WINDOW' ? 'Нічне вікно' : band;
+
+  const sqlPeriodNote = useMemo(() => {
+    if (!ga?.periodFrom || !ga?.periodTo) return '';
+    try {
+      const a = new Date(ga.periodFrom).toLocaleDateString('uk-UA');
+      const b = new Date(ga.periodTo).toLocaleDateString('uk-UA');
+      return `Останні ${ga.periodDays} днів: ${a} — ${b} (функції Global_admin_analytics.sql).`;
+    } catch {
+      return '';
+    }
+  }, [ga?.periodDays, ga?.periodFrom, ga?.periodTo]);
+
   return (
     <div className="mx-auto max-w-7xl space-y-8 pb-10">
       <header className="space-y-2 border-b border-slate-200 pb-6">
@@ -269,8 +330,10 @@ export default function GlobalAnalyticsPage() {
         <div className="rounded-2xl border border-amber-200/90 bg-amber-50 px-5 py-4 text-sm text-amber-950">
           <p className="font-medium">{error}</p>
           <p className="mt-2 text-amber-900/85">
-            Якщо дані не з’являються, перевірте, що у PostgreSQL виконано скрипт{' '}
-            <code className="rounded-md bg-white/80 px-1.5 py-0.5 text-xs font-mono">View.sql</code>.
+            Якщо дані не з’являються, перевірте, що у PostgreSQL виконано{' '}
+            <code className="rounded-md bg-white/80 px-1.5 py-0.5 text-xs font-mono">View.sql</code>,{' '}
+            <code className="rounded-md bg-white/80 px-1.5 py-0.5 text-xs font-mono">Station_admin_analytics.sql</code>{' '}
+            та <code className="rounded-md bg-white/80 px-1.5 py-0.5 text-xs font-mono">Global_admin_analytics.sql</code>.
           </p>
         </div>
       ) : null}
@@ -354,6 +417,178 @@ export default function GlobalAnalyticsPage() {
                   Відсотки показують зміну відносно попереднього 30-денного вікна.
                 </p>
               </Panel>
+
+              {ga ? (
+                <Panel
+                  title="Сесії та броні (SQL)"
+                  subtitle={sqlPeriodNote || 'Мережеві агрегати з PostgreSQL.'}
+                >
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {ga.networkSessionStats ? (
+                      <>
+                        <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
+                          <p className="text-xs font-medium text-gray-500">Сесій</p>
+                          <p className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
+                            {num(ga.networkSessionStats.total_sessions).toLocaleString('uk-UA')}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
+                          <p className="text-xs font-medium text-gray-500">Сер. тривалість</p>
+                          <p className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
+                            {ga.networkSessionStats.avg_duration_minutes == null
+                              ? '—'
+                              : `${num(ga.networkSessionStats.avg_duration_minutes).toFixed(1)} хв`}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
+                          <p className="text-xs font-medium text-gray-500">Сер. kWh (COMPLETED)</p>
+                          <p className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
+                            {ga.networkSessionStats.avg_kwh == null
+                              ? '—'
+                              : num(ga.networkSessionStats.avg_kwh).toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
+                          <p className="text-xs font-medium text-gray-500">Сер. чек</p>
+                          <p className="mt-1 text-lg font-semibold tabular-nums text-green-800">
+                            {ga.networkSessionStats.avg_bill_amount == null
+                              ? '—'
+                              : `${num(ga.networkSessionStats.avg_bill_amount).toLocaleString('uk-UA', { maximumFractionDigits: 2 })} грн`}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-500">Немає рядка статистики сесій.</p>
+                    )}
+                  </div>
+
+                  {stSnap?.networkBookingKpis ? (
+                    <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 px-4 py-3">
+                        <p className="text-xs font-medium text-emerald-900/80">Броні (мережа)</p>
+                        <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-950">
+                          {num(stSnap.networkBookingKpis.total_bookings).toLocaleString('uk-UA')}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 px-4 py-3">
+                        <p className="text-xs font-medium text-emerald-900/80">Завершені броні, %</p>
+                        <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-950">
+                          {stSnap.networkBookingKpis.pct_completed == null
+                            ? '—'
+                            : `${num(stSnap.networkBookingKpis.pct_completed).toFixed(1)} %`}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 px-4 py-3">
+                        <p className="text-xs font-medium text-emerald-900/80">No-show, %</p>
+                        <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-950">
+                          {stSnap.networkBookingKpis.no_show_rate == null
+                            ? '—'
+                            : `${num(stSnap.networkBookingKpis.no_show_rate).toFixed(1)} %`}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 px-4 py-3">
+                        <p className="text-xs font-medium text-emerald-900/80">Скасовано</p>
+                        <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-950">
+                          {num(stSnap.networkBookingKpis.cnt_cancelled).toLocaleString('uk-UA')}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {ga.networkBookingSessionMetrics ? (
+                    <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Зв’язок бронювань і сесій
+                      </p>
+                      <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                        <div>
+                          <dt className="text-xs text-slate-500">Броні в інтервалі</dt>
+                          <dd className="font-semibold tabular-nums">
+                            {num(ga.networkBookingSessionMetrics.total_bookings).toLocaleString('uk-UA')}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-slate-500">Броні з сесією, %</dt>
+                          <dd className="font-semibold tabular-nums text-green-800">
+                            {ga.networkBookingSessionMetrics.pct_bookings_with_session == null
+                              ? '—'
+                              : `${num(ga.networkBookingSessionMetrics.pct_bookings_with_session).toFixed(1)} %`}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-slate-500">Сесій з броні, %</dt>
+                          <dd className="font-semibold tabular-nums text-green-800">
+                            {ga.networkBookingSessionMetrics.pct_sessions_from_booking == null
+                              ? '—'
+                              : `${num(ga.networkBookingSessionMetrics.pct_sessions_from_booking).toFixed(1)} %`}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-slate-500">Сесій (інтервал)</dt>
+                          <dd className="font-semibold tabular-nums">
+                            {num(ga.networkBookingSessionMetrics.total_sessions).toLocaleString('uk-UA')}
+                          </dd>
+                        </div>
+                      </dl>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-8 grid gap-6 lg:grid-cols-2">
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">Денна виручка (SQL)</p>
+                      <div className="mt-2 h-56 w-full sm:h-64">
+                        {sqlDailyTrend.length === 0 ? (
+                          <p className="flex h-full items-center justify-center text-sm text-gray-500">
+                            Немає денних точок
+                          </p>
+                        ) : (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={sqlDailyTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                              <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="#94a3b8" interval="preserveStartEnd" />
+                              <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                              <Tooltip
+                                formatter={(v) => [`${Number(v ?? 0).toLocaleString('uk-UA')} грн`, 'Виручка']}
+                                contentStyle={{ borderRadius: 12, fontSize: 12 }}
+                              />
+                              <Line type="monotone" dataKey="revenue" stroke="#059669" strokeWidth={2} dot />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">
+                        Проксі тарифу: день / ніч (за годиною старту)
+                      </p>
+                      <div className="mt-2 h-56 w-full sm:h-64">
+                        {(ga.networkDayNightRevenue ?? []).length === 0 ? (
+                          <p className="flex h-full items-center justify-center text-sm text-gray-500">Немає даних</p>
+                        ) : (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={ga.networkDayNightRevenue} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                              <XAxis
+                                dataKey="band"
+                                tickFormatter={(v) => dayNightLabel(String(v))}
+                                tick={{ fontSize: 11 }}
+                                stroke="#94a3b8"
+                              />
+                              <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                              <Tooltip
+                                labelFormatter={(v) => dayNightLabel(String(v))}
+                                formatter={(v) => [`${Number(v ?? 0).toLocaleString('uk-UA')} грн`, 'Виручка']}
+                                contentStyle={{ borderRadius: 12, fontSize: 12 }}
+                              />
+                              <Bar dataKey="total_revenue" fill="#0d9488" name="грн" radius={[6, 6, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Panel>
+              ) : null}
             </div>
           ) : null}
 
@@ -429,6 +664,229 @@ export default function GlobalAnalyticsPage() {
                   </tbody>
                 </ScrollTable>
               </Panel>
+
+              {ga ? (
+                <>
+                  <Panel
+                    title="Гарячі міста (SQL)"
+                    subtitle="Найбільше сесій за період; стовпчик — сесій на одну станцію в місті."
+                  >
+                    <div className="h-64 w-full sm:h-72">
+                      {(ga.networkCityHotspots ?? []).length === 0 ? (
+                        <p className="py-16 text-center text-sm text-gray-500">Немає даних.</p>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={(ga.networkCityHotspots ?? []).map((r) => ({
+                              city: str(r.city).slice(0, 14),
+                              intensity: num(r.sessions_per_station),
+                              sessions: num(r.session_count),
+                            }))}
+                            layout="vertical"
+                            margin={{ top: 4, right: 12, left: 4, bottom: 4 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                            <XAxis type="number" tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                            <YAxis type="category" dataKey="city" width={100} tick={{ fontSize: 11 }} stroke="#64748b" />
+                            <Tooltip
+                              formatter={(v, name) =>
+                                name === 'intensity'
+                                  ? [`${Number(v ?? 0).toFixed(2)}`, 'Сесій / станцію']
+                                  : [`${Number(v ?? 0).toLocaleString('uk-UA')}`, 'Сесій']
+                              }
+                              contentStyle={{ borderRadius: 12, fontSize: 12 }}
+                            />
+                            <Bar dataKey="intensity" fill="#6366f1" radius={[0, 6, 6, 0]} name="Інтенсивність" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                  </Panel>
+
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <Panel title="ТОП станцій за сесіями (SQL)" subtitle="Той самий період, що й у блоках вище.">
+                      <ScrollTable maxHeight="min(16rem,40vh)">
+                        <thead className="sticky top-0 z-10 bg-slate-100/95 text-xs font-semibold uppercase text-slate-600">
+                          <tr>
+                            <th className="px-3 py-2.5">Станція</th>
+                            <th className="px-3 py-2.5 text-right">Сесії</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                          {(stSnap?.networkTopStations ?? []).length === 0 ? (
+                            <tr>
+                              <td colSpan={2} className="px-3 py-6 text-center text-gray-500">
+                                Немає даних
+                              </td>
+                            </tr>
+                          ) : (
+                            (stSnap?.networkTopStations ?? []).map((r) => (
+                              <tr key={`sql-top-${num(r.station_id)}`}>
+                                <td className="px-3 py-2 font-medium text-slate-900">{str(r.station_name)}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">{num(r.session_count).toLocaleString('uk-UA')}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </ScrollTable>
+                    </Panel>
+                    <Panel title="Найменше сесій (SQL)" subtitle="Для пошуку слабких точок мережі.">
+                      <ScrollTable maxHeight="min(16rem,40vh)">
+                        <thead className="sticky top-0 z-10 bg-slate-100/95 text-xs font-semibold uppercase text-slate-600">
+                          <tr>
+                            <th className="px-3 py-2.5">Станція</th>
+                            <th className="px-3 py-2.5 text-right">Сесії</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                          {(stSnap?.networkBottomStations ?? []).length === 0 ? (
+                            <tr>
+                              <td colSpan={2} className="px-3 py-6 text-center text-gray-500">
+                                Немає даних
+                              </td>
+                            </tr>
+                          ) : (
+                            (stSnap?.networkBottomStations ?? []).map((r) => (
+                              <tr key={`sql-bot-${num(r.station_id)}`}>
+                                <td className="px-3 py-2 font-medium text-slate-900">{str(r.station_name)}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">{num(r.session_count).toLocaleString('uk-UA')}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </ScrollTable>
+                    </Panel>
+                  </div>
+
+                  <Panel title="Пікові години мережі (SQL)" subtitle="Сума стартів сесій по годині доби за період.">
+                    <div className="h-56 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={sqlPeakByHour} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                          <XAxis dataKey="hour" tick={{ fontSize: 9 }} stroke="#94a3b8" interval={2} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                          <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
+                          <Bar dataKey="sessions" fill="#8b5cf6" name="Сесії" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Panel>
+
+                  <Panel
+                    title="Топ комірок «день × година»"
+                    subtitle="Де найчастіше стартували сесії (проксі heatmap)."
+                  >
+                    <ScrollTable maxHeight="min(14rem,36vh)">
+                      <thead className="sticky top-0 bg-slate-100/95 text-xs font-semibold uppercase text-slate-600">
+                        <tr>
+                          <th className="px-3 py-2">День</th>
+                          <th className="px-3 py-2">Година</th>
+                          <th className="px-3 py-2 text-right">Сесій</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {sqlHeatmapTop.length === 0 ? (
+                          <tr>
+                            <td colSpan={3} className="px-3 py-6 text-center text-gray-500">
+                              Немає даних
+                            </td>
+                          </tr>
+                        ) : (
+                          sqlHeatmapTop.map((row, i) => (
+                            <tr key={`${row.dow}-${row.hour}-${i}`}>
+                              <td className="px-3 py-2">{DOW_UK[row.dow] ?? row.dow}</td>
+                              <td className="px-3 py-2 tabular-nums">{String(row.hour).padStart(2, '0')}:00</td>
+                              <td className="px-3 py-2 text-right font-medium tabular-nums">{row.n.toLocaleString('uk-UA')}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </ScrollTable>
+                  </Panel>
+
+                  <Panel title="Виручка по станціях (SQL)" subtitle="За той самий 30-денний інтервал; середній чек по рахунках.">
+                    <ScrollTable maxHeight="min(22rem,50vh)">
+                      <thead className="sticky top-0 z-10 bg-slate-100/95 text-xs font-semibold uppercase text-slate-600">
+                        <tr>
+                          <th className="px-3 py-2.5">Станція</th>
+                          <th className="px-3 py-2.5 text-right">Сесії</th>
+                          <th className="px-3 py-2.5 text-right">кВт·год</th>
+                          <th className="px-3 py-2.5 text-right">Виручка</th>
+                          <th className="px-3 py-2.5 text-right">Сер. чек</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {(ga.networkRevenueByStation ?? []).filter((r) => num(r.session_count) > 0).length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="px-3 py-6 text-center text-gray-500">
+                              Немає сесій за період
+                            </td>
+                          </tr>
+                        ) : (
+                          (ga.networkRevenueByStation ?? [])
+                            .filter((r) => num(r.session_count) > 0)
+                            .slice(0, 40)
+                            .map((r) => (
+                              <tr key={`sql-st-${num(r.station_id)}`}>
+                                <td className="max-w-[200px] truncate px-3 py-2 font-medium">{str(r.station_name)}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">{num(r.session_count).toLocaleString('uk-UA')}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">{num(r.total_kwh).toFixed(1)}</td>
+                                <td className="px-3 py-2 text-right tabular-nums font-semibold">
+                                  {num(r.total_revenue).toLocaleString('uk-UA', { maximumFractionDigits: 2 })}
+                                </td>
+                                <td className="px-3 py-2 text-right tabular-nums text-gray-600">
+                                  {r.avg_bill_amount == null ? '—' : num(r.avg_bill_amount).toFixed(2)}
+                                </td>
+                              </tr>
+                            ))
+                        )}
+                      </tbody>
+                    </ScrollTable>
+                  </Panel>
+
+                  <Panel title="Топ портів за виручкою (SQL)" subtitle="До 500 портів із найвищою сумою за період.">
+                    <ScrollTable maxHeight="min(22rem,50vh)">
+                      <thead className="sticky top-0 z-10 bg-slate-100/95 text-xs font-semibold uppercase text-slate-600">
+                        <tr>
+                          <th className="px-3 py-2.5">Станція</th>
+                          <th className="px-3 py-2.5 text-center">Порт</th>
+                          <th className="px-3 py-2.5 text-right">Сесії</th>
+                          <th className="px-3 py-2.5 text-right">кВт·год</th>
+                          <th className="px-3 py-2.5 text-right">Виручка</th>
+                          <th className="px-3 py-2.5 text-right">Сер. чек</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {(ga.networkRevenueByPort ?? []).filter((r) => num(r.session_count) > 0).length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-3 py-6 text-center text-gray-500">
+                              Немає даних
+                            </td>
+                          </tr>
+                        ) : (
+                          (ga.networkRevenueByPort ?? [])
+                            .filter((r) => num(r.session_count) > 0)
+                            .slice(0, 60)
+                            .map((r, i) => (
+                              <tr key={`sql-port-${num(r.station_id)}-${num(r.port_number)}-${i}`}>
+                                <td className="max-w-[180px] truncate px-3 py-2">{str(r.station_name)}</td>
+                                <td className="px-3 py-2 text-center tabular-nums">{num(r.port_number)}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">{num(r.session_count)}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">{num(r.total_kwh).toFixed(1)}</td>
+                                <td className="px-3 py-2 text-right tabular-nums font-medium">
+                                  {num(r.total_revenue).toLocaleString('uk-UA', { maximumFractionDigits: 2 })}
+                                </td>
+                                <td className="px-3 py-2 text-right tabular-nums text-gray-600">
+                                  {r.avg_bill_amount == null ? '—' : num(r.avg_bill_amount).toFixed(2)}
+                                </td>
+                              </tr>
+                            ))
+                        )}
+                      </tbody>
+                    </ScrollTable>
+                  </Panel>
+                </>
+              ) : null}
             </div>
           ) : null}
 

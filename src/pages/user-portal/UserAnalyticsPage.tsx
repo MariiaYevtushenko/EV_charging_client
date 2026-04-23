@@ -1,25 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
-import { UserPortalChartEmpty } from '../../components/user-portal/UserPortalEmptyState';
-import { AppCard } from '../../components/station-admin/Primitives';
 import { useAuth } from '../../context/AuthContext';
+import { ApiError, userFacingApiErrorMessage } from '../../api/http';
 import {
   fetchUserAnalyticsViews,
   type UserAnalyticsPeriod,
   type UserAnalyticsViewsResponse,
 } from '../../api/userAnalytics';
-import { userFacingApiErrorMessage } from '../../api/http';
+import { AppCard, StatusPill } from '../../components/station-admin/Primitives';
 import {
+  userPortalBookingStatus,
+  userPortalIconTileMd,
   userPortalListPageShell,
   userPortalPageHeaderRow,
   userPortalPageTitle,
@@ -28,113 +28,198 @@ import {
   userPortalTabIdle,
 } from '../../styles/userPortalTheme';
 
-function ChartLineIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.75}
-        d="M3 3v18h18M7 15l3-3 4 4 5-7"
-      />
-    </svg>
-  );
-}
-
-function ChartBarIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.75}
-        d="M9 19V9m4 10V5m4 14v-6M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"
-      />
-    </svg>
-  );
-}
-
-function num(v: unknown): number {
-  if (typeof v === 'number' && Number.isFinite(v)) return v;
-  if (typeof v === 'string') {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
-  }
-  return 0;
-}
-
-function pctChange(curr: number, prev: number): string | null {
-  if (prev === 0) return curr === 0 ? null : '—';
-  const p = ((curr - prev) / prev) * 100;
-  if (!Number.isFinite(p)) return null;
-  const sign = p > 0 ? '+' : '';
-  return `${sign}${p.toFixed(1)}%`;
-}
-
 const PERIOD_OPTIONS: { value: UserAnalyticsPeriod; label: string }[] = [
+  { value: 'today', label: 'Сьогодні' },
   { value: '7d', label: '7 днів' },
   { value: '30d', label: '30 днів' },
   { value: 'all', label: 'Увесь час' },
 ];
 
+type UserAnalyticsSectionTab = 'overview' | 'charts' | 'stations' | 'bookings' | 'cars';
+
+function analyticsThemeTabClass(active: boolean) {
+  return active
+    ? 'border-green-600 text-green-700'
+    : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900';
+}
+
+function fmtMoney(n: number) {
+  return n.toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function fmtKwh(n: number) {
+  return n.toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function fmtPct(p: number | null | undefined, digits = 1): string {
+  if (p == null || !Number.isFinite(p)) return '—';
+  const sign = p > 0 ? '+' : '';
+  return `${sign}${p.toFixed(digits)}%`;
+}
+
+function pctTone(p: number | null | undefined): 'success' | 'danger' | 'muted' {
+  if (p == null || !Number.isFinite(p)) return 'muted';
+  if (p > 0) return 'success';
+  if (p < 0) return 'danger';
+  return 'muted';
+}
+
+/** Фон квадратика «% успішності» (завершені / усі бронювання в періоді). */
+function bookingSuccessRateStripClass(pct: number): string {
+  if (pct >= 80) return 'bg-emerald-100 text-emerald-950 ring-emerald-500/45';
+  if (pct >= 55) return 'bg-green-50 text-green-900 ring-green-600/35';
+  if (pct >= 35) return 'bg-lime-50 text-lime-900 ring-lime-600/30';
+  if (pct >= 15) return 'bg-amber-50 text-amber-950 ring-amber-500/35';
+  return 'bg-orange-50 text-orange-950 ring-orange-500/35';
+}
+
+function sessionDeltaStatusUa(delta: number): string {
+  if (delta > 0) return 'більше';
+  if (delta < 0) return 'менше';
+  return 'без змін';
+}
+
+/** Відсоток зі знаком: мінус окремо перед числом, символ % в кінці (для блоку енергії / витрат). */
+function pctWithLeadingSign(p: number | null, digits = 1): { sign: '−' | '+' | null; abs: string } {
+  if (p == null || !Number.isFinite(p)) return { sign: null, abs: '—' };
+  if (p === 0) return { sign: null, abs: (0).toLocaleString('uk-UA', { maximumFractionDigits: digits }) };
+  const sign: '−' | '+' = p < 0 ? '−' : '+';
+  const abs = Math.abs(p).toLocaleString('uk-UA', { maximumFractionDigits: digits });
+  return { sign, abs };
+}
+
+function SparkIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.5}
+        d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+      />
+    </svg>
+  );
+}
+
+function KpiCard({ title, value, hint }: { title: string; value: string; hint?: string }) {
+  return (
+    <AppCard className="relative overflow-hidden" padding>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
+      <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight text-slate-900">{value}</p>
+      {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
+    </AppCard>
+  );
+}
+
 export default function UserAnalyticsPage() {
   const { user } = useAuth();
-  const userId = Number(user?.id);
-
+  const userId = user?.id != null ? Number(user.id) : NaN;
   const [period, setPeriod] = useState<UserAnalyticsPeriod>('30d');
+  const [sectionTab, setSectionTab] = useState<UserAnalyticsSectionTab>('overview');
   const [data, setData] = useState<UserAnalyticsViewsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  useEffect(() => {
     if (!Number.isFinite(userId) || userId <= 0) {
       setLoading(false);
-      setError('Увійдіть у кабінет, щоб переглянути аналітику.');
+      setData(null);
+      setError(null);
       return;
     }
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    try {
-      const res = await fetchUserAnalyticsViews(userId, period);
-      setData(res);
-    } catch (e) {
-      setData(null);
-      setError(userFacingApiErrorMessage(e, 'Не вдалося завантажити аналітику.'));
-    } finally {
-      setLoading(false);
-    }
+    void fetchUserAnalyticsViews(userId, period)
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setData(null);
+          setError(
+            userFacingApiErrorMessage(e, e instanceof ApiError ? e.message : 'Не вдалося завантажити аналітику')
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [userId, period]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const periodLabel = useMemo(
-    () => PERIOD_OPTIONS.find((o) => o.value === period)?.label ?? period,
-    [period]
-  );
-
-  const byStationChart = useMemo(() => {
-    const rows = data?.stationsInPeriod ?? [];
+  const trendChart = useMemo(() => {
+    const rows = data?.trend ?? [];
     return rows.map((r) => ({
-      label: r.stationName.length > 18 ? `${r.stationName.slice(0, 17)}…` : r.stationName,
-      kwh: Math.round(r.kwh * 10) / 10,
-      spent: Math.round(r.spent * 100) / 100,
+      label: r.label,
+      kwh: r.kwh,
+      spend: r.spend,
+    }));
+  }, [data?.trend]);
+
+  const stationBars = useMemo(() => {
+    const rows = [...(data?.stationsInPeriod ?? [])].slice(0, 8);
+    return rows.map((r) => ({
+      name:
+        r.stationName.length > 22
+          ? `${r.stationName.slice(0, 20)}…`
+          : r.stationName,
+      fullName: r.stationName,
+      kwh: r.kwh,
     }));
   }, [data?.stationsInPeriod]);
 
-  const prev = data?.previousPeriodSummary;
+  /** Підписи місяців для блоку витрат (узгоджено з календарною логікою на сервері). */
+  const calendarMonthSpendLabels = useMemo(() => {
+    const d = new Date();
+    const current = d.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
+    const prev = new Date(d.getFullYear(), d.getMonth() - 1, 1).toLocaleDateString('uk-UA', {
+      month: 'long',
+      year: 'numeric',
+    });
+    return { current, previous: prev };
+  }, []);
+
+  const trendBucketPhrase = period === 'all' ? 'по місяцях' : 'по днях';
+  const chartTitleKwh = `Споживання ${trendBucketPhrase}`;
+  const chartTitleSpend = `Витрати ${trendBucketPhrase}`;
+
+  if (!Number.isFinite(userId) || userId <= 0) {
+    return (
+      <div className={`space-y-6 ${userPortalListPageShell}`}>
+        <h1 className={userPortalPageTitle}>Аналітика</h1>
+        <AppCard>
+          <p className="text-sm text-slate-600">Увійдіть у кабінет, щоб переглянути персональну аналітику.</p>
+        </AppCard>
+      </div>
+    );
+  }
+
+  const ps = data?.periodSummary;
+  const det = data?.periodSessionDetail;
+  const book = data?.bookingPeriod;
+  const cm = data?.calendarMonthKpis;
+  const mom = data?.kpiVsPrevCalendarMonth;
+  const showCalendarMonthCard =
+    cm != null &&
+    (cm.current.totalSpentUah > 0 ||
+      cm.previous.totalSpentUah > 0 ||
+      cm.current.sessionCount > 0 ||
+      cm.previous.sessionCount > 0 ||
+      mom?.spentPct != null ||
+      mom?.sessionsPct != null ||
+      mom?.kwhPct != null);
+
+  const sessionCalDelta =
+    cm != null ? cm.current.sessionCount - cm.previous.sessionCount : 0;
 
   return (
-    <div className={`space-y-6 ${userPortalListPageShell}`}>
-      <div className={userPortalPageHeaderRow}>
-        <div>
+    <div className={`space-y-8 pb-12 ${userPortalListPageShell}`}>
+      <header className={userPortalPageHeaderRow}>
+        <div className="min-w-0">
           <h1 className={userPortalPageTitle}>Аналітика</h1>
-          <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            Підсумки за період: SQL-функції з <code className="rounded bg-slate-100 px-1">User_analytics.sql</code> (сесії,
-            графіки, ТОП станцій, бронювання); блоки з SQL VIEW — порівняння тижнів, авто, улюблені станції, активні сесії
-            та майбутні бронювання.
-          </p>
         </div>
         <div className={userPortalTabBar} role="tablist" aria-label="Період аналітики">
           {PERIOD_OPTIONS.map((o) => (
@@ -143,6 +228,7 @@ export default function UserAnalyticsPage() {
               type="button"
               role="tab"
               aria-selected={period === o.value}
+              disabled={loading}
               className={period === o.value ? userPortalTabActive : userPortalTabIdle}
               onClick={() => setPeriod(o.value)}
             >
@@ -150,357 +236,465 @@ export default function UserAnalyticsPage() {
             </button>
           ))}
         </div>
-      </div>
+      </header>
 
-      {error ? (
-        <AppCard className="!border-red-200 !bg-red-50/80 !p-4">
-          <p className="text-sm font-medium text-red-800">{error}</p>
-        </AppCard>
+      {data?.partial ? (
+        <div
+          className="rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950"
+          role="status"
+        >
+          Частина даних могла не завантажитися. Оновіть сторінку або спробуйте пізніше.
+        </div>
       ) : null}
 
       {loading ? (
-        <AppCard className="!p-6">
-          <p className="text-sm text-slate-600">Завантаження…</p>
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white py-20 shadow-sm">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
+          <p className="text-sm font-medium text-slate-600">Завантажуємо аналітику…</p>
+        </div>
+      ) : error ? (
+        <AppCard>
+          <p className="text-sm font-medium text-red-700">{error}</p>
         </AppCard>
-      ) : null}
-
-      {!loading && data?.partial ? (
-        <AppCard className="!border-amber-200 !bg-amber-50/80 !p-4">
-          <p className="text-sm text-amber-900">
-            Частина даних недоступна (перевірте <code className="rounded bg-white/60 px-1">View.sql</code> та{" "}
-            <code className="rounded bg-white/60 px-1">User_analytics.sql</code> у БД).
-          </p>
-        </AppCard>
-      ) : null}
-
-      {!loading && data ? (
+      ) : data ? (
         <>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <AppCard className="!p-5">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Сесій ({periodLabel})</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{data.periodSummary.sessionCount}</p>
-              {prev ? (
-                <p className="mt-1 text-xs text-slate-500">
-                  Попереднє вікно: {prev.sessionCount}
-                  {(() => {
-                    const p = pctChange(data.periodSummary.sessionCount, prev.sessionCount);
-                    return p ? (
-                      <span className="ml-1 font-medium text-slate-700">({p})</span>
-                    ) : null;
-                  })()}
-                </p>
-              ) : null}
-            </AppCard>
-            <AppCard className="!p-5">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Енергія ({periodLabel})</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">
-                {data.periodSummary.totalKwh.toFixed(1)} кВт·год
-              </p>
-              {prev ? (
-                <p className="mt-1 text-xs text-slate-500">
-                  Попереднє вікно: {prev.totalKwh.toFixed(1)} кВт·год
-                  {(() => {
-                    const p = pctChange(data.periodSummary.totalKwh, prev.totalKwh);
-                    return p ? <span className="ml-1 font-medium text-slate-700">({p})</span> : null;
-                  })()}
-                </p>
-              ) : null}
-            </AppCard>
-            <AppCard className="!p-5">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Сума рахунків ({periodLabel})</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-green-700">
-                {data.periodSummary.totalSpent.toLocaleString('uk-UA', { minimumFractionDigits: 2 })} грн
-              </p>
-              {prev ? (
-                <p className="mt-1 text-xs text-slate-500">
-                  Попереднє вікно:{' '}
-                  {prev.totalSpent.toLocaleString('uk-UA', { minimumFractionDigits: 2 })} грн
-                  {(() => {
-                    const p = pctChange(data.periodSummary.totalSpent, prev.totalSpent);
-                    return p ? <span className="ml-1 font-medium text-slate-700">({p})</span> : null;
-                  })()}
-                </p>
-              ) : null}
-            </AppCard>
-          </div>
-
-          {data.bookingPeriod && data.bookingPeriod.totalBookings > 0 ? (
-            <AppCard className="!p-5">
-              <h2 className="text-sm font-semibold text-slate-900">Бронювання за період</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                <code className="rounded bg-slate-100 px-1">GetUserBookingStatsForPeriod</code> — інтервал збігається з
-                підсумками сесій вище.
-              </p>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
-                  <dt className="text-xs text-slate-500">Усього</dt>
-                  <dd className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
-                    {data.bookingPeriod.totalBookings}
-                  </dd>
-                </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
-                  <dt className="text-xs text-slate-500">Завершені</dt>
-                  <dd className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
-                    {data.bookingPeriod.cntCompleted}
-                  </dd>
-                </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
-                  <dt className="text-xs text-slate-500">Пропущені / скасовані</dt>
-                  <dd className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
-                    {data.bookingPeriod.cntMissed + data.bookingPeriod.cntCancelled}
-                  </dd>
-                </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
-                  <dt className="text-xs text-slate-500">% завершених</dt>
-                  <dd className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
-                    {data.bookingPeriod.pctCompleted != null
-                      ? `${data.bookingPeriod.pctCompleted.toFixed(1)}%`
-                      : '—'}
-                  </dd>
-                </div>
-              </dl>
-            </AppCard>
-          ) : null}
-
-          {data.comparison ? (
-            <AppCard className="!p-5">
-              <h2 className="text-sm font-semibold text-slate-900">VIEW: порівняння тижнів і місяць</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                <code className="rounded bg-slate-100 px-1">View_UserAnalyticsComparison</code> — фіксовані вікна в
-                БД (останні / попередні 7 днів за сумами рахунків; kWh з початку календарного місяця).
-              </p>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
-                  <dt className="text-xs text-slate-500">Витрати, останні 7 днів</dt>
-                  <dd className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
-                    {num(data.comparison.money_last_7d).toLocaleString('uk-UA', { minimumFractionDigits: 2 })} грн
-                  </dd>
-                </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
-                  <dt className="text-xs text-slate-500">Витрати, попередні 7 днів</dt>
-                  <dd className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
-                    {num(data.comparison.money_prev_7d).toLocaleString('uk-UA', { minimumFractionDigits: 2 })} грн
-                  </dd>
-                </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
-                  <dt className="text-xs text-slate-500">kWh з початку місяця</dt>
-                  <dd className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
-                    {num(data.comparison.energy_this_month).toFixed(1)} кВт·год
-                  </dd>
-                </div>
-              </dl>
-            </AppCard>
-          ) : null}
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <AppCard>
-              <h2 className="text-sm font-semibold text-slate-900">Витрати по періоду</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                {period === 'all' ? 'По місяцях (до 48 точок)' : 'По днях у межах обраного вікна'}
-              </p>
-              <div className="mt-4 h-64">
-                {data.trend.length === 0 ? (
-                  <UserPortalChartEmpty
-                    icon={<ChartLineIcon className="h-6 w-6" />}
-                    description="Немає сесій за цей період"
-                  />
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={data.trend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                      <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="#9ca3af" interval="preserveStartEnd" />
-                      <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                      <Tooltip
-                        formatter={(v) => [`${Number(v ?? 0).toLocaleString('uk-UA')} грн`, 'Витрати']}
-                        contentStyle={{ borderRadius: 12, fontSize: 12 }}
-                      />
-                      <Line type="monotone" dataKey="spend" stroke="#16a34a" strokeWidth={2} dot />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </AppCard>
-            <AppCard>
-              <h2 className="text-sm font-semibold text-slate-900">Енергія по періоду</h2>
-              <p className="mt-1 text-xs text-slate-500">Ті самі інтервали, що й для витрат</p>
-              <div className="mt-4 h-64">
-                {data.trend.length === 0 ? (
-                  <UserPortalChartEmpty
-                    icon={<ChartBarIcon className="h-6 w-6" />}
-                    description="Немає даних за обраний період"
-                  />
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data.trend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                      <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="#9ca3af" interval="preserveStartEnd" />
-                      <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                      <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-                      <Bar dataKey="kwh" fill="#86efac" radius={[6, 6, 0, 0]} name="кВт·год" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </AppCard>
-          </div>
-
-          <AppCard>
-            <h2 className="text-sm font-semibold text-slate-900">Станції за період «{periodLabel}»</h2>
-            <p className="mt-1 text-xs text-slate-500">Агрегат сесій і рахунків (не окремий VIEW)</p>
-            <div className="mt-4 h-72">
-              {byStationChart.length === 0 ? (
-                <UserPortalChartEmpty
-                  icon={<ChartBarIcon className="h-6 w-6" />}
-                  description="Немає зарядок на станціях у цьому вікні"
-                />
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={byStationChart} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 10 }} stroke="#9ca3af" />
-                    <YAxis type="category" dataKey="label" width={130} tick={{ fontSize: 9 }} stroke="#9ca3af" />
-                    <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-                    <Bar dataKey="kwh" fill="#22c55e" radius={[0, 6, 6, 0]} name="кВт·год" />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
+          <nav className="border-b border-slate-200" aria-label="Теми аналітики">
+            <div className="-mb-px flex gap-4 overflow-x-auto pb-px sm:gap-8" role="tablist">
+              {(
+                [
+                  { id: 'overview' as const, label: 'Огляд', count: ps?.sessionCount ?? 0 },
+                  { id: 'charts' as const, label: 'Графіки', count: 2 },
+                  { id: 'stations' as const, label: 'Станції', count: data.stationsInPeriod?.length ?? 0 },
+                  { id: 'bookings' as const, label: 'Бронювання', count: book?.totalBookings ?? 0 },
+                  {
+                    id: 'cars' as const,
+                    label: 'Авто',
+                    count: data.vehicleSpendInPeriod?.length ?? 0,
+                  },
+                ] as const
+              ).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={sectionTab === t.id}
+                  className={`shrink-0 border-b-2 px-0.5 pb-3 pt-1 text-sm font-medium transition ${analyticsThemeTabClass(sectionTab === t.id)}`}
+                  onClick={() => setSectionTab(t.id)}
+                >
+                  {t.label}{' '}
+                  <span
+                    className={`tabular-nums ${sectionTab === t.id ? 'text-green-600/90' : 'text-slate-400'}`}
+                  >
+                    ({t.count})
+                  </span>
+                </button>
+              ))}
             </div>
-          </AppCard>
+          </nav>
 
-          <AppCard className="!p-0 overflow-hidden">
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className="text-sm font-semibold text-slate-900">VIEW: статистика по авто</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                <code className="rounded bg-slate-100 px-1">View_UserVehicleStats</code> — усі часи + зарядки за 30
-                днів (поля VIEW).
-              </p>
+          <div className="mt-6 space-y-6">
+            {sectionTab === 'overview' && (
+              <>
+                <section aria-labelledby="user-kpi-heading" className="space-y-4">
+            <h2 id="user-kpi-heading" className="sr-only">
+              Ключові показники за період
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <KpiCard title="Сесії" value={String(ps?.sessionCount ?? 0)} />
+              <KpiCard title="Енергія" value={`${fmtKwh(ps?.totalKwh ?? 0)} кВт·год`} />
+              <KpiCard title="Витрати (рахунки)" value={`${fmtMoney(ps?.totalSpent ?? 0)} ₴`} />
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-5 py-3">Авто</th>
-                    <th className="px-5 py-3">Номер</th>
-                    <th className="px-5 py-3 text-right">Сесій (усі)</th>
-                    <th className="px-5 py-3 text-right">kWh (усі)</th>
-                    <th className="px-5 py-3 text-right">За 30 дн.</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {data.vehicleStats.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-5 py-6 text-center text-slate-500">
-                        Немає прив’язаних авто або сесій
-                      </td>
-                    </tr>
+          </section>
+
+          <div className="space-y-6">
+              <section
+                className="grid gap-4 sm:grid-cols-2 sm:items-stretch"
+                aria-label="Середні показники та топ станція"
+              >
+                <AppCard padding className="h-full">
+                  <h2 className="text-sm font-semibold text-slate-900">Середні показники</h2>
+                 
+                  <div className="mt-4 flex gap-4">
+                    <div className={userPortalIconTileMd}>
+                      <SparkIcon className="h-6 w-6" />
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-2 text-sm">
+                      <div className="flex justify-between gap-2 border-b border-slate-100 py-1">
+                        <span className="text-slate-500">кВт·год / сесію</span>
+                        <span className="font-semibold tabular-nums text-slate-900">
+                          {fmtKwh(det?.avgKwhPerSession ?? 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2 border-b border-slate-100 py-1">
+                        <span className="text-slate-500">Середній чек</span>
+                        <span className="font-semibold tabular-nums text-slate-900">
+                          {fmtMoney(det?.avgRevenuePerSession ?? 0)} ₴
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2 py-1">
+                        <span className="text-slate-500">Тривалість (хв)</span>
+                        <span className="font-semibold tabular-nums text-slate-900">
+                          {(det?.avgSessionDurationMinutes ?? 0).toLocaleString('uk-UA', {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 1,
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </AppCard>
+                <AppCard padding className="h-full">
+                  <h2 className="text-sm font-semibold text-slate-900">ТОП станція</h2>
+                 
+                  {det?.topStation ? (
+                    <>
+                      <p className="mt-4 text-lg font-semibold leading-snug text-slate-900">{det.topStation.name}</p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Візитів: <span className="font-semibold tabular-nums">{det.topStation.visitCount}</span>
+                      </p>
+                      <Link
+                        to={`/dashboard/stations/${det.topStation.id}`}
+                        className="mt-3 inline-flex text-sm font-medium text-green-600 hover:text-green-700"
+                      >
+                        Відкрити станцію →
+                      </Link>
+                    </>
                   ) : (
-                    data.vehicleStats.map((row, i) => (
-                      <tr key={`${String(row.license_plate)}-${i}`} className="text-slate-800">
-                        <td className="px-5 py-3 font-medium">{String(row.car_name ?? '—')}</td>
-                        <td className="px-5 py-3 tabular-nums text-slate-600">{String(row.license_plate ?? '')}</td>
-                        <td className="px-5 py-3 text-right tabular-nums">{num(row.total_charges)}</td>
-                        <td className="px-5 py-3 text-right tabular-nums">{num(row.total_kwh).toFixed(1)}</td>
-                        <td className="px-5 py-3 text-right tabular-nums">{num(row.charges_last_30d)}</td>
-                      </tr>
-                    ))
+                    <p className="mt-4 text-sm text-slate-500">Немає сесій за цей період.</p>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </AppCard>
+                </AppCard>
+              </section>
 
-          <AppCard className="!p-0 overflow-hidden">
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className="text-sm font-semibold text-slate-900">VIEW: улюблені станції (90 днів)</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                <code className="rounded bg-slate-100 px-1">View_UserStationLoyalty</code> — лише сесії з рахунком,
-                топ-10 за рангом.
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-5 py-3">#</th>
-                    <th className="px-5 py-3">Станція</th>
-                    <th className="px-5 py-3 text-right">Візитів</th>
-                    <th className="px-5 py-3 text-right">kWh</th>
-                    <th className="px-5 py-3 text-right">Сума</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {data.stationLoyalty.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-5 py-6 text-center text-slate-500">
-                        Немає даних за 90 днів з оплаченими рахунками
-                      </td>
-                    </tr>
+              {showCalendarMonthCard && cm ? (
+                <AppCard padding className="border-slate-200">
+                  <h2 className="text-sm font-semibold text-slate-900">Витрати за календарні місяці</h2>
+                  <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-500">
+                    Поточний місяць (з 1-го до сьогодні) vs повний попередній. Друге число в блоці сесій — різниця
+                    кількості сесій; для енергії та грошей — % зміни (мінус окремо перед числом, % у кінці).
+                  </p>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/90 p-4">
+                      <p className="text-xs font-medium capitalize text-slate-500">
+                        Сесії — {calendarMonthSpendLabels.current}
+                      </p>
+                      <p className="mt-2 text-3xl font-bold tabular-nums tracking-tight text-slate-900">
+                        {cm.current.sessionCount}
+                      </p>
+                      <p className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm text-slate-700">
+                        <span
+                          className={`text-2xl font-semibold tabular-nums ${
+                            sessionCalDelta > 0
+                              ? 'text-emerald-700'
+                              : sessionCalDelta < 0
+                                ? 'text-rose-700'
+                                : 'text-slate-600'
+                          }`}
+                        >
+                          {sessionCalDelta === 0 ? '0' : `${sessionCalDelta > 0 ? '+' : ''}${sessionCalDelta}`}
+                        </span>
+                        <span className="text-xs font-normal text-slate-500">до попереднього місяця</span>
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        <span className="font-medium text-slate-600">({sessionDeltaStatusUa(sessionCalDelta)})</span>
+                        {' · '}
+                        було <span className="font-medium tabular-nums">{cm.previous.sessionCount}</span>
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-100 bg-white p-4">
+                      <p className="text-xs font-medium text-slate-500">Спожито енергії</p>
+                      {mom?.kwhPct != null && Number.isFinite(mom.kwhPct) ? (
+                        <>
+                          {(() => {
+                            const k = pctWithLeadingSign(mom.kwhPct, 1);
+                            return (
+                              <p className="mt-2 flex items-baseline gap-0.5 text-3xl font-bold tabular-nums tracking-tight text-slate-900">
+                                {k.sign ? <span className="text-slate-500">{k.sign}</span> : null}
+                                <span>{k.abs}</span>
+                                <span className="text-xl font-bold text-slate-500">%</span>
+                              </p>
+                            );
+                          })()}
+                          <p className="mt-2 text-[11px] leading-snug text-slate-500">
+                            За {calendarMonthSpendLabels.previous}:{' '}
+                            <span className="font-semibold tabular-nums text-slate-700">
+                              {fmtKwh(cm.previous.totalKwh)} кВт·год
+                            </span>
+                          </p>
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            Зараз у місяці: {fmtKwh(cm.current.totalKwh)} кВт·год
+                          </p>
+                        </>
+                      ) : (
+                        <p className="mt-2 text-2xl font-semibold text-slate-400">—</p>
+                      )}
+                    </div>
+                    <div className="rounded-xl border border-emerald-100/80 bg-emerald-50/50 p-4">
+                      <p className="text-xs font-medium text-slate-600">Витрачено коштів</p>
+                      {mom?.spentPct != null && Number.isFinite(mom.spentPct) ? (
+                        <>
+                          {(() => {
+                            const s = pctWithLeadingSign(mom.spentPct, 1);
+                            return (
+                              <p className="mt-2 flex items-baseline gap-0.5 text-3xl font-bold tabular-nums tracking-tight text-slate-900">
+                                {s.sign ? <span className="text-slate-500">{s.sign}</span> : null}
+                                <span>{s.abs}</span>
+                                <span className="text-xl font-bold text-slate-500">%</span>
+                              </p>
+                            );
+                          })()}
+                          <p className="mt-2 text-[11px] leading-snug text-slate-600">
+                            За {calendarMonthSpendLabels.previous}:{' '}
+                            <span className="font-semibold tabular-nums text-slate-800">
+                              {fmtMoney(cm.previous.totalSpentUah)} ₴
+                            </span>
+                          </p>
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            Зараз у місяці: {fmtMoney(cm.current.totalSpentUah)} ₴
+                          </p>
+                          <div className="mt-2">
+                            <StatusPill tone={pctTone(mom.spentPct)} size="sm">
+                              {fmtPct(mom.spentPct)} до попереднього
+                            </StatusPill>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="mt-2 text-2xl font-semibold text-slate-400">—</p>
+                      )}
+                    </div>
+                  </div>
+                </AppCard>
+              ) : null}
+              </div>
+              </>
+            )}
+
+            {sectionTab === 'charts' && (
+              <section
+                className="grid gap-4 md:grid-cols-2 md:items-stretch"
+                aria-label="Споживання та витрати в динаміці"
+              >
+                <AppCard padding className="h-full min-w-0">
+                  <div className="mb-4">
+                    <h2 className="text-sm font-semibold text-slate-900">{chartTitleKwh}</h2>
+                   
+                  </div>
+                  {trendChart.length === 0 ? (
+                    <p className="py-12 text-center text-sm text-slate-500">Немає даних для графіка в цьому інтервалі.</p>
                   ) : (
-                    data.stationLoyalty.map((row, i) => (
-                      <tr key={`${String(row.station_id)}-${i}`} className="text-slate-800">
-                        <td className="px-5 py-3 tabular-nums text-slate-500">{num(row.preference_rank)}</td>
-                        <td className="px-5 py-3 font-medium">{String(row.station_name ?? '')}</td>
-                        <td className="px-5 py-3 text-right tabular-nums">{num(row.visit_count)}</td>
-                        <td className="px-5 py-3 text-right tabular-nums">{num(row.total_energy).toFixed(1)}</td>
-                        <td className="px-5 py-3 text-right tabular-nums">
-                          {num(row.total_spent).toLocaleString('uk-UA', { minimumFractionDigits: 2 })}
-                        </td>
-                      </tr>
-                    ))
+                    <div className="h-[260px] w-full min-w-0 md:h-[280px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={trendChart} margin={{ top: 8, right: 8, left: 4, bottom: 8 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                          <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} interval="preserveStartEnd" />
+                          <YAxis
+                            tick={{ fontSize: 11, fill: '#64748b' }}
+                            width={48}
+                            tickFormatter={(v) => `${v}`}
+                            label={{
+                              value: 'кВт·год',
+                              angle: -90,
+                              position: 'insideLeft',
+                              fill: '#94a3b8',
+                              fontSize: 10,
+                            }}
+                          />
+                          <Tooltip
+                            contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0' }}
+                            formatter={(value) => [`${fmtKwh(Number(value))} кВт·год`, 'Споживання']}
+                          />
+                          <Bar
+                            dataKey="kwh"
+                            name="кВт·год"
+                            fill="#22c55e"
+                            radius={[4, 4, 0, 0]}
+                            maxBarSize={36}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </AppCard>
+                </AppCard>
+                <AppCard padding className="h-full min-w-0">
+                  <div className="mb-4">
+                    <h2 className="text-sm font-semibold text-slate-900">{chartTitleSpend}</h2>
+                   
+                  </div>
+                  {trendChart.length === 0 ? (
+                    <p className="py-12 text-center text-sm text-slate-500">Немає даних для графіка в цьому інтервалі.</p>
+                  ) : (
+                    <div className="h-[260px] w-full min-w-0 md:h-[280px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={trendChart} margin={{ top: 8, right: 8, left: 4, bottom: 8 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                          <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} interval="preserveStartEnd" />
+                          <YAxis
+                            tick={{ fontSize: 11, fill: '#64748b' }}
+                            width={52}
+                            tickFormatter={(v) => `${v}`}
+                            label={{
+                              value: '₴',
+                              angle: -90,
+                              position: 'insideLeft',
+                              fill: '#94a3b8',
+                              fontSize: 10,
+                            }}
+                          />
+                          <Tooltip
+                            contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0' }}
+                            formatter={(value) => [`${fmtMoney(Number(value))} ₴`, 'Витрати']}
+                          />
+                          <Bar
+                            dataKey="spend"
+                            name="Витрати, ₴"
+                            fill="#0ea5e9"
+                            radius={[4, 4, 0, 0]}
+                            maxBarSize={36}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </AppCard>
+              </section>
+            )}
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <AppCard className="!p-5">
-              <h2 className="text-sm font-semibold text-slate-900">VIEW: активні зарядки</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                <code className="rounded bg-slate-100 px-1">View_ActiveSessions</code>
-              </p>
-              <ul className="mt-4 space-y-3 text-sm">
-                {data.activeSessions.length === 0 ? (
-                  <li className="text-slate-500">Немає активних сесій</li>
+            {sectionTab === 'stations' && (
+              <div className="space-y-6">
+                <AppCard padding>
+                  <h2 className="text-sm font-semibold text-slate-900">ТОП станцій за енергією</h2>
+                
+                  {stationBars.length === 0 ? (
+                    <p className="mt-8 text-center text-sm text-slate-500">Немає даних.</p>
+                  ) : (
+                    <div className="mt-4 h-[280px] w-full min-w-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={stationBars} layout="vertical" margin={{ left: 8, right: 16 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                          <XAxis type="number" tick={{ fontSize: 11, fill: '#64748b' }} />
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={100}
+                            tick={{ fontSize: 11, fill: '#475569' }}
+                          />
+                          <Tooltip
+                            formatter={(v, _n, ctx) => {
+                              const payload = ctx?.payload as { fullName?: string; kwh?: number };
+                              return [`${fmtKwh(Number(v))} кВт·год`, payload?.fullName ?? 'Станція'];
+                            }}
+                          />
+                          <Bar dataKey="kwh" fill="#22c55e" radius={[0, 6, 6, 0]} name="кВт·год" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </AppCard>
+              </div>
+            )}
+
+            {sectionTab === 'bookings' && (
+              <AppCard padding>
+                <h2 className="text-sm font-semibold text-slate-900">Бронювання за період</h2>
+              
+                {!book || book.totalBookings === 0 ? (
+                  <p className="mt-8 text-center text-sm text-slate-500">Немає бронювань у цьому інтервалі.</p>
                 ) : (
-                  data.activeSessions.map((s, idx) => (
-                    <li
-                      key={String(s.session_id ?? s.sessionId ?? `as-${idx}`)}
-                      className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2"
+                  <>
+                    <div
+                      className="mt-4 flex w-full flex-nowrap gap-1 overflow-x-auto rounded-xl border border-slate-200/90 bg-slate-50/50 p-1 shadow-inner [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                      role="group"
+                      aria-label="Кількості бронювань за статусом та успішність завершення"
                     >
-                      <span className="font-medium text-slate-900">{String(s.station_name ?? '')}</span>
-                      <span className="ml-2 text-slate-500">
-                        порт {num(s.port_number ?? s.portNumber)} · {num(s.kwh_consumed ?? s.kwhConsumed).toFixed(2)}{' '}
-                        kWh
-                      </span>
-                    </li>
-                  ))
+                      {(
+                        [
+                          {
+                            key: 'booked',
+                            label: 'Заброньовано',
+                            count: book.cntBooked,
+                            tone: userPortalBookingStatus.upcoming,
+                          },
+                          {
+                            key: 'completed',
+                            label: 'Завершено',
+                            count: book.cntCompleted,
+                            tone: userPortalBookingStatus.completed,
+                          },
+                          {
+                            key: 'missed',
+                            label: 'Пропущено',
+                            count: book.cntMissed,
+                            tone: userPortalBookingStatus.missed,
+                          },
+                          {
+                            key: 'cancelled',
+                            label: 'Скасовано',
+                            count: book.cntCancelled,
+                            tone: userPortalBookingStatus.cancelled,
+                          },
+                        ] as const
+                      ).map((cell) => (
+                        <div
+                          key={cell.key}
+                          className={`min-w-[5.5rem] flex-1 rounded-lg px-2 py-3 text-center ring-1 ring-inset ${cell.tone}`}
+                        >
+                          <p className="text-[11px] font-semibold uppercase tracking-wide opacity-90">{cell.label}</p>
+                          <p className="mt-1 text-xl font-bold tabular-nums">{cell.count}</p>
+                        </div>
+                      ))}
+                      {book.pctCompleted != null ? (
+                        <div
+                          className={`min-w-[5.75rem] flex-1 rounded-lg px-2 py-3 text-center ring-1 ring-inset ${bookingSuccessRateStripClass(book.pctCompleted)}`}
+                          title="Частка бронювань зі статусом «завершено» від усіх бронювань у цьому періоді"
+                        >
+                          <p className="text-[11px] font-semibold uppercase tracking-wide opacity-90">Успішність</p>
+                          <p className="mt-1 text-xl font-bold tabular-nums">
+                            {book.pctCompleted.toLocaleString('uk-UA', { maximumFractionDigits: 1 })}%
+                          </p>
+                          <p className="mt-0.5 text-[10px] font-medium leading-tight opacity-90">завершені</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  </>
                 )}
-              </ul>
-            </AppCard>
-            <AppCard className="!p-5">
-              <h2 className="text-sm font-semibold text-slate-900">VIEW: майбутні бронювання</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                <code className="rounded bg-slate-100 px-1">View_UpcomingBookings</code>
-              </p>
-              <ul className="mt-4 space-y-3 text-sm">
-                {data.upcomingBookings.length === 0 ? (
-                  <li className="text-slate-500">Немає запланованих бронювань</li>
-                ) : (
-                  data.upcomingBookings.map((b, idx) => (
-                    <li
-                      key={String(b.booking_id ?? b.bookingId ?? `ub-${idx}`)}
-                      className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2"
-                    >
-                      <span className="font-medium text-slate-900">{String(b.station_name ?? '')}</span>
-                      <span className="ml-2 text-slate-500">
-                        {String(b.start_time ?? b.startTime ?? '').slice(0, 16).replace('T', ' ')}
-                      </span>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </AppCard>
+              </AppCard>
+            )}
+
+            {sectionTab === 'cars' && (
+              <div className="space-y-6">
+                <AppCard padding>
+                  <h2 className="text-sm font-semibold text-slate-900">Авто в періоді</h2>
+                  <p className="mt-0.5 text-xs text-slate-500">Сесії та витрати за обраний період</p>
+                  {(data?.vehicleSpendInPeriod ?? []).length === 0 ? (
+                    <p className="mt-8 text-center text-sm text-slate-500">Немає зарядок для авто в цьому інтервалі.</p>
+                  ) : (
+                    <div className="mt-4 overflow-x-auto">
+                      <table className="w-full min-w-[480px] text-left text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <th className="py-2 pr-3">Авто</th>
+                            <th className="py-2 pr-3">Номер</th>
+                            <th className="py-2 pr-3 text-right">Сесії</th>
+                            <th className="py-2 pr-3 text-right">кВт·год</th>
+                            <th className="py-2 text-right">Витрати</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(data?.vehicleSpendInPeriod ?? []).map((row) => (
+                            <tr key={row.vehicleId} className="border-b border-slate-100 last:border-0">
+                              <td className="py-2.5 pr-3 font-medium text-slate-900">{row.carLabel || '—'}</td>
+                              <td className="py-2.5 pr-3 text-slate-600">{row.licensePlate || '—'}</td>
+                              <td className="py-2.5 pr-3 text-right tabular-nums">{row.sessionCount}</td>
+                              <td className="py-2.5 pr-3 text-right tabular-nums">{fmtKwh(row.totalKwh)}</td>
+                              <td className="py-2.5 text-right tabular-nums">{fmtMoney(row.totalRevenue)} ₴</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </AppCard>
+              </div>
+            )}
           </div>
         </>
       ) : null}

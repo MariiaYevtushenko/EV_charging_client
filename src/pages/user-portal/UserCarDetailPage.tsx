@@ -166,19 +166,8 @@ export default function UserCarDetailPage() {
         </div>
 
         <div className="rounded-xl border border-emerald-100/90 bg-emerald-50/40 p-3 sm:p-4">
-          <p className={`${sectionLabel} text-emerald-900/80`}>Агрегати з бази даних</p>
-          {isPersistedVehicleId(car.id) ? (
-            <p className="mt-1 text-[11px] leading-snug text-emerald-900/70">
-              За наявності функції <span className="font-mono">GetVehicleReportForPeriod</span> — лише сесії зі статусом
-              COMPLETED та оплачений рахунок (SUCCESS). Інакше показуються всі сесії з кабінету через Prisma.
-            </p>
-          ) : null}
-          {!isPersistedVehicleId(car.id) ? (
-            <p className="mt-3 text-sm text-gray-600">
-              Після збереження авто в обліковому записі з’явиться зв’язок з БД. Нижче — оцінка зі списку сесій, завантаженого в
-              кабінет.
-            </p>
-          ) : null}
+         
+         
           {dbError ? <p className="mt-2 text-xs font-medium text-amber-800">{dbError}</p> : null}
           {dbLoading && isPersistedVehicleId(car.id) ? (
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
