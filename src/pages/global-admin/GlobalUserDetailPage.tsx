@@ -11,16 +11,24 @@ import { stationDetailBackIconLink } from '../../styles/stationAdminTheme';
 type UserTab = 'cars' | 'bookings' | 'sessions' | 'payments';
 
 /** Фільтр списків історії на вкладках бронювань / сесій / платежів. */
-type HistoryTimeRange = '7d' | '30d' | 'all';
+type HistoryTimeRange = 'today' | '7d' | '30d' | 'all';
 
 const HISTORY_RANGE_OPTIONS: { id: HistoryTimeRange; label: string }[] = [
+  { id: 'today', label: 'Сьогодні' },
   { id: '7d', label: '7 днів' },
   { id: '30d', label: '30 днів' },
-  { id: 'all', label: 'Весь час' },
+  { id: 'all', label: 'Увесь час' },
 ];
+
+function startOfLocalDayMs(): number {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
 
 function historyRangeCutoffMs(range: HistoryTimeRange): number | null {
   if (range === 'all') return null;
+  if (range === 'today') return startOfLocalDayMs();
   const days = range === '7d' ? 7 : 30;
   return Date.now() - days * 24 * 60 * 60 * 1000;
 }
@@ -539,7 +547,7 @@ export default function GlobalUserDetailPage() {
         </Link>
         <AppCard className="border-red-100 bg-red-50/80 !p-5">
           <p className="font-medium text-red-900">Не вдалося відкрити профіль</p>
-          <p className="mt-1 text-sm text-red-800/90">{loadError ?? 'Користувача не знайдено.'}</p>
+          <p className="mt-1 text-sm text-red-800/90">{loadError ?? 'Користувача не знайдено'}</p>
         </AppCard>
       </div>
     );

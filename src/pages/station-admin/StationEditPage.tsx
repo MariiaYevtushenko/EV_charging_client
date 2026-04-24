@@ -229,7 +229,7 @@ export default function StationEditPage() {
       const msg =
         err instanceof Error && err.message.trim()
           ? err.message
-          : 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.';
+          : 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз';
       setSubmitError(msg);
     }
   };

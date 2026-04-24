@@ -15,10 +15,8 @@ export type ConfirmDialogProps = {
   onConfirm: () => void | Promise<void>;
 };
 
-/**
- * Універсальне модальне підтвердження (backdrop + панель).
- * Використовуйте для архівування, видалення, виходу без збереження тощо.
- */
+
+// Універсальне модальне підтвердження 
 export function ConfirmDialog({
   open,
   title,

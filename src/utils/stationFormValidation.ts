@@ -1,18 +1,18 @@
 /** Клієнтська валідація форм створення / редагування станції (узгоджено з parseCreateStationBody / parseUpdateStationBody на сервері). */
 
+import {
+  STATION_FORM_CITY_LEN_MAX,
+  STATION_FORM_CITY_LEN_MIN,
+  STATION_FORM_COUNTRY_LEN_MAX,
+  STATION_FORM_HOUSE_NUMBER_LEN_MAX,
+  STATION_FORM_NAME_LEN_MAX,
+  STATION_FORM_NAME_LEN_MIN,
+  STATION_FORM_PORT_POWER_KW_MAX,
+  STATION_FORM_PORT_POWER_KW_MIN,
+  STATION_FORM_STREET_LEN_MAX,
+  STATION_FORM_STREET_LEN_MIN,
+} from '../constants/stationFormValidationConstants';
 import type { StationPort } from '../types/station';
-
-const MIN_NAME = 2;
-const MAX_NAME = 200;
-const MIN_CITY = 2;
-const MAX_CITY = 120;
-const MIN_STREET = 2;
-const MAX_STREET = 300;
-const MAX_HOUSE = 40;
-const MAX_COUNTRY_LEN = 100;
-
-const MIN_POWER_KW = 0.01;
-const MAX_POWER_KW = 1000;
 
 export type StationFormFieldKey =
   | 'name'
@@ -43,28 +43,28 @@ function trimInner(s: string): string {
 
 export function validateStationName(name: string): string | undefined {
   const t = trimInner(name);
-  if (t.length < MIN_NAME) return `Назва — щонайменше ${MIN_NAME} символи.`;
-  if (t.length > MAX_NAME) return `Не більше ${MAX_NAME} символів.`;
+  if (t.length < STATION_FORM_NAME_LEN_MIN) return `Назва — щонайменше ${STATION_FORM_NAME_LEN_MIN} символи.`;
+  if (t.length > STATION_FORM_NAME_LEN_MAX) return `Не більше ${STATION_FORM_NAME_LEN_MAX} символів.`;
   return undefined;
 }
 
 export function validateStationCity(city: string): string | undefined {
   const t = trimInner(city);
-  if (t.length < MIN_CITY) return `Місто — щонайменше ${MIN_CITY} символи.`;
-  if (t.length > MAX_CITY) return `Не більше ${MAX_CITY} символів.`;
+  if (t.length < STATION_FORM_CITY_LEN_MIN) return `Місто — щонайменше ${STATION_FORM_CITY_LEN_MIN} символи.`;
+  if (t.length > STATION_FORM_CITY_LEN_MAX) return `Не більше ${STATION_FORM_CITY_LEN_MAX} символів.`;
   return undefined;
 }
 
 export function validateStationStreet(street: string): string | undefined {
   const t = trimInner(street);
-  if (t.length < MIN_STREET) return `Вулиця — щонайменше ${MIN_STREET} символи.`;
-  if (t.length > MAX_STREET) return `Не більше ${MAX_STREET} символів.`;
+  if (t.length < STATION_FORM_STREET_LEN_MIN) return `Вулиця — щонайменше ${STATION_FORM_STREET_LEN_MIN} символи.`;
+  if (t.length > STATION_FORM_STREET_LEN_MAX) return `Не більше ${STATION_FORM_STREET_LEN_MAX} символів.`;
   return undefined;
 }
 
 export function validateStationHouseNumber(houseNumber: string): string | undefined {
   const t = houseNumber.trim();
-  if (t.length > MAX_HOUSE) return `Не більше ${MAX_HOUSE} символів.`;
+  if (t.length > STATION_FORM_HOUSE_NUMBER_LEN_MAX) return `Не більше ${STATION_FORM_HOUSE_NUMBER_LEN_MAX} символів.`;
   return undefined;
 }
 
@@ -72,7 +72,7 @@ export function validateStationHouseNumber(houseNumber: string): string | undefi
 export function validateStationCountry(country: string): string | undefined {
   const t = trimInner(country);
   if (t.length < 2) return 'Вкажіть країну (наприклад, код UA).';
-  if (t.length > MAX_COUNTRY_LEN) return `Не більше ${MAX_COUNTRY_LEN} символів.`;
+  if (t.length > STATION_FORM_COUNTRY_LEN_MAX) return `Не більше ${STATION_FORM_COUNTRY_LEN_MAX} символів.`;
   if (!/^[\p{L}0-9\s\-&.]+$/u.test(t)) return 'Допустимі літери, цифри, пробіли та символи - & .';
   return undefined;
 }
@@ -89,8 +89,8 @@ export function validatePorts(ports: StationPort[]): string | undefined {
   for (let i = 0; i < ports.length; i++) {
     const p = ports[i];
     const kw = p.powerKw;
-    if (!Number.isFinite(kw) || kw < MIN_POWER_KW || kw > MAX_POWER_KW) {
-      return `Порт ${i + 1}: вкажіть потужність від ${MIN_POWER_KW} до ${MAX_POWER_KW} кВт.`;
+    if (!Number.isFinite(kw) || kw < STATION_FORM_PORT_POWER_KW_MIN || kw > STATION_FORM_PORT_POWER_KW_MAX) {
+      return `Порт ${i + 1}: вкажіть потужність від ${STATION_FORM_PORT_POWER_KW_MIN} до ${STATION_FORM_PORT_POWER_KW_MAX} кВт.`;
     }
     if (!trimInner(p.connector)) return `Порт ${i + 1}: оберіть тип конектора.`;
   }

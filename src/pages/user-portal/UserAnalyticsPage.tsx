@@ -26,6 +26,13 @@ import {
 
 const PARTIAL_TOAST_MS = 5000;
 
+const PERIOD_KPI_HINT: Record<NetworkListPeriod, string> = {
+  today: 'За поточну календарну добу',
+  '7d': 'Останні 7 днів (ковзне вікно)',
+  '30d': 'Останні 30 днів (ковзне вікно)',
+  all: 'Уся історія; графіки нижче — по місяцях',
+};
+
 type UserAnalyticsSectionTab = 'overview' | 'charts' | 'stations' | 'bookings' | 'cars';
 
 function analyticsThemeTabClass(active: boolean) {
@@ -67,9 +74,24 @@ function fmtAbsPctOne(p: number): string {
   return Math.abs(p).toLocaleString('uk-UA', { maximumFractionDigits: 1, minimumFractionDigits: 0 });
 }
 
-function deltaToneClass(delta: number): string {
-  if (delta < 0) return 'text-emerald-700';
-  if (delta > 0) return 'text-rose-700';
+/** Витрати: більше % vs попередній місяць = гірше для гаманця (червоний), менше = краще (зелений). */
+function spendMomToneClass(pct: number): string {
+  if (pct > 0) return 'text-rose-700';
+  if (pct < 0) return 'text-emerald-700';
+  return 'text-slate-600';
+}
+
+/** Сесії / кВт·год: більше vs попередній місяць = активніше (зелений), менше — нейтрально (сірий/бурштин). */
+function usageMomToneClass(pct: number): string {
+  if (pct > 0) return 'text-emerald-700';
+  if (pct < 0) return 'text-amber-800';
+  return 'text-slate-600';
+}
+
+/** Абсолютна різниця кількості сесій (поточний vs повний попередній календарний місяць). */
+function sessionCountDeltaTone(d: number): string {
+  if (d > 0) return 'text-emerald-700';
+  if (d < 0) return 'text-amber-800';
   return 'text-slate-600';
 }
 
@@ -88,10 +110,13 @@ function SparkIcon({ className }: { className?: string }) {
 
 function KpiCard({ title, value, hint }: { title: string; value: string; hint?: string }) {
   return (
-    <AppCard className="relative overflow-hidden" padding>
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
-      <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight text-slate-900">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
+    <AppCard
+      className="relative overflow-hidden border-slate-200/90 shadow-sm ring-1 ring-slate-900/[0.03]"
+      padding
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{title}</p>
+      <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight text-slate-900 sm:text-[1.65rem]">{value}</p>
+      {hint ? <p className="mt-1.5 text-xs leading-snug text-slate-500">{hint}</p> : null}
     </AppCard>
   );
 }
@@ -163,6 +188,8 @@ export default function UserAnalyticsPage() {
     }));
   }, [data?.trend]);
 
+  const trendChartDense = trendChart.length > 12;
+
   const stationBars = useMemo(() => {
     const rows = [...(data?.stationsInPeriod ?? [])].slice(0, 8);
     return rows.map((r) => ({
@@ -195,7 +222,7 @@ export default function UserAnalyticsPage() {
       <div className={`space-y-6 ${userPortalListPageShell}`}>
         <h1 className={userPortalPageTitle}>Аналітика</h1>
         <AppCard>
-          <p className="text-sm text-slate-600">Увійдіть у кабінет, щоб переглянути персональну аналітику.</p>
+          <p className="text-sm text-slate-600">Увійдіть у кабінет, щоб переглянути персональну аналітику</p>
         </AppCard>
       </div>
     );
@@ -227,7 +254,7 @@ export default function UserAnalyticsPage() {
           tone="warning"
           onDismiss={() => setPartialToastShow(false)}
         >
-          Частина даних могла не завантажитися. Оновіть сторінку або спробуйте пізніше.
+          Частина даних могла не завантажитися. Оновіть сторінку або спробуйте пізніше
         </FloatingToast>
       </FloatingToastRegion>
       <header className={userPortalPageHeaderRow}>
@@ -282,7 +309,7 @@ export default function UserAnalyticsPage() {
             </div>
           </nav>
 
-          <div className="mt-6 space-y-6">
+          <div className="mt-6 min-h-0 space-y-6" key={sectionTab}>
             {sectionTab === 'overview' && (
               <>
                 <section aria-labelledby="user-kpi-heading" className="space-y-4">
@@ -290,9 +317,9 @@ export default function UserAnalyticsPage() {
               Ключові показники за період
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <KpiCard title="Сесії" value={String(ps?.sessionCount ?? 0)} />
-              <KpiCard title="Енергія" value={`${fmtKwh(ps?.totalKwh ?? 0)} кВт·год`} />
-              <KpiCard title="Витрати" value={`${fmtMoney(ps?.totalSpent ?? 0)} ₴`} />
+              <KpiCard title="Сесії" value={String(ps?.sessionCount ?? 0)} hint={PERIOD_KPI_HINT[period]} />
+              <KpiCard title="Енергія" value={`${fmtKwh(ps?.totalKwh ?? 0)} кВт·год`} hint={PERIOD_KPI_HINT[period]} />
+              <KpiCard title="Витрати" value={`${fmtMoney(ps?.totalSpent ?? 0)} ₴`} hint={PERIOD_KPI_HINT[period]} />
             </div>
           </section>
 
@@ -350,7 +377,7 @@ export default function UserAnalyticsPage() {
                       </Link>
                     </>
                   ) : (
-                    <p className="mt-4 text-sm text-slate-500">Немає сесій за цей період.</p>
+                    <p className="mt-4 text-sm text-slate-500">Немає сесій за цей період</p>
                   )}
                 </AppCard>
               </section>
@@ -358,12 +385,15 @@ export default function UserAnalyticsPage() {
               {showCalendarMonthCard && cm ? (
                 <AppCard padding className="border-slate-200">
                   <h2 className="text-sm font-semibold text-slate-900">Порівняння з попереднім місяцем</h2>
-                
+                  <p className="mt-1 max-w-prose text-xs leading-relaxed text-slate-500">
+                    За календарем: від 1-го числа поточного місяця до зараз vs повний попередній місяць (не залежить від
+                    перемикача періоду зверху).
+                  </p>
                   <div className="mt-4 grid gap-4 sm:grid-cols-3">
                     <div className="rounded-xl border border-slate-100 bg-slate-50/90 p-4">
                       <p className="text-xs font-medium text-slate-500">Кількість сесій</p>
                       <p
-                        className={`mt-3 text-2xl font-bold leading-tight tracking-tight sm:text-3xl ${deltaToneClass(sessionCalDelta)}`}
+                        className={`mt-3 text-2xl font-bold leading-tight tracking-tight sm:text-3xl ${sessionCountDeltaTone(sessionCalDelta)}`}
                       >
                         {sessionCalDelta === 0
                           ? 'Без змін'
@@ -385,7 +415,7 @@ export default function UserAnalyticsPage() {
                       {mom?.kwhPct != null && Number.isFinite(mom.kwhPct) ? (
                         <>
                           <p
-                            className={`mt-3 text-2xl font-bold leading-tight tracking-tight sm:text-3xl ${deltaToneClass(mom.kwhPct)}`}
+                            className={`mt-3 text-2xl font-bold leading-tight tracking-tight sm:text-3xl ${usageMomToneClass(mom.kwhPct)}`}
                           >
                             {mom.kwhPct === 0
                               ? 'Без змін'
@@ -415,7 +445,7 @@ export default function UserAnalyticsPage() {
                       {mom?.spentPct != null && Number.isFinite(mom.spentPct) ? (
                         <>
                           <p
-                            className={`mt-3 text-2xl font-bold leading-tight tracking-tight sm:text-3xl ${deltaToneClass(mom.spentPct)}`}
+                            className={`mt-3 text-2xl font-bold leading-tight tracking-tight sm:text-3xl ${spendMomToneClass(mom.spentPct)}`}
                           >
                             {mom.spentPct === 0
                               ? 'Без змін'
@@ -455,15 +485,28 @@ export default function UserAnalyticsPage() {
                 <AppCard padding className="h-full min-w-0">
                   <div className="mb-4">
                     <h2 className="text-sm font-semibold text-slate-900">{chartTitleKwh}</h2>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {data.trendGranularity === 'month' ? 'Помісячно' : 'По днях'} · межі як у перемикача періоду
+                    </p>
                   </div>
                   {trendChart.length === 0 ? (
-                    <p className="py-12 text-center text-sm text-slate-500">Немає даних для графіка в цьому інтервалі.</p>
+                    <p className="py-12 text-center text-sm text-slate-500">Немає даних для графіка в цьому інтервалі</p>
                   ) : (
                     <div className="h-[260px] w-full min-w-0 md:h-[280px]">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={trendChart} margin={{ top: 8, right: 8, left: 4, bottom: 8 }}>
+                        <BarChart
+                          data={trendChart}
+                          margin={{ top: 8, right: 8, left: 4, bottom: trendChartDense ? 40 : 8 }}
+                        >
                           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                          <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} interval="preserveStartEnd" />
+                          <XAxis
+                            dataKey="label"
+                            tick={{ fontSize: 11, fill: '#64748b' }}
+                            interval="preserveStartEnd"
+                            angle={trendChartDense ? -32 : 0}
+                            textAnchor={trendChartDense ? 'end' : 'middle'}
+                            height={trendChartDense ? 52 : undefined}
+                          />
                           <YAxis
                             tick={{ fontSize: 11, fill: '#64748b' }}
                             width={48}
@@ -495,15 +538,28 @@ export default function UserAnalyticsPage() {
                 <AppCard padding className="h-full min-w-0">
                   <div className="mb-4">
                     <h2 className="text-sm font-semibold text-slate-900">{chartTitleSpend}</h2>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {data.trendGranularity === 'month' ? 'Помісячно' : 'По днях'} · межі як у перемикача періоду
+                    </p>
                   </div>
                   {trendChart.length === 0 ? (
-                    <p className="py-12 text-center text-sm text-slate-500">Немає даних для графіка в цьому інтервалі.</p>
+                    <p className="py-12 text-center text-sm text-slate-500">Немає даних для графіка в цьому інтервалі</p>
                   ) : (
                     <div className="h-[260px] w-full min-w-0 md:h-[280px]">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={trendChart} margin={{ top: 8, right: 8, left: 4, bottom: 8 }}>
+                        <BarChart
+                          data={trendChart}
+                          margin={{ top: 8, right: 8, left: 4, bottom: trendChartDense ? 40 : 8 }}
+                        >
                           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                          <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} interval="preserveStartEnd" />
+                          <XAxis
+                            dataKey="label"
+                            tick={{ fontSize: 11, fill: '#64748b' }}
+                            interval="preserveStartEnd"
+                            angle={trendChartDense ? -32 : 0}
+                            textAnchor={trendChartDense ? 'end' : 'middle'}
+                            height={trendChartDense ? 52 : undefined}
+                          />
                           <YAxis
                             tick={{ fontSize: 11, fill: '#64748b' }}
                             width={52}
@@ -539,9 +595,9 @@ export default function UserAnalyticsPage() {
               <div className="space-y-6">
                 <AppCard padding>
                   <h2 className="text-sm font-semibold text-slate-900">ТОП станцій за енергією</h2>
-                
+                  <p className="mt-1 text-xs text-slate-500">У межах обраного періоду зверху сторінки</p>
                   {stationBars.length === 0 ? (
-                    <p className="mt-8 text-center text-sm text-slate-500">Немає даних.</p>
+                    <p className="mt-8 text-center text-sm text-slate-500">Немає даних</p>
                   ) : (
                     <div className="mt-4 h-[280px] w-full min-w-0">
                       <ResponsiveContainer width="100%" height="100%">
@@ -551,7 +607,7 @@ export default function UserAnalyticsPage() {
                           <YAxis
                             type="category"
                             dataKey="name"
-                            width={100}
+                            width={112}
                             tick={{ fontSize: 11, fill: '#475569' }}
                           />
                           <Tooltip
@@ -572,9 +628,9 @@ export default function UserAnalyticsPage() {
             {sectionTab === 'bookings' && (
               <AppCard padding>
                 <h2 className="text-sm font-semibold text-slate-900">Бронювання за період</h2>
-              
+                <p className="mt-1 text-xs text-slate-500">Ті самі дати, що й для сесій і витрат зверху</p>
                 {!book || book.totalBookings === 0 ? (
-                  <p className="mt-8 text-center text-sm text-slate-500">Немає бронювань у цьому інтервалі.</p>
+                  <p className="mt-8 text-center text-sm text-slate-500">Немає бронювань у цьому інтервалі</p>
                 ) : (
                   <>
                     <div
@@ -639,10 +695,12 @@ export default function UserAnalyticsPage() {
             {sectionTab === 'cars' && (
               <div className="space-y-6">
                 <AppCard padding>
+                  <h2 className="text-sm font-semibold text-slate-900">Авто за період</h2>
+                  <p className="mt-1 text-xs text-slate-500">Сесії з гаража в межах обраного періоду</p>
                   {(data?.vehicleSpendInPeriod ?? []).length === 0 ? (
-                    <p className="mt-2 text-center text-sm text-slate-500">Немає зарядок для авто в цьому інтервалі.</p>
+                    <p className="mt-6 text-center text-sm text-slate-500">Немає зарядок для авто в цьому інтервалі</p>
                   ) : (
-                    <div className="mt-2 overflow-x-auto">
+                    <div className="mt-4 overflow-x-auto">
                       <table className="w-full min-w-[480px] text-left text-sm">
                         <thead>
                           <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -672,7 +730,15 @@ export default function UserAnalyticsPage() {
             )}
           </div>
         </>
-      ) : null}
+      ) : (
+        <AppCard padding>
+          <p className="text-sm text-slate-700">
+            Дані аналітики не отримано (порожня або некоректна відповідь сервера). Перевірте, що бекенд запущений і
+            маршрут <code className="rounded bg-slate-100 px-1 text-xs">GET /api/user/…/analytics/views</code> доступний;
+            оновіть сторінку.
+          </p>
+        </AppCard>
+      )}
     </div>
   );
 }

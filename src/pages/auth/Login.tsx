@@ -78,7 +78,7 @@ export default function Login() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Вітаємо знову!</h1>
-          <p className="mt-1 text-sm text-gray-500">Керуйте зарядкою в один дотик</p>
+        
         </div>
 
         <form onSubmit={(e) => void handleLogin(e)}>

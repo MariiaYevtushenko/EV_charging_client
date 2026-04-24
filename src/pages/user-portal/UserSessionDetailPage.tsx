@@ -296,7 +296,7 @@ export default function UserSessionDetailPage() {
         <Link to="/dashboard/sessions" className={backLinkClass}>
           ← До списку сесій
         </Link>
-        <AppCard className="py-12 text-center text-sm text-gray-500">Сесію не знайдено.</AppCard>
+        <AppCard className="py-12 text-center text-sm text-gray-500">Сесію не знайдено</AppCard>
       </div>
     );
   }
@@ -316,7 +316,7 @@ export default function UserSessionDetailPage() {
         description={
           <span>
             Ви точно хочете завершити сесію на станції «{session.stationName}»? Буде створено рахунок за спожиту
-            енергію.
+            енергію
             {endSessionError ? (
               <span className="mt-3 block text-sm font-medium text-red-700">{endSessionError}</span>
             ) : null}
@@ -333,14 +333,14 @@ export default function UserSessionDetailPage() {
           tone="success"
           onDismiss={() => setSessionCompleteToast1(false)}
         >
-          Сесію зарядки успішно завершено.
+          Сесію зарядки успішно завершено
         </FloatingToast>
         <FloatingToast
           show={sessionCompleteToast2}
           tone="info"
           onDismiss={() => setSessionCompleteToast2(false)}
         >
-          Можете оплатити рахунок у розділі «Платежі».
+          Можете оплатити рахунок у розділі «Платежі»
         </FloatingToast>
       </FloatingToastRegion>
       <div>
@@ -523,7 +523,7 @@ export default function UserSessionDetailPage() {
               >
                 {session.status === 'active' ? (
                   <p className="text-sm leading-relaxed text-gray-600">
-                    Рахунок з&apos;явиться тут після завершення сесії. Натисніть «Завершити сесію» у блоці вище.
+                    Рахунок з&apos;явиться тут після завершення сесії. Натисніть «Завершити сесію» у блоці вище
                   </p>
                 ) : (
                   <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4">

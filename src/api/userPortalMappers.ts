@@ -98,6 +98,8 @@ export type UserBillApiRow = {
   paidAt?: string | Date | null;
   session?: {
     id: number;
+    startTime?: string;
+    endTime?: string | null;
     stationId: number;
     kwhConsumed?: number | string | { toString(): string };
     booking?: {
@@ -117,6 +119,16 @@ export type UserBillApiRow = {
     };
   } | null;
 };
+
+function apiDateToIso(v: unknown): string | null {
+  if (v == null || v === '') return null;
+  if (typeof v === 'string') {
+    const t = new Date(v).getTime();
+    return Number.isFinite(t) ? new Date(t).toISOString() : null;
+  }
+  if (v instanceof Date) return v.toISOString();
+  return null;
+}
 
 export function mapBillApiToPaymentRow(b: UserBillApiRow): UserPaymentRow {
   const st =
@@ -156,10 +168,20 @@ export function mapBillApiToPaymentRow(b: UserBillApiRow): UserPaymentRow {
       paidAtIso = String(b.paidAt);
     }
   }
+  const paidAtNormalized = paidAtIso != null ? apiDateToIso(paidAtIso) ?? paidAtIso : null;
+  const sessionStartedAt = b.session != null ? apiDateToIso(b.session.startTime) : null;
+  let sessionEndedAt: string | null | undefined;
+  if (b.session != null) {
+    const rawEnd = b.session.endTime;
+    sessionEndedAt =
+      rawEnd == null || rawEnd === '' ? null : apiDateToIso(rawEnd) ?? (typeof rawEnd === 'string' ? rawEnd : null);
+  } else {
+    sessionEndedAt = undefined;
+  }
   return {
     id: String(b.id),
     createdAt: typeof b.createdAt === 'string' ? b.createdAt : String(b.createdAt),
-    paidAt: paidAtIso,
+    paidAt: paidAtNormalized,
     amount: num(b.calculatedAmount),
     method: b.paymentMethod != null && String(b.paymentMethod).trim() !== '' ? String(b.paymentMethod) : '',
     description: desc,
@@ -168,6 +190,8 @@ export function mapBillApiToPaymentRow(b: UserBillApiRow): UserPaymentRow {
     energyKwh: kwh > 0 ? Math.round(kwh * 1000) / 1000 : undefined,
     pricePerKwhAtTime:
       pricePk != null && Number.isFinite(pricePk) && pricePk > 0 ? Math.round(pricePk * 10000) / 10000 : undefined,
+    sessionStartedAt: sessionStartedAt ?? undefined,
+    sessionEndedAt: sessionEndedAt,
     sessionId: b.session != null ? String(b.session.id) : String(b.sessionId),
     vehicleLabel,
     vehiclePlate,

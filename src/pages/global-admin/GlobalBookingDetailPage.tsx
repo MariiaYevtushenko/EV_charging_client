@@ -351,7 +351,7 @@ export default function GlobalBookingDetailPage() {
       <ConfirmDialog
         open={cancelDialogOpen}
         title="Скасувати бронювання?"
-        description="Ви дійсно хочете скасувати це бронювання? Дію не можна буде скасувати."
+        description="Ви дійсно хочете скасувати це бронювання? Дію не можна буде скасувати"
         confirmLabel="Так, скасувати"
         cancelLabel="Ні"
         variant="danger"

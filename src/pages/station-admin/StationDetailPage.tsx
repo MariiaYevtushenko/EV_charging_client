@@ -76,7 +76,7 @@ function tabFromHash(hash: string): DetailTab {
 }
 
 const SESSION_SQL_PERIOD_OPTIONS: { value: StationSessionSqlPeriod; label: string }[] = [
-  { value: 'today', label: '1 день' },
+  { value: 'today', label: 'Сьогодні' },
   { value: '7d', label: '7 днів' },
   { value: '30d', label: '30 днів' },
   { value: 'all', label: 'Увесь час' },
@@ -200,10 +200,10 @@ export default function StationDetailPage() {
     if (n !== 'created' && n !== 'updated' && n !== 'archived') return;
     setStationSuccessMessage(
       n === 'created'
-        ? 'Станцію успішно створено.'
+        ? 'Станцію успішно створено'
         : n === 'archived'
-          ? 'Станцію переведено в архів.'
-          : 'Дані про станцію успішно оновлено.'
+          ? 'Станцію переведено в архів'
+          : 'Дані про станцію успішно оновлено'
     );
     navigate(
       { pathname: location.pathname, search: location.search, hash: location.hash },
@@ -356,7 +356,7 @@ export default function StationDetailPage() {
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 text-center">
         <p className="text-sm font-medium text-gray-700">Завантаження картки станції…</p>
         <p className="max-w-sm text-xs text-gray-500">
-          Якщо ви перейшли з іншого розділу, дані підвантажуються напряму з сервера.
+          Якщо ви перейшли з іншого розділу, дані підвантажуються напряму з сервера
         </p>
       </div>
     );
@@ -459,7 +459,7 @@ export default function StationDetailPage() {
         onClose={() => setArchiveConfirmOpen(false)}
         onConfirm={confirmArchive}
         title="Перемістити станцію в архів?"
-        description="Вона зникне з карти та зі списку «Усі»; її можна буде знайти у вкладці «Архів»."
+        description="Вона зникне з карти та зі списку «Усі»; її можна буде знайти у вкладці «Архів»"
         confirmLabel="Так, в архів"
         cancelLabel="Скасувати"
         variant="danger"
@@ -692,27 +692,13 @@ export default function StationDetailPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-gray-900">Підсумок сесій</h2>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  Дані з БД за обраний період (функція GetStationSessionStatsForPeriod).
-                </p>
+               
                 {sessionSqlLoading ? (
                   <p className="mt-2 text-xs text-gray-400">Завантаження…</p>
                 ) : sessionSqlError ? (
                   <p className="mt-2 text-xs text-red-600">{sessionSqlError}</p>
                 ) : sessionSqlStats ? (
-                  <>
-                    <p className="mt-2 text-xs text-gray-600">
-                      Вікно:{' '}
-                      <span className="font-medium text-gray-800">
-                        {fmtSqlStatsWindow(sessionSqlStats.periodFrom, sessionSqlStats.periodTo)}
-                      </span>
-                    </p>
-                    {sessionSqlStats.partial ? (
-                      <p className="mt-1 text-xs text-amber-700">
-                        Частина SQL-запитів не виконалась; показані доступні значення.
-                      </p>
-                    ) : null}
-                  </>
+                  <p className="mt-2 text-xs text-gray-600">  </p>
                 ) : null}
               </div>
               <div
@@ -811,14 +797,8 @@ export default function StationDetailPage() {
                     {' '}
                     · сесій: {energyAnalytics.sessionCount}
                     {' '}
-                    · сума рахунків:{' '}
-                    <span className="font-semibold text-gray-800">
-                      {energyAnalytics.totalRevenueUah.toLocaleString('uk-UA', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{' '}
-                      грн
-                    </span>
+                 
+                   
                   </span>
                 </p>
               ) : null}
@@ -830,7 +810,7 @@ export default function StationDetailPage() {
             >
               {(
                 [
-                  { id: '1d' as const, label: '24 год' },
+                  { id: '1d' as const, label: 'Сьогодні' },
                   { id: '7d' as const, label: '7 днів' },
                   { id: '30d' as const, label: '30 днів' },
                 ] as const

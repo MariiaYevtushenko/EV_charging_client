@@ -1,9 +1,10 @@
 import type { NetworkListPeriod } from '../../api/adminNetwork';
 
 const OPTIONS: { id: NetworkListPeriod; label: string }[] = [
+  { id: 'today', label: 'Сьогодні' },
   { id: '7d', label: '7 днів' },
   { id: '30d', label: '30 днів' },
-  { id: 'all', label: 'Весь час' },
+  { id: 'all', label: 'Увесь час' },
 ];
 
 type Props = {

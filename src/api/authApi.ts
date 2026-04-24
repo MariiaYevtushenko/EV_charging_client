@@ -10,7 +10,7 @@ type EvUserLoginRow = {
   phoneNumber?: string;
 };
 
-/** Відповідь GET/PUT /api/user/:id та дані після логіну (без password_hash). */
+/** Відповідь GET/PUT /api/user/:id та дані після логіну  */
 export type EvUserPublicDto = {
   id: number;
   name: string;
@@ -58,7 +58,7 @@ export async function loginWithEmailPassword(
   return mapEvUserRowToUser(row);
 }
 
-/** Актуальний профіль з БД (GET /api/user/:userId). */
+// Актуальний профіль 
 export function fetchUserProfile(userId: number): Promise<EvUserPublicDto> {
   return getJson<EvUserPublicDto>(`/api/user/${userId}`);
 }
@@ -70,7 +70,7 @@ export type UserProfileUpdateBody = {
   phoneNumber: string;
 };
 
-/** Оновлення профілю (PUT /api/user/:userId). */
+// Оновлення профілю 
 export async function updateUserProfile(
   userId: number,
   body: UserProfileUpdateBody
@@ -79,15 +79,7 @@ export async function updateUserProfile(
   return mapPublicDtoToUser(dto);
 }
 
-/** Зміна пароля (POST /api/user/:userId/change-password). */
-export async function changeUserPassword(
-  userId: number,
-  payload: { currentPassword: string; newPassword: string }
-): Promise<void> {
-  await postJson<{ ok: boolean }>(`/api/user/${userId}/change-password`, payload);
-}
-
-/** Розбиття «Повне імʼя» на поля БД `name` + `surname` (обидва обовʼязкові в схемі). */
+// Розбиття «Повне імʼя» на поля 
 export function splitFullName(full: string): { name: string; surname: string } {
   const t = full.trim();
   const parts = t.split(/\s+/).filter(Boolean);

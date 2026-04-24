@@ -48,12 +48,12 @@ export default function UserCarNewPage() {
     if (hasCarFormErrors(fieldErrors)) return;
 
     if (!user?.id) {
-      setError('Увійдіть у систему, щоб додати авто.');
+      setError('Увійдіть у систему, щоб додати авто');
       return;
     }
     const uid = Number(user.id);
     if (!Number.isFinite(uid)) {
-      setError('Некоректний профіль користувача.');
+      setError('Некоректний профіль користувача');
       return;
     }
 

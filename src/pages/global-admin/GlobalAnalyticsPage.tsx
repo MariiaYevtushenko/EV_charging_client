@@ -32,12 +32,22 @@ const PIE_COLORS = ['#059669', '#6366f1', '#d97706', '#64748b', '#0ea5e9', '#be1
 const PERIOD_DEFAULT = 30;
 const PARTIAL_TOAST_MS = 5000;
 
-/** Преси періоду для API (7 / 30 / 365 днів). «Увесь час» — максимум, який приймає бекенд. */
+/** Періоди для API: 1 = календарна доба; 7 / 30 — ковзні вікна; 365 — максимум бекенду («Увесь час»). */
 const GLOBAL_PERIOD_OPTIONS = [
+  { value: '1', label: 'Сьогодні' },
   { value: '7', label: '7 днів' },
   { value: '30', label: '30 днів' },
   { value: '365', label: 'Увесь час' },
 ] as const;
+
+/** Уточнення для панелей графіків (узгоджено з перемикачем періоду зверху). */
+function analyticsPeriodStatsSubtitle(periodDays: number): string {
+  const match = GLOBAL_PERIOD_OPTIONS.find((o) => Number(o.value) === periodDays);
+  if (match?.value === '365') return 'Статистика за увесь доступний період';
+  if (match?.value === '1') return 'Статистика за сьогодні (календарна доба)';
+  if (match) return `Статистика за ${match.label}`;
+  return `Статистика за ${periodDays} дн.`;
+}
 
 type AnalyticsSectionId = 'overview' | 'charts' | 'stations' | 'bookings';
 
@@ -259,6 +269,8 @@ export default function GlobalAnalyticsPage() {
   const [periodDays, setPeriodDays] = useState(PERIOD_DEFAULT);
   const [section, setSection] = useState<AnalyticsSectionId>('overview');
   const [dailyTrendMetricIndex, setDailyTrendMetricIndex] = useState(0);
+  /** Вкладка «Сесії» → блок «За типом сесій»: одна кругова діаграма за раз. */
+  const [sessionKindPieMetric, setSessionKindPieMetric] = useState<'sessions' | 'kwh'>('sessions');
   const [data, setData] = useState<AdminAnalyticsViewsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -368,10 +380,10 @@ export default function GlobalAnalyticsPage() {
     }));
   }, [ga?.networkSessionStatsByBookingKind]);
 
-  const bookingPieRevenue = useMemo(() => {
+  const bookingPieKwh = useMemo(() => {
     return (ga?.networkSessionStatsByBookingKind ?? []).map((r) => ({
       name: bookingKindLabel(str(r.session_kind)),
-      value: num(r.total_revenue),
+      value: num(r.total_kwh),
     }));
   }, [ga?.networkSessionStatsByBookingKind]);
 
@@ -393,7 +405,7 @@ export default function GlobalAnalyticsPage() {
           tone="warning"
           onDismiss={() => setPartialToastShow(false)}
         >
-          Частина запитів повернула порожньо (перевірте VIEW та функції в БД).
+          Частина запитів повернула порожньо (перевірте VIEW та функції в БД)
         </FloatingToast>
       </FloatingToastRegion>
       <header className="border-b border-slate-200 pb-4">
@@ -440,7 +452,7 @@ export default function GlobalAnalyticsPage() {
             <section className="mx-auto max-w-4xl space-y-3" aria-labelledby="global-analytics-summary-heading">
               {rolling30 ? (
                 <Panel
-                  title="Порівняння 30 днів із попередніми 30 днями"
+                  title="Порівняння за 30 днів"
                   subtitle=""
                   className="overflow-hidden"
                 >
@@ -584,15 +596,15 @@ export default function GlobalAnalyticsPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">Немає даних.</p>
+                <p className="text-sm text-gray-500">Немає даних</p>
               )}
             </section>
           ) : null}
 
           {section === 'charts' ? (
-          <Panel title="Статистика за днями">
+          <Panel title="Статистика за днями" subtitle={analyticsPeriodStatsSubtitle(periodDays)}>
             {dailyBars.length === 0 ? (
-              <p className="text-sm text-gray-500">Немає денних точок.</p>
+              <p className="text-sm text-gray-500">Немає денних точок</p>
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-2 py-2 sm:px-4">
@@ -665,9 +677,9 @@ export default function GlobalAnalyticsPage() {
 
           {section === 'stations' ? (
           <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
-            <Panel title="Тип конектора">
+            <Panel title="Конектори" subtitle={analyticsPeriodStatsSubtitle(periodDays)}>
               {portBars.length === 0 ? (
-                <p className="text-sm text-gray-500">Немає даних.</p>
+                <p className="text-sm text-gray-500">Немає даних</p>
               ) : (
                 <>
                   <div className="mb-4 h-56 w-full">
@@ -712,9 +724,9 @@ export default function GlobalAnalyticsPage() {
               )}
             </Panel>
 
-            <Panel title="Топ країн за прибутком">
+            <Panel title="Топ країн за прибутком" subtitle={analyticsPeriodStatsSubtitle(periodDays)}>
               {countryBars.length === 0 ? (
-                <p className="text-sm text-gray-500">Немає даних.</p>
+                <p className="text-sm text-gray-500">Немає даних</p>
               ) : (
                 <>
                   <div className="mb-4 h-56 w-full">
@@ -756,97 +768,138 @@ export default function GlobalAnalyticsPage() {
           ) : null}
 
           {section === 'bookings' ? (
-          <Panel title="За типом сесій" subtitle="">
-            <div className="grid gap-5 lg:grid-cols-2 lg:gap-6">
-              <div className="h-64 w-full">
-                {bookingPieSessions.some((x) => x.value > 0) ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={bookingPieSessions}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={48}
-                        outerRadius={88}
-                        paddingAngle={2}
-                        label={({ name, percent }) => `${name} ${(((percent ?? 0) as number) * 100).toFixed(0)}%`}
-                      >
-                        {bookingPieSessions.map((_, i) => (
-                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="flex h-full items-center justify-center text-sm text-gray-500">Немає сесій.</p>
-                )}
+          <Panel title="За типом сесій" subtitle={analyticsPeriodStatsSubtitle(periodDays)}>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start lg:gap-8">
+              <div className="flex min-w-0 flex-col lg:col-span-5">
+                <div
+                  className="mb-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-center lg:justify-start"
+                  role="tablist"
+                  aria-label="Метрика кругової діаграми за типом сесій"
+                >
+                  <span className="text-center text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:mr-2 lg:text-left">
+                    Метрика
+                  </span>
+                  <div className="inline-flex justify-center rounded-lg border border-slate-200 bg-slate-50/90 p-0.5 shadow-sm lg:justify-start">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={sessionKindPieMetric === 'sessions'}
+                      className={
+                        sessionKindPieMetric === 'sessions'
+                          ? 'rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-green-800 shadow-sm ring-1 ring-slate-200/80'
+                          : 'rounded-md px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:text-slate-900'
+                      }
+                      onClick={() => setSessionKindPieMetric('sessions')}
+                    >
+                      Кількість сесій
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={sessionKindPieMetric === 'kwh'}
+                      className={
+                        sessionKindPieMetric === 'kwh'
+                          ? 'rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-green-800 shadow-sm ring-1 ring-slate-200/80'
+                          : 'rounded-md px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:text-slate-900'
+                      }
+                      onClick={() => setSessionKindPieMetric('kwh')}
+                    >
+                      кВт·год
+                    </button>
+                  </div>
+                </div>
+                <div className="h-64 w-full max-w-md mx-auto lg:mx-0 lg:max-w-none">
+                  {sessionKindPieMetric === 'sessions' ? (
+                    bookingPieSessions.some((x) => x.value > 0) ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={bookingPieSessions}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={48}
+                            outerRadius={88}
+                            paddingAngle={2}
+                            label={({ name, percent }) => `${name} ${(((percent ?? 0) as number) * 100).toFixed(0)}%`}
+                          >
+                            {bookingPieSessions.map((_, i) => (
+                              <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <p className="flex h-full items-center justify-center text-sm text-gray-500">Немає сесій</p>
+                    )
+                  ) : bookingPieKwh.some((x) => x.value > 0) ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={bookingPieKwh}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={48}
+                          outerRadius={88}
+                          paddingAngle={2}
+                          label={({ name, percent }) => `${name} ${(((percent ?? 0) as number) * 100).toFixed(0)}%`}
+                        >
+                          {bookingPieKwh.map((_, i) => (
+                            <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(v) => [
+                            `${Number(v ?? 0).toLocaleString('uk-UA', { maximumFractionDigits: 2 })} кВт·год`,
+                            '',
+                          ]}
+                          contentStyle={{ borderRadius: 12, fontSize: 12 }}
+                        />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="flex h-full items-center justify-center text-sm text-gray-500">Немає даних про енергію</p>
+                  )}
+                </div>
               </div>
-              <div className="h-64 w-full">
-                {bookingPieRevenue.some((x) => x.value > 0) ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={bookingPieRevenue}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={48}
-                        outerRadius={88}
-                        paddingAngle={2}
-                        label={({ percent }) => `${(((percent ?? 0) as number) * 100).toFixed(0)}%`}
-                      >
-                        {bookingPieRevenue.map((_, i) => (
-                          <Cell key={i} fill={PIE_COLORS[(i + 1) % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(v) => [`${Number(v ?? 0).toLocaleString('uk-UA')} грн`, '']}
-                        contentStyle={{ borderRadius: 12, fontSize: 12 }}
-                      />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="flex h-full items-center justify-center text-sm text-gray-500">Немає прибутку.</p>
-                )}
-              </div>
-            </div>
-            <div className="mt-6">
-              <ScrollTable maxHeight="min(12rem,36vh)">
-                <thead className="sticky top-0 z-10 bg-slate-100/95 text-xs font-semibold uppercase text-slate-600">
-                  <tr>
-                    <th className="px-3 py-2.5">Категорія</th>
-                    <th className="px-3 py-2.5 text-right">Сесії</th>
-                    <th className="px-3 py-2.5 text-right">кВт·год</th>
-                    <th className="px-3 py-2.5 text-right">Прибуток</th>
-                    <th className="px-3 py-2.5 text-right">Сер. чек</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {(ga.networkSessionStatsByBookingKind ?? []).map((r) => (
-                    <tr key={str(r.session_kind)}>
-                      <td className="px-3 py-2 font-medium text-slate-900">{bookingKindLabel(str(r.session_kind))}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{num(r.session_count).toLocaleString('uk-UA')}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        {num(r.total_kwh).toLocaleString('uk-UA', { maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-emerald-800">
-                        {num(r.total_revenue).toLocaleString('uk-UA', { maximumFractionDigits: 2 })} грн
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        {r.avg_bill_amount == null
-                          ? '—'
-                          : `${num(r.avg_bill_amount).toLocaleString('uk-UA', { maximumFractionDigits: 2 })} грн`}
-                      </td>
+              <div className="min-w-0 lg:col-span-7">
+                <ScrollTable maxHeight="min(18rem,52vh)">
+                  <thead className="sticky top-0 z-10 bg-slate-100/95 text-xs font-semibold uppercase text-slate-600">
+                    <tr>
+                      <th className="px-3 py-2.5">Категорія</th>
+                      <th className="px-3 py-2.5 text-right">Сесії</th>
+                      <th className="px-3 py-2.5 text-right">кВт·год</th>
+                      <th className="px-3 py-2.5 text-right">Прибуток</th>
+                      <th className="px-3 py-2.5 text-right">Сер. чек</th>
                     </tr>
-                  ))}
-                </tbody>
-              </ScrollTable>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {(ga.networkSessionStatsByBookingKind ?? []).map((r) => (
+                      <tr key={str(r.session_kind)}>
+                        <td className="px-3 py-2 font-medium text-slate-900">{bookingKindLabel(str(r.session_kind))}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{num(r.session_count).toLocaleString('uk-UA')}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {num(r.total_kwh).toLocaleString('uk-UA', { maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums text-emerald-800">
+                          {num(r.total_revenue).toLocaleString('uk-UA', { maximumFractionDigits: 2 })} грн
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {r.avg_bill_amount == null
+                            ? '—'
+                            : `${num(r.avg_bill_amount).toLocaleString('uk-UA', { maximumFractionDigits: 2 })} грн`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </ScrollTable>
+              </div>
             </div>
           </Panel>
           ) : null}

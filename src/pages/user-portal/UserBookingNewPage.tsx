@@ -30,6 +30,7 @@ import {
   SLOT_MINUTES,
 } from '../../utils/bookingSlotGrid';
 import { eurToUah } from '../../utils/tariffCurrency';
+import { useTodayGridTariffsFromDb } from '../../hooks/useTodayGridTariffsFromDb';
 
 const CALENDAR_DAY_COUNT = 21;
 
@@ -63,12 +64,44 @@ function estimatedKwhForBooking(
   return raw;
 }
 
+/** Вікно нічного тарифу (узгоджено з `bookingPricingService` на сервері). */
+function isNightHourLocal(hour: number): boolean {
+  const start = 23;
+  const endExclusive = 7;
+  return hour >= start || hour < endExclusive;
+}
+
+/** Базовий тариф мережі з публічного API (день/ніч за часом слоту); одиниця — EUR або грн залежно від VITE_BOOKING_GRID_TARIFF_IN_EUR. */
+function baseTariffFromGrid(
+  tariffs: { dayPriceUah: number; nightPriceUah: number } | null,
+  slotStartMs: number | null
+): number {
+  if (!tariffs) return 0;
+  if (slotStartMs == null) {
+    const d = tariffs.dayPriceUah;
+    const n = tariffs.nightPriceUah;
+    if (d > 0) return d;
+    if (n > 0) return n;
+    return 0;
+  }
+  const h = new Date(slotStartMs).getHours();
+  return isNightHourLocal(h) ? tariffs.nightPriceUah : tariffs.dayPriceUah;
+}
+
 /**
- * Прогноз тарифу грн/кВт·год на дату бронювання (демо: профіль energyByHour + базовий денний тариф).
- * Базовий `dayTariff` у даних — EUR/кВт·год; спочатку переводимо в грн.
+ * Прогноз тарифу грн/кВт·год на дату бронювання (профіль energyByHour + базовий тариф).
+ * Денний/нічний рядок з `/tariffs/today` на сторінці броні трактується як EUR/кВт·год → `eurToUah` (курс `VITE_EUR_TO_UAH`).
+ * Якщо у вашій БД `tariff.price_per_kwh` уже в грн, не застосовуйте подвійну конвертацію (узгодьте модель з бекендом).
+ * Без мережевого рядка — база з `station.dayTariff` (EUR) через `eurToUah`.
  */
-function dataMiningTariffUahPerKwhForDay(station: Station, bookingDate: Date): number {
-  const baseUah = eurToUah(station.dayTariff);
+function dataMiningTariffUahPerKwhForDay(
+  station: Station,
+  bookingDate: Date,
+  baseEurPerKwhFromGrid: number
+): number {
+  const fromStationEur = eurToUah(station.dayTariff);
+  const gridUah = baseEurPerKwhFromGrid > 0 ? eurToUah(baseEurPerKwhFromGrid) : 0;
+  const baseUah = gridUah > 0 ? gridUah : Math.max(0.0001, fromStationEur);
   const hours = station.energyByHour;
   if (!hours?.length || hours.length !== 24) {
     return Math.max(0.01, Math.round(baseUah * 10000) / 10000);
@@ -119,6 +152,8 @@ export default function UserBookingNewPage() {
   const { user } = useAuth();
   const { mapStations: allStations, registerMapViewportBounds } = useStations();
   const { replaceBookings, cars } = useUserPortal();
+  const { data: gridTariffs, loading: gridTariffsLoading, error: gridTariffsError } =
+    useTodayGridTariffsFromDb();
 
   const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get('stationId'));
   const [selectedPortId, setSelectedPortId] = useState<string | null>(null);
@@ -239,7 +274,7 @@ export default function UserBookingNewPage() {
       .catch(() => {
         if (ac.signal.aborted) return;
         setAllowedHm(new Set());
-        setSlotsError('Не вдалося завантажити вільні слоти. Перевірте зʼєднання або спробуйте пізніше.');
+        setSlotsError('Не вдалося завантажити вільні слоти. Перевірте зʼєднання або спробуйте пізніше');
       })
       .finally(() => {
         if (!ac.signal.aborted) setSlotsLoading(false);
@@ -287,7 +322,7 @@ export default function UserBookingNewPage() {
       .catch(() => {
         if (ac.signal.aborted) return;
         setBookingDayLoad({ loadPct: 0, surchargeUahPerKwh: 0 });
-        setBookingDayLoadError('Не вдалося завантажити заповненість дня; надбавка не врахована в оцінці (сервер перерахує).');
+        setBookingDayLoadError('Не вдалося завантажити заповненість дня; надбавка не врахована в оцінці (сервер перерахує)');
       })
       .finally(() => {
         if (!ac.signal.aborted) setBookingDayLoadLoading(false);
@@ -308,11 +343,16 @@ export default function UserBookingNewPage() {
     return selectedPort.powerKw;
   }, [selectedPort]);
 
-  /** Прогноз грн/кВт·год на обраний календарний день бронювання. */
+  const baseGridTariffPerKwh = useMemo(
+    () => baseTariffFromGrid(gridTariffs, slotStartMs),
+    [gridTariffs, slotStartMs]
+  );
+
+  /** Прогноз грн/кВт·год на обраний календарний день бронювання (орієнтовно). */
   const dynamicTariffUahPerKwh = useMemo(() => {
     if (!selected) return 0;
-    return dataMiningTariffUahPerKwhForDay(selected, selectedDay);
-  }, [selected, selectedDay]);
+    return dataMiningTariffUahPerKwhForDay(selected, selectedDay, baseGridTariffPerKwh);
+  }, [selected, selectedDay, baseGridTariffPerKwh]);
 
   const loadSurchargeUahPerKwh = bookingDayLoad?.surchargeUahPerKwh ?? 0;
 
@@ -341,6 +381,16 @@ export default function UserBookingNewPage() {
     effectiveChargeKw,
     effectiveDynamicTariffUahPerKwh,
   ]);
+
+  /** Орієнтовні кВт·год за слот (CALC / динамічна передплата). */
+  const approxSessionKwhForCalc = useMemo(() => {
+    if (pricingModel !== 'dynamic_prepay') return null;
+    return estimatedKwhForBooking(
+      durationMin,
+      selectedBookingCar?.batteryCapacity,
+      effectiveChargeKw
+    );
+  }, [pricingModel, durationMin, selectedBookingCar, effectiveChargeKw]);
 
   const dynamicVehicleOk =
     pricingModel !== 'dynamic_prepay' ||
@@ -385,7 +435,7 @@ export default function UserBookingNewPage() {
         navigate('/dashboard/bookings');
       } catch {
         setSubmitError(
-          'Не вдалося створити бронювання. Час міг бути зайнятий іншим користувачем — оберіть інший слот.'
+          'Не вдалося створити бронювання. Час міг бути зайнятий іншим користувачем — оберіть інший слот'
         );
       }
     })();
@@ -630,9 +680,13 @@ export default function UserBookingNewPage() {
                       </div>
 
                       <div className="mt-4 space-y-2 border-t border-slate-200/90 pt-3">
-                        <p className="font-medium text-slate-800">2. Динамічна ціна</p>
+                        <p className="font-medium text-slate-800">2. Динамічна ціна (CALC)</p>
                         <p>Вартість визначається одразу під час бронювання</p>
-                        <p>Обрана ціна залежить від тарифу на обрану дату</p>
+                        <p>
+                          Базовий рядок мережі з API — у EUR/кВт·год, для показу перераховується в грн за курсом
+                          з налаштувань; далі — орієнтовний прогноз на день і час слоту. Сума до сплати —
+                          наближена (енергія за слот × ефективний тариф у грн).
+                        </p>
                         <p className="font-medium text-slate-800">Можливі варіанти розрахунку:</p>
                         <p>
                           <span className="font-medium text-slate-800">За час бронювання:</span> оплата за весь
@@ -684,7 +738,7 @@ export default function UserBookingNewPage() {
                      
                       {cars.length === 0 ? (
                         <p className="mt-2 text-xs text-slate-600">
-                          Додайте авто в гараж, щоб порахувати орієнтовну передплату.{' '}
+                          Додайте авто в гараж, щоб порахувати орієнтовну передплату{' '}
                           <Link to="/dashboard/cars/new" className="font-medium text-green-700 underline">
                             Додати авто
                           </Link>
@@ -722,8 +776,20 @@ export default function UserBookingNewPage() {
                   {pricingModel === 'dynamic_prepay' && selected && selectedPort ? (
                     <div className="space-y-3 rounded-xl border border-emerald-200/80 bg-emerald-50/40 p-3 ring-1 ring-emerald-600/10">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-900/90">
-                        Розрахунок динамічної ціни
+                        Розрахунок динамічної ціни (CALC)
                       </p>
+                      <p className="text-[11px] leading-relaxed text-emerald-950/90">
+                        <span className="font-semibold">Орієнтовна вартість за 1 кВт·год</span> — прогноз у
+                        гривнях: базовий тариф мережі з БД (EUR/кВт·год, день/ніч за часом початку слоту)
+                        множиться на курс і далі коригується профілем навантаження на обраний день та надбавкою
+                        за заповненість. Альтернатива — поле тарифу станції в EUR → також через курс у грн.
+                      </p>
+                      {gridTariffsLoading ? (
+                        <p className="text-[11px] text-emerald-800/90">Завантаження тарифу мережі…</p>
+                      ) : null}
+                      {gridTariffsError ? (
+                        <p className="text-[11px] text-amber-800">{gridTariffsError}</p>
+                      ) : null}
                       {bookingDayLoadLoading ? (
                         <p className="text-[11px] text-emerald-800/90">Завантаження заповненості дня…</p>
                       ) : null}
@@ -786,6 +852,28 @@ export default function UserBookingNewPage() {
                           <p className="mt-0.5 text-[9px] text-emerald-800/80">грн / кВт·год</p>
                         </div>
                       </div>
+                      {approxSessionKwhForCalc != null ? (
+                        <p className="text-[11px] leading-relaxed text-emerald-950/85">
+                          <span className="font-semibold">Приблизна сума зараз</span> ≈ орієнтовні кВт·год за
+                          слот (потужність порту × час, з урахуванням ємності АКБ) × ефективний тариф вище:{' '}
+                          <span className="tabular-nums font-semibold">
+                            {approxSessionKwhForCalc.toLocaleString('uk-UA', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}{' '}
+                            кВт·год
+                          </span>
+                          {' × '}
+                          <span className="tabular-nums font-semibold">
+                            {effectiveDynamicTariffUahPerKwh.toLocaleString('uk-UA', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 4,
+                            })}
+                          </span>{' '}
+                          грн/кВт·год — під час підтвердження броні на сервері сума може бути уточнена за тим
+                          самим принципом.
+                        </p>
+                      ) : null}
                     </div>
                   ) : null}
 
@@ -794,7 +882,13 @@ export default function UserBookingNewPage() {
                     <p className="mt-0.5 text-xl font-bold tabular-nums">
                       {payNow.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} грн
                     </p>
-                   
+                    {pricingModel === 'dynamic_prepay' ? (
+                      <p className="mt-2 border-t border-white/10 pt-2 text-[10px] font-normal leading-snug text-gray-400">
+                        Показана сума — <span className="text-gray-300">приблизна</span>: енергія за слот ×
+                        орієнтовний тариф грн/кВт·год; фактична передплата CALC на сервері рахується за тарифом
+                        БД на час початку бронювання та завантаженістю дня.
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -814,7 +908,7 @@ export default function UserBookingNewPage() {
                 </div>
               </>
             ) : (
-              <p className="text-sm text-slate-500">Оберіть станцію на карті.</p>
+              <p className="text-sm text-slate-500">Оберіть станцію на карті</p>
             )}
           </AppCard>
         </aside>

@@ -10,13 +10,14 @@ export type StationOverviewCounts = {
   archived: number;
 };
 
-/** Колонки сортування для `view_stationsessionstatslast30days` (узгоджено з бекендом). */
+// Колонки сортування для `view_stationsessionstatslast30days` 
 export type SessionStatsViewSortKey =
   | "station_id"
   | "station_name"
   | "total_sessions"
   | "avg_duration_minutes"
   | "avg_kwh"
+  | "total_kwh"
   | "total_revenue"
   | "avg_bill_amount";
 
@@ -29,14 +30,6 @@ export type PaginatedViewBlock = {
   pageSize: number;
   sortBy?: SessionStatsViewSortKey;
   sortDir?: SessionStatsViewSortDir;
-};
-
-/** Піки мережі — `GetNetworkPeakHourBuckets`. */
-export type StationAdminNetworkPeakBlock = {
-  period: StationAdminAnalyticsPeriod;
-  periodFrom: string;
-  periodTo: string;
-  buckets: Record<string, unknown>[];
 };
 
 /** Деталізація з `Station_admin_analytics.sql` для однієї станції (якщо передано `stationId` у запит). */
@@ -56,17 +49,12 @@ export type StationAdminSnapshot = {
   topPeriod: StationAdminAnalyticsPeriod;
   topPeriodFrom: string;
   topPeriodTo: string;
-  fewestPeriod: StationAdminAnalyticsPeriod;
-  fewestPeriodFrom: string;
-  fewestPeriodTo: string;
   partial: boolean;
   overview: StationOverviewCounts | null;
   networkBookingKpis: Record<string, unknown> | null;
   networkMonthComparison: Record<string, unknown> | null;
   networkTopStations: Record<string, unknown>[];
-  networkBottomStations: Record<string, unknown>[];
   sessionStatsViewPage: PaginatedViewBlock;
-  networkPeakHours: StationAdminNetworkPeakBlock;
   stationId: number | null;
   stationDetail: StationAdminStationDetail | null;
 };
@@ -98,12 +86,10 @@ export type FetchAdminAnalyticsViewsOptions = {
   stationId?: number;
   period?: StationAdminAnalyticsPeriod;
   topPeriod?: StationAdminAnalyticsPeriod;
-  fewestPeriod?: StationAdminAnalyticsPeriod;
   sessionStatsPage?: number;
   sessionStatsPageSize?: number;
   sessionStatsSortBy?: SessionStatsViewSortKey;
   sessionStatsSortDir?: SessionStatsViewSortDir;
-  peakPeriod?: StationAdminAnalyticsPeriod;
   /** Днів для зрізу global admin (Global_admin_analytics.sql), 1–365. */
   globalPeriodDays?: number;
 };
@@ -119,8 +105,6 @@ export function fetchAdminAnalyticsViews(opts?: FetchAdminAnalyticsViewsOptions)
   };
   setPeriod("period", opts?.period);
   setPeriod("topPeriod", opts?.topPeriod);
-  setPeriod("fewestPeriod", opts?.fewestPeriod);
-  setPeriod("peakPeriod", opts?.peakPeriod);
   if (opts?.sessionStatsPage != null && opts.sessionStatsPage > 0) {
     params.set("sessionStatsPage", String(Math.floor(opts.sessionStatsPage)));
   }
@@ -133,6 +117,7 @@ export function fetchAdminAnalyticsViews(opts?: FetchAdminAnalyticsViewsOptions)
     "total_sessions",
     "avg_duration_minutes",
     "avg_kwh",
+    "total_kwh",
     "total_revenue",
     "avg_bill_amount",
   ];

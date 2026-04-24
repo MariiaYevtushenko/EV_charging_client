@@ -14,9 +14,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
   }
 
   if (allowedRoles && !allowedRoles.includes(user!.role)) {
-    // Якщо роль не підходить, відправляємо на головну
+  
     return <Navigate to="/" replace />;
   }
 
-  return <Outlet />; // Рендерить вкладені маршрути
+  return <Outlet />; 
 };

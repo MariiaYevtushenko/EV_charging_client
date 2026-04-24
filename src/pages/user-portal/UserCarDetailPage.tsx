@@ -23,7 +23,7 @@ const PERIOD_OPTIONS: { id: CarDetailPeriod; label: string }[] = [
   { id: 'today', label: 'Сьогодні' },
   { id: '7d', label: '7 днів' },
   { id: '30d', label: '30 днів' },
-  { id: 'all', label: 'Весь час' },
+  { id: 'all', label: 'Увесь час' },
 ];
 
 function dbBucketForPeriod(p: CarDetailPeriod): keyof Omit<UserVehicleAggregatesDto, 'vehicleId'> {

@@ -3,7 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { StationPort } from '../../types/station';
 import { useAuth } from '../../context/AuthContext';
 import { useStations } from '../../context/StationsContext';
-import { useUserPortal } from '../../context/UserPortalContext';
+import {
+  ACTIVE_SESSION_START_BLOCK_UK,
+  useUserPortal,
+} from '../../context/UserPortalContext';
 import { completeUserSession } from '../../api/userSessions';
 import { userFacingApiErrorMessage } from '../../api/http';
 import { prefetchSessionCompleteNotificationPermission } from '../../utils/sessionCompleteNotifications';
@@ -79,7 +82,8 @@ function formatElapsedMs(ms: number): string {
 export default function UserHomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { mapStations: mapStationsAll, registerMapViewportBounds, getStation } = useStations();
+  const { mapStations: mapStationsAll, registerMapViewportBounds, getStation, reload: reloadStations } =
+    useStations();
   const { cars, sessions, reloadSessionsAndPayments, startSessionAtPort } = useUserPortal();
   const { data: todayTariffs, loading: todayTariffsLoading, error: todayTariffsError } =
     useTodayGridTariffsFromDb();
@@ -197,9 +201,12 @@ export default function UserHomePage() {
 
   const effectiveChargePortId = useMemo(() => {
     if (portsForCharge.length === 0) return null;
-    if (chargePortId && portsForCharge.some((p) => p.id === chargePortId)) return chargePortId;
+    if (chargePortId) {
+      const chosen = portsForCharge.find((p) => p.id === chargePortId);
+      if (chosen && portSelectable(chosen)) return chargePortId;
+    }
     const free = portsForCharge.find(portSelectable);
-    return free?.id ?? portsForCharge[0].id;
+    return free?.id ?? null;
   }, [portsForCharge, chargePortId]);
 
   const selectedChargePort = effectiveChargePortId
@@ -214,32 +221,35 @@ export default function UserHomePage() {
 
   const handleStartCharge = async () => {
     setChargeError(null);
-    if (!selected || !selectedChargePort) return;
+    if (!selected || !selectedChargePort) {
+      if (selected && portsForCharge.length > 0 && !portsForCharge.some(portSelectable)) {
+        setChargeError('Усі порти обраного типу зайняті або недоступні — оберіть інший тип конектора чи станцію');
+      }
+      return;
+    }
     if (!canBookOrChargeHere) {
-      setChargeError('Ця станція наразі не приймає бронювання та зарядку (обслуговування або недоступність).');
+      setChargeError('Ця станція наразі не приймає бронювання та зарядку (обслуговування або недоступність)');
       return;
     }
     if (!portSelectable(selectedChargePort)) {
-      setChargeError('Оберіть вільний порт.');
+      setChargeError('Оберіть вільний порт');
       return;
     }
     if (activeSession) {
-      setChargeError(
-        'Неможливо почати нову сесію зарядки: у вас уже триває зарядка. Спочатку завершіть поточну сесію (блок «Поточна зарядка» або «Завершити сесію»).'
-      );
+      setChargeError(ACTIVE_SESSION_START_BLOCK_UK);
       return;
     }
     if (cars.length === 0) {
-      setChargeError('Додайте авто в розділі «Мої авто», щоб почати зарядку.');
+      setChargeError('Додайте авто в розділі «Мої авто», щоб почати зарядку');
       return;
     }
     if (!resolvedChargeVehicleId) {
-      setChargeError('Оберіть автомобіль, який заряджаєте.');
+      setChargeError('Оберіть автомобіль, який заряджаєте');
       return;
     }
     const portNumber = selectedChargePort.portNumber;
     if (!Number.isFinite(portNumber) || (portNumber as number) <= 0) {
-      setChargeError('Не вдалося визначити номер порту. Оновіть сторінку або оберіть іншу станцію.');
+      setChargeError('Не вдалося визначити номер порту. Оновіть сторінку або оберіть іншу станцію');
       return;
     }
     try {
@@ -307,6 +317,8 @@ export default function UserHomePage() {
                 onSelect={setSelectedId}
                 onViewportChange={registerMapViewportBounds}
                 emphasizeSelected
+                mapPinContext="userPortal"
+                userActiveChargingStationId={activeSession?.stationId ?? null}
               />
             </div>
           </div>
@@ -401,7 +413,7 @@ export default function UserHomePage() {
               </div>
               <p className="text-sm font-semibold text-slate-800">Немає активної зарядки</p>
               <p className="mx-auto mt-1.5 max-w-[260px] text-xs leading-relaxed text-slate-500">
-                Оберіть станцію на карті — «Забронювати слот» або «Почати зарядку».
+                Оберіть станцію на карті — «Забронювати слот» або «Почати зарядку»
               </p>
             </AppCard>
           )}
@@ -422,7 +434,18 @@ export default function UserHomePage() {
               {!canBookOrChargeHere ? (
                 <p className="rounded-xl border border-amber-200/90 bg-amber-50/90 px-3 py-2 text-sm text-amber-950">
                   Станція на обслуговуванні (ремонт). Бронювання та зарядка на ній тимчасово недоступні — оберіть
-                  іншу точку на карті.
+                  іншу точку на карті
+                </p>
+              ) : null}
+
+              {activeSession ? (
+                <p
+                  className="rounded-xl border border-amber-200/90 bg-amber-50/90 px-3 py-2.5 text-sm leading-relaxed text-amber-950"
+                  role="status"
+                >
+                  <span className="font-semibold">Уже триває зарядка</span> на «{activeSession.stationName}». Почати ще
+                  одну сесію на цій або іншій станції неможливо, доки не завершите поточну — скористайтеся блоком
+                  «Поточна зарядка» вище та кнопкою «Завершити сесію»
                 </p>
               ) : null}
 
@@ -454,26 +477,23 @@ export default function UserHomePage() {
                         : undefined
                   }
                   onClick={() => {
-                    if (!canBookOrChargeHere) return;
-                    if (activeSession) return;
-                    setChargeOpen((o) => !o);
-                    setChargeError(null);
+                    void (async () => {
+                      if (!canBookOrChargeHere) return;
+                      const fresh = await reloadSessionsAndPayments();
+                      if (fresh.some((s) => s.status === 'active')) {
+                        setChargeOpen(false);
+                        setChargeError(ACTIVE_SESSION_START_BLOCK_UK);
+                        return;
+                      }
+                      await reloadStations();
+                      setChargeOpen((o) => !o);
+                      setChargeError(null);
+                    })();
                   }}
                 >
                   {chargeOpen ? 'Згорнути' : 'Почати зарядку'}
                 </OutlineButton>
               </div>
-
-              {activeSession ? (
-                <p
-                  className="rounded-xl border border-amber-200/90 bg-amber-50/90 px-3 py-2.5 text-sm leading-relaxed text-amber-950"
-                  role="status"
-                >
-                  <span className="font-semibold">Уже триває зарядка</span> на «{activeSession.stationName}». Почати ще
-                  одну сесію на цій або іншій станції неможливо, доки не завершите поточну — скористайтеся блоком
-                  «Поточна зарядка» вище та кнопкою «Завершити сесію».
-                </p>
-              ) : null}
 
               {chargeOpen ? (
                 <div className="space-y-3 border-t border-emerald-100/80 pt-4">
@@ -493,7 +513,7 @@ export default function UserHomePage() {
                         >
                           Додайте авто
                         </Link>
-                        , щоб почати зарядку.
+                        , щоб почати зарядку
                       </p>
                     ) : (
                       <select
@@ -573,7 +593,13 @@ export default function UserHomePage() {
                       })}
                     </ul>
                     {portsForCharge.length === 0 ? (
-                      <p className="mt-2 text-xs text-amber-800">Немає портів обраного типу.</p>
+                      <p className="mt-2 text-xs text-amber-800">Немає портів обраного типу</p>
+                    ) : null}
+                    {portsForCharge.length > 0 && !portsForCharge.some(portSelectable) ? (
+                      <p className="mt-2 text-xs text-amber-900">
+                        Усі порти цього типу зайняті або недоступні (статус «Зайнятий» / «Недоступний») — оберіть інший
+                        конектор або станцію.
+                      </p>
                     ) : null}
                   </div>
 
@@ -626,7 +652,7 @@ export default function UserHomePage() {
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-slate-600">
               Ви точно хочете завершити сесію на станції «{activeSession.stationName}»? Буде створено рахунок за
-              спожиту енергію.
+              спожиту енергію
             </p>
             {endSessionError ? <p className="mt-3 text-sm text-red-700">{endSessionError}</p> : null}
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

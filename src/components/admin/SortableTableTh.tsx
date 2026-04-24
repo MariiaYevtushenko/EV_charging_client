@@ -2,17 +2,14 @@ export type SortDir = 'asc' | 'desc';
 
 type Props = {
   label: string;
-  /** Ідентифікатор колонки (узгоджується з логікою сортування на сторінці). */
   columnKey: string;
   activeKey: string;
   dir: SortDir;
   onSort: (columnKey: string) => void;
   align?: 'left' | 'right';
-  /** Класи для `<th>` (напр. `px-5` у таблиці тарифів). */
   thClassName?: string;
 };
 
-/** Заголовок колонки з сортуванням (▲ / ▼ / ⇅), стиль як у списку станцій. */
 export default function SortableTableTh({
   label,
   columnKey,
@@ -52,6 +49,7 @@ export function defaultDirForSortColumn(columnKey: string): SortDir {
       'startedAt',
       'start',
       'createdAt',
+      'paidAt',
       'effectiveDate',
       'kwh',
       'cost',

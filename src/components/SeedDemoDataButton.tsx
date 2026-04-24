@@ -3,12 +3,23 @@ import { apiBaseUrl } from '../lib/apiBase';
 import { FloatingToast, FloatingToastRegion } from './admin/FloatingToast';
 import { OutlineButton } from './station-admin/Primitives';
 
-type StatusResponse = { enabled: true; alreadyRun: boolean };
+type StatusResponse = {
+  enabled: true;
+  alreadyRun: boolean;
+  inProgress?: boolean;
+  lastError?: string | null;
+};
 
 const MSG_ALREADY_FROM_SERVER =
   'Дані вже завантажені';
 
-  // Запуск SEED з сервера
+/** 502/503/504 або обрив мережі — якщо API ще без фонового SEED */
+const MSG_SEED_GATEWAY_OOPS =
+  'Упс, щось пішло не так\n\nЗ’єднання могло обірвати проксі (типово 502). Спробуйте з терміналу в каталозі server: npm run seed:all (або npm run seed:all:fresh) або збільшіть read timeout проксі перед API.';
+
+const POLL_MS = 2500;
+
+/** Кнопка запуску повного SEED через API (фоновий процес на сервері + polling статусу). */
 export default function SeedDemoDataButton() {
   const [visible, setVisible] = useState(false);
   const [alreadyRun, setAlreadyRun] = useState(false);
@@ -16,10 +27,60 @@ export default function SeedDemoDataButton() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [doneLocal, setDoneLocal] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  /** Текст успіху з API (напр. «SEED успішно завершено») — лише у спливаючому тості після дії користувача. */
+  
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seedPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const errorTitleId = useId();
+
+  const clearSeedPoll = useCallback(() => {
+    if (seedPollRef.current != null) {
+      clearInterval(seedPollRef.current);
+      seedPollRef.current = null;
+    }
+  }, []);
+
+  const applySeedStatus = useCallback(
+    (data: StatusResponse): 'continue' | 'done' | 'error' => {
+      if (data.lastError) {
+        setModalError(data.lastError);
+        setLoading(false);
+        return 'error';
+      }
+      if (data.alreadyRun && !data.inProgress) {
+        setAlreadyRun(true);
+        setDoneLocal(true);
+        const msg =
+          'Демо-дані успішно завантажено. Оновіть сторінку списку станцій, щоб побачити зміни';
+        setSuccessMessage(msg);
+        setToastMessage(msg);
+        setLoading(false);
+        return 'done';
+      }
+      return 'continue';
+    },
+    [],
+  );
+
+  const startSeedStatusPolling = useCallback(() => {
+    clearSeedPoll();
+    const base = apiBaseUrl();
+    const tick = async () => {
+      try {
+        const res = await fetch(`${base}/api/dev/seed-from-csv/status`, {
+          credentials: 'include',
+        });
+        if (res.status === 404) return;
+        const data = (await res.json()) as StatusResponse;
+        const r = applySeedStatus(data);
+        if (r !== 'continue') clearSeedPoll();
+      } catch {
+        /* ігноруємо один тик; наступний спробує знову */
+      }
+    };
+    void tick();
+    seedPollRef.current = window.setInterval(() => void tick(), POLL_MS);
+  }, [applySeedStatus, clearSeedPoll]);
 
   useEffect(() => {
     if (!toastMessage) {
@@ -75,6 +136,7 @@ export default function SeedDemoDataButton() {
   const runSeed = useCallback(async () => {
     setModalError(null);
     setLoading(true);
+    let awaitBackgroundSeed = false;
     try {
       const base = apiBaseUrl();
       const res = await fetch(`${base}/api/dev/seed-from-csv`, {
@@ -85,6 +147,7 @@ export default function SeedDemoDataButton() {
       const raw = await res.text();
       let body: {
         ok?: boolean;
+        accepted?: boolean;
         message?: string;
         error?: string;
         already_run?: boolean;
@@ -104,28 +167,52 @@ export default function SeedDemoDataButton() {
         setSuccessMessage(msg);
         return;
       }
-      if (!res.ok) {
-        const msg =
+      if (res.status === 409 && body.error === 'in_progress') {
+        setToastMessage(
           typeof body.message === 'string' && body.message.length > 0
             ? body.message
-            : raw.trim().slice(0, 4000) || `Помилка ${res.status}`;
+            : 'Заповнення БД уже виконується на сервері.',
+        );
+        awaitBackgroundSeed = true;
+        startSeedStatusPolling();
+        return;
+      }
+      if (res.status === 202 || body.accepted === true) {
+        awaitBackgroundSeed = true;
+        startSeedStatusPolling();
+        return;
+      }
+      if (!res.ok) {
+        const gateway = res.status === 502 || res.status === 503 || res.status === 504;
+        const looksLikeHtmlErrorPage = raw.trimStart().startsWith('<');
+        const msg =
+          gateway || (res.status >= 500 && looksLikeHtmlErrorPage)
+            ? MSG_SEED_GATEWAY_OOPS
+            : typeof body.message === 'string' && body.message.length > 0
+              ? body.message
+              : raw.trim().slice(0, 4000) || `Помилка ${res.status}`;
         setModalError(msg);
         return;
       }
       const msg =
         typeof body.message === 'string' && body.message.length > 0
           ? body.message
-          : 'Демо-дані успішно завантажено. Оновіть сторінку списку станцій, щоб побачити зміни.';
+          : 'Демо-дані успішно завантажено. Оновіть сторінку списку станцій, щоб побачити зміни';
       setToastMessage(msg);
       setAlreadyRun(true);
       setDoneLocal(true);
       setSuccessMessage(msg);
     } catch (e) {
-      setModalError(e instanceof Error ? e.message : 'Не вдалося виконати запит');
+      const net = e instanceof TypeError && /fetch|network|failed to fetch/i.test(String(e.message));
+      setModalError(
+        net ? MSG_SEED_GATEWAY_OOPS : e instanceof Error ? e.message : 'Упс, щось пішло не так',
+      );
     } finally {
-      setLoading(false);
+      if (!awaitBackgroundSeed) {
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [startSeedStatusPolling]);
 
   if (!visible) return null;
 

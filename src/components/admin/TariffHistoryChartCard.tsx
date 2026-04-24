@@ -134,7 +134,7 @@ export default function TariffHistoryChartCard({ seriesAsc, loading }: TariffHis
         <p className="py-10 text-center text-sm text-slate-500">Завантаження тарифів…</p>
       ) : !hasAny ? (
         <p className="rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
-          Немає даних за цей період. Після сиду або оновлення тарифів графік з’явиться автоматично.
+          Немає даних за цей період. Після сиду або оновлення тарифів графік з’явиться автоматично
         </p>
       ) : (
         <div className="h-[min(320px,45vh)] w-full min-h-[240px]">

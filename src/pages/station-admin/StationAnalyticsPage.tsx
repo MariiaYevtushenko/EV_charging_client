@@ -34,7 +34,7 @@ const PERIOD_OPTIONS: { value: StationAdminAnalyticsPeriod; label: string }[] = 
   { value: 'all', label: 'Увесь час' },
 ];
 
-type SectionTab = 'overview' | 'charts' | 'session30d' | 'peakNetwork';
+type SectionTab = 'overview' | 'charts' | 'session30d';
 
 function analyticsThemeTabClass(active: boolean) {
   return active
@@ -67,37 +67,138 @@ function formatMonthComparisonValue(v: unknown): string {
   return String(v);
 }
 
-function isoDowUa(d: number): string {
-  const labels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
-  const i = Math.round(d) - 1;
-  return labels[i] ?? `Д${d}`;
-}
+/** Ключі з `GetNetworkBookingStatsForPeriod` — порядок як у картці аналітики бронювань користувача. */
+const BOOKING_KPI_KEY_ORDER = [
+  'booked_count',
+  'cancelled_count',
+  'deposit_bookings',
+  'total_bookings',
+  'calc_bookings',
+  'completed_count',
+  'missed_count',
+] as const;
 
-function peakBucketsToMatrix(buckets: Record<string, unknown>[]) {
-  const grid: number[][] = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0));
-  let max = 1;
-  for (const b of buckets) {
-    const dow = Math.round(num(b.iso_dow));
-    const h = Math.round(num(b.hour_of_day));
-    const c = num(b.session_count);
-    if (dow >= 1 && dow <= 7 && h >= 0 && h <= 23) {
-      grid[dow - 1][h] += c;
-      max = Math.max(max, grid[dow - 1][h]);
-    }
+function recordKeysLowercase(row: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(row)) {
+    out[k.toLowerCase()] = v;
   }
-  return { grid, max };
+  return out;
 }
 
-const PEAK_CELL_COLORS = [
-  '#f8fafc',
-  '#e2e8f0',
-  '#cbd5e1',
-  '#94a3b8',
-  '#64748b',
-  '#475569',
-  '#334155',
-  '#1e293b',
-];
+function metricLabelFromKey(key: string): string {
+  return key.replaceAll('_', ' ').toLowerCase();
+}
+
+const BOOKING_LABEL_UK: Record<string, string> = {
+  booked_count: 'Заброньовано',
+  cancelled_count: 'Скасовано',
+  deposit_bookings: 'Броні з передоплатою',
+  total_bookings: 'Усього бронювань',
+  calc_bookings: 'Розрахункові броні',
+  completed_count: 'Завершено',
+  missed_count: 'Пропущено',
+};
+
+const MONTH_KEY_ORDER = [
+  'current_month_bookings',
+  'current_month_sessions',
+  'current_month_revenue',
+  'previous_month_bookings',
+  'previous_month_sessions',
+  'previous_month_revenue',
+  'sessions_delta_pct',
+  'revenue_delta_pct',
+] as const;
+
+const MONTH_LABEL_UK: Record<string, string> = {
+  current_month_bookings: 'Бронювання, поточний місяць',
+  current_month_sessions: 'Сесії, поточний місяць',
+  current_month_revenue: 'Прибуток, поточний місяць',
+  previous_month_bookings: 'Бронювання, попередній місяць',
+  previous_month_sessions: 'Сесії, попередній місяць',
+  previous_month_revenue: 'Прибуток, попередній місяць',
+  sessions_delta_pct: 'Зміна сесій, %',
+  revenue_delta_pct: 'Зміна прибутку, %',
+};
+
+type OverviewMetricTile = {
+  id: string;
+  label: string;
+  value: string;
+  valueEmphasis?: 'positive' | 'negative';
+};
+
+function formatMonthOverviewValue(key: string, v: unknown): string {
+  const k = key.toLowerCase();
+  if (k.includes('revenue') && !k.includes('delta')) {
+    return `${fmtMoney(num(v))} грн`;
+  }
+  if (k.includes('delta_pct')) {
+    const n = num(v);
+    if (!Number.isFinite(n)) return formatMonthComparisonValue(v);
+    return `${n.toLocaleString('uk-UA', { maximumFractionDigits: 2 })}%`;
+  }
+  return formatMonthComparisonValue(v);
+}
+
+function monthDeltaEmphasis(key: string, v: unknown): 'positive' | 'negative' | undefined {
+  if (!key.toLowerCase().includes('delta_pct')) return undefined;
+  const n = num(v);
+  if (!Number.isFinite(n) || n === 0) return undefined;
+  return n > 0 ? 'positive' : 'negative';
+}
+
+/** Картка-огляд: сітка плиток з акцентами (прибуток, % зміни). */
+function OverviewMetricCard({
+  title,
+  subtitle,
+  tiles,
+  emptyText,
+  gridClassName,
+}: {
+  title: string;
+  subtitle?: string;
+  tiles: OverviewMetricTile[];
+  emptyText?: string;
+  gridClassName: string;
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-slate-200/95 bg-white shadow-md shadow-slate-200/45 ring-1 ring-slate-900/[0.04]">
+      <div className="border-b border-slate-100 bg-gradient-to-r from-emerald-50/40 via-white to-slate-50/60 px-5 py-4 sm:px-6">
+        <h2 className="text-base font-semibold tracking-tight text-slate-900">{title}</h2>
+        {subtitle ? <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-500">{subtitle}</p> : null}
+      </div>
+      <div className="p-4 sm:p-5">
+        {tiles.length === 0 ? (
+          <p className="py-10 text-center text-sm text-slate-500">{emptyText ?? 'Немає даних'}</p>
+        ) : (
+          <div className={`grid gap-3 ${gridClassName}`}>
+            {tiles.map((t) => (
+              <div
+                key={t.id}
+                className="rounded-xl border border-slate-100/90 bg-gradient-to-br from-slate-50/70 to-white px-3.5 py-3 shadow-sm transition hover:border-emerald-200/60 hover:shadow-md"
+              >
+                <p className="text-[11px] font-medium leading-snug text-slate-500">{t.label}</p>
+                <p
+                  className={`mt-1.5 text-lg font-bold tabular-nums tracking-tight ${
+                    t.valueEmphasis === 'positive'
+                      ? 'text-emerald-700'
+                      : t.valueEmphasis === 'negative'
+                        ? 'text-rose-600'
+                        : 'text-slate-900'
+                  }`}
+                >
+                  {t.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
 function SessionStatsSortTh({
   label,
@@ -142,22 +243,12 @@ function SessionStatsSortTh({
   );
 }
 
-function KpiCard({ title, value, hint }: { title: string; value: string; hint?: string }) {
-  return (
-    <AppCard className="relative overflow-hidden" padding>
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
-      <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight text-slate-900">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
-    </AppCard>
-  );
-}
-
 export default function StationAnalyticsPage() {
   const [period, setPeriod] = useState<StationAdminAnalyticsPeriod>('30d');
   const [sectionTab, setSectionTab] = useState<SectionTab>('overview');
   const [sessionStatsPage, setSessionStatsPage] = useState(1);
-  const [sessionSortBy, setSessionSortBy] = useState<SessionStatsViewSortKey>('station_id');
-  const [sessionSortDir, setSessionSortDir] = useState<SessionStatsViewSortDir>('asc');
+  const [sessionSortBy, setSessionSortBy] = useState<SessionStatsViewSortKey>('total_revenue');
+  const [sessionSortDir, setSessionSortDir] = useState<SessionStatsViewSortDir>('desc');
   const [data, setData] = useState<AdminAnalyticsViewsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -170,8 +261,6 @@ export default function StationAnalyticsPage() {
     void fetchAdminAnalyticsViews({
       period,
       topPeriod: period,
-      fewestPeriod: period,
-      peakPeriod: period,
       sessionStatsPage,
       sessionStatsPageSize: 15,
       sessionStatsSortBy: sessionSortBy,
@@ -216,8 +305,8 @@ export default function StationAnalyticsPage() {
 
   useEffect(() => {
     setSessionStatsPage(1);
-    setSessionSortBy('station_id');
-    setSessionSortDir('asc');
+    setSessionSortBy('total_revenue');
+    setSessionSortDir('desc');
   }, [period]);
 
   const onSessionSort = useCallback((key: SessionStatsViewSortKey) => {
@@ -226,7 +315,7 @@ export default function StationAnalyticsPage() {
         setSessionSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
         return prevBy;
       }
-      setSessionSortDir('asc');
+      setSessionSortDir(key === 'station_name' ? 'asc' : 'desc');
       return key;
     });
     setSessionStatsPage(1);
@@ -245,35 +334,59 @@ export default function StationAnalyticsPage() {
     }));
   }, [snap?.networkTopStations]);
 
-  const bottomBars = useMemo(() => {
-    const rows = [...(snap?.networkBottomStations ?? [])].slice(0, 10).map(pickStationRankRow);
-    return rows.map((r) => ({
-      name: r.name.length > 22 ? `${r.name.slice(0, 20)}…` : r.name,
-      fullName: r.name,
-      sessions: r.sessions,
-      id: r.id,
-    }));
-  }, [snap?.networkBottomStations]);
+  /** Той самий VIEW, що й у глобальної аналітики (`sessionStatsByPortType30d`) — фіксовані останні 30 днів. */
+  const connectorTypeBars = useMemo(() => {
+    return (data?.sessionStatsByPortType30d ?? []).map((r) => {
+      const full = str(r.connector_type_name) || '—';
+      return {
+        name: full.length > 22 ? `${full.slice(0, 20)}…` : full,
+        fullName: full,
+        sessions: num(r.total_sessions),
+        kwh: num(r.total_kwh),
+        revenue: num(r.total_revenue),
+      };
+    });
+  }, [data?.sessionStatsByPortType30d]);
 
-  const bookingKpiEntries = useMemo(() => {
+  const stationMetricRows = useMemo((): OverviewMetricTile[] => {
+    if (!ov) return [];
+    return [
+      { id: 'total', label: 'Усього станцій', value: String(ov.total) },
+      { id: 'work', label: 'Працює', value: String(ov.work) },
+      { id: 'not_working', label: 'Не працює', value: String(ov.notWorking) },
+      { id: 'fix', label: 'На ремонті', value: String(ov.fix) },
+      { id: 'archived', label: 'Архів', value: String(ov.archived) },
+    ];
+  }, [ov]);
+
+  const bookingMetricRows = useMemo((): OverviewMetricTile[] => {
     const row = snap?.networkBookingKpis;
     if (!row || typeof row !== 'object') return [];
-    return Object.entries(row)
-      .filter(([, v]) => v != null && v !== '')
-      .sort(([a], [b]) => a.localeCompare(b));
+    const norm = recordKeysLowercase(row as Record<string, unknown>);
+    return BOOKING_KPI_KEY_ORDER.filter((k) => {
+      const v = norm[k];
+      return v != null && v !== '';
+    }).map((k) => ({
+      id: k,
+      label: BOOKING_LABEL_UK[k] ?? metricLabelFromKey(k),
+      value: formatMonthComparisonValue(norm[k]),
+    }));
   }, [snap?.networkBookingKpis]);
 
-  const monthEntries = useMemo(() => {
+  const monthMetricRows = useMemo((): OverviewMetricTile[] => {
     const row = snap?.networkMonthComparison;
     if (!row || typeof row !== 'object') return [];
-    return Object.entries(row)
-      .filter(([, v]) => v != null && v !== '')
-      .sort(([a], [b]) => a.localeCompare(b));
+    const norm = recordKeysLowercase(row as Record<string, unknown>);
+    return MONTH_KEY_ORDER.filter((k) => {
+      const v = norm[k];
+      return v != null && v !== '';
+    }).map((k) => ({
+      id: k,
+      label: MONTH_LABEL_UK[k] ?? metricLabelFromKey(k),
+      value: formatMonthOverviewValue(k, norm[k]),
+      valueEmphasis: monthDeltaEmphasis(k, norm[k]),
+    }));
   }, [snap?.networkMonthComparison]);
-
-  const networkPeakMatrix = useMemo(() => {
-    return peakBucketsToMatrix(snap?.networkPeakHours?.buckets ?? []);
-  }, [snap?.networkPeakHours?.buckets]);
 
   const sessionPage = snap?.sessionStatsViewPage;
 
@@ -317,17 +430,19 @@ export default function StationAnalyticsPage() {
             <div className="-mb-px flex gap-4 overflow-x-auto pb-px sm:gap-8" role="tablist">
               {(
                 [
-                  { id: 'overview' as const, label: 'Огляд', count: bookingKpiEntries.length || (ov ? 1 : 0) },
-                  { id: 'charts' as const, label: 'Рейтинг', count: topBars.length + bottomBars.length },
+                  {
+                    id: 'overview' as const,
+                    label: 'Огляд',
+                    count:
+                      stationMetricRows.length +
+                      bookingMetricRows.length +
+                      monthMetricRows.length,
+                  },
+                  { id: 'charts' as const, label: 'Рейтинг', count: topBars.length + connectorTypeBars.length },
                   {
                     id: 'session30d' as const,
-                    label: 'Станції 30 дн',
+                    label: 'Станції',
                     count: sessionPage?.total ?? 0,
-                  },
-                  {
-                    id: 'peakNetwork' as const,
-                    label: 'Піки мережі',
-                    count: snap.networkPeakHours?.buckets?.length ?? 0,
                   },
                 ] as const
               ).map((t) => (
@@ -353,106 +468,39 @@ export default function StationAnalyticsPage() {
           <div className="mt-6 space-y-6">
             {sectionTab === 'overview' && (
               <div className="space-y-6">
-                {ov ? (
-                  <section aria-labelledby="st-admin-station-counts" className="space-y-3">
-                    <h2 id="st-admin-station-counts" className="text-sm font-semibold text-slate-900">
-                      Станції за статусом
-                    </h2>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                      <KpiCard title="Усього" value={String(ov.total)} />
-                      <KpiCard title="Працює" value={String(ov.work)} />
-                      <KpiCard title="Не працює" value={String(ov.notWorking)} />
-                      <KpiCard title="На ремонті" value={String(ov.fix)} />
-                      <KpiCard title="Архів" value={String(ov.archived)} />
-                    </div>
-                  </section>
+                <OverviewMetricCard
+                  title="Станції за статусом"
+                  subtitle="Миттєвий зріз усіх станцій у базі"
+                  tiles={stationMetricRows}
+                  emptyText="Немає даних про станції"
+                  gridClassName="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+                />
+
+                <OverviewMetricCard
+                  title="Бронювання за обраний період"
+                  subtitle=""
+                  tiles={bookingMetricRows}
+                  emptyText="Немає зведення бронювань за період (перевірте функцію GetNetworkBookingStatsForPeriod у БД)"
+                  gridClassName="grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+                />
+
+                {monthMetricRows.length > 0 ? (
+                  <OverviewMetricCard
+                    title="Порівняння місяців"
+                    subtitle=""
+                    tiles={monthMetricRows}
+                    gridClassName="grid-cols-2 md:grid-cols-4"
+                  />
                 ) : null}
-
-                {bookingKpiEntries.length > 0 ? (
-                  <AppCard padding>
-                    <h2 className="text-sm font-semibold text-slate-900">Бронювання за обраний період</h2>
-                    <dl className="mt-4 grid gap-2 sm:grid-cols-2">
-                      {bookingKpiEntries.map(([k, v]) => (
-                        <div key={k} className="flex justify-between gap-2 border-b border-slate-100 py-1.5 text-sm">
-                          <dt className="text-slate-500">{k.replaceAll('_', ' ')}</dt>
-                          <dd className="font-semibold tabular-nums text-slate-900">{formatMonthComparisonValue(v)}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </AppCard>
-                ) : (
-                  <AppCard padding>
-                    <p className="text-sm text-slate-500">Немає зведення бронювань за період (перевірте функцію в БД).</p>
-                  </AppCard>
-                )}
-
-                {monthEntries.length > 0 ? (
-                  <AppCard padding>
-                    <h2 className="text-sm font-semibold text-slate-900">Порівняння місяців (мережа)</h2>
-                     <dl className="mt-4 grid gap-2 sm:grid-cols-2">
-                      {monthEntries.map(([k, v]) => (
-                        <div key={k} className="flex justify-between gap-2 border-b border-slate-100 py-1.5 text-sm">
-                          <dt className="text-slate-500">{k.replaceAll('_', ' ')}</dt>
-                          <dd className="font-semibold tabular-nums text-slate-900">{formatMonthComparisonValue(v)}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </AppCard>
-                ) : null}
-
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <AppCard padding>
-                    <h2 className="text-sm font-semibold text-slate-900">ТОП станцій за сесіями</h2>
-                    {topBars.length === 0 ? (
-                      <p className="mt-4 text-sm text-slate-500">Немає даних за період.</p>
-                    ) : (
-                      <ul className="mt-4 space-y-2 text-sm">
-                        {topBars.map((r, i) => (
-                          <li key={r.id} className="flex items-center justify-between gap-2 border-b border-slate-100 py-1.5 last:border-0">
-                            <span className="text-slate-500">{i + 1}.</span>
-                            <Link
-                              to={`/station-dashboard/stations/${r.id}`}
-                              className="min-w-0 flex-1 truncate font-medium text-green-700 hover:text-green-800"
-                            >
-                              {r.fullName}
-                            </Link>
-                            <span className="shrink-0 tabular-nums text-slate-800">{r.sessions}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </AppCard>
-                  <AppCard padding>
-                    <h2 className="text-sm font-semibold text-slate-900">Найменш завантажені</h2>
-                    {bottomBars.length === 0 ? (
-                      <p className="mt-4 text-sm text-slate-500">Немає даних за період.</p>
-                    ) : (
-                      <ul className="mt-4 space-y-2 text-sm">
-                        {bottomBars.map((r, i) => (
-                          <li key={r.id} className="flex items-center justify-between gap-2 border-b border-slate-100 py-1.5 last:border-0">
-                            <span className="text-slate-500">{i + 1}.</span>
-                            <Link
-                              to={`/station-dashboard/stations/${r.id}`}
-                              className="min-w-0 flex-1 truncate font-medium text-green-700 hover:text-green-800"
-                            >
-                              {r.fullName}
-                            </Link>
-                            <span className="shrink-0 tabular-nums text-slate-800">{r.sessions}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </AppCard>
-                </div>
               </div>
             )}
 
             {sectionTab === 'charts' && (
-              <section className="grid gap-4 md:grid-cols-2 md:items-stretch" aria-label="Графіки рейтингу станцій">
+              <section className="grid gap-4 md:grid-cols-2 md:items-stretch" aria-label="Графіки мережі">
                 <AppCard padding className="h-full min-w-0">
-                  <h2 className="text-sm font-semibold text-slate-900">ТОП за сесіями</h2>
+                  <h2 className="text-sm font-semibold text-slate-900">ТОП-10 за сесіями</h2>
                   {topBars.length === 0 ? (
-                    <p className="mt-8 py-8 text-center text-sm text-slate-500">Немає даних.</p>
+                    <p className="mt-8 py-8 text-center text-sm text-slate-500">Немає даних</p>
                   ) : (
                     <div className="mt-4 h-[300px] w-full min-w-0">
                       <ResponsiveContainer width="100%" height="100%">
@@ -473,23 +521,37 @@ export default function StationAnalyticsPage() {
                   )}
                 </AppCard>
                 <AppCard padding className="h-full min-w-0">
-                  <h2 className="text-sm font-semibold text-slate-900">Найменш завантажені</h2>
-                  {bottomBars.length === 0 ? (
-                    <p className="mt-8 py-8 text-center text-sm text-slate-500">Немає даних.</p>
+                  <h2 className="text-sm font-semibold text-slate-900">Сесії за типом конектора</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Дані з того самого VIEW, що й у глобальної аналітики — останні 30 днів по мережі (не змінюються
+                    повзунком періоду зверху).
+                  </p>
+                  {connectorTypeBars.length === 0 ? (
+                    <p className="mt-8 py-8 text-center text-sm text-slate-500">Немає даних</p>
                   ) : (
                     <div className="mt-4 h-[300px] w-full min-w-0">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={bottomBars} layout="vertical" margin={{ left: 8, right: 16 }}>
+                        <BarChart data={connectorTypeBars} layout="vertical" margin={{ left: 8, right: 16 }}>
                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
                           <XAxis type="number" tick={{ fontSize: 11, fill: '#64748b' }} />
                           <YAxis type="category" dataKey="name" width={108} tick={{ fontSize: 11, fill: '#475569' }} />
                           <Tooltip
-                            formatter={(v, _n, ctx) => {
-                              const payload = ctx?.payload as { fullName?: string };
-                              return [String(v ?? ''), payload?.fullName ?? 'Сесії'];
+                            formatter={(value, _name, ctx) => {
+                              const p = ctx?.payload as {
+                                fullName?: string;
+                                kwh?: number;
+                                revenue?: number;
+                              };
+                              const s = Number(value ?? 0);
+                              const lines = [
+                                `${p?.fullName ?? 'Конектор'}: ${s.toLocaleString('uk-UA')} сес.`,
+                                `${(p?.kwh ?? 0).toLocaleString('uk-UA', { maximumFractionDigits: 2 })} кВт·год`,
+                                `${(p?.revenue ?? 0).toLocaleString('uk-UA', { maximumFractionDigits: 2 })} грн`,
+                              ];
+                              return [lines.join('\n'), ''];
                             }}
                           />
-                          <Bar dataKey="sessions" fill="#94a3b8" radius={[0, 6, 6, 0]} name="Сесії" />
+                          <Bar dataKey="sessions" fill="#6366f1" radius={[0, 6, 6, 0]} name="Сесії" />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -511,13 +573,6 @@ export default function StationAnalyticsPage() {
                   <table className="w-full min-w-[640px] text-left text-sm">
                     <thead>
                       <tr className="border-b border-slate-200">
-                        <SessionStatsSortTh
-                          label="ID"
-                          sortKey="station_id"
-                          currentBy={sessionSortBy}
-                          currentDir={sessionSortDir}
-                          onSort={onSessionSort}
-                        />
                         <SessionStatsSortTh
                           label="Станція"
                           sortKey="station_name"
@@ -570,7 +625,6 @@ export default function StationAnalyticsPage() {
                     <tbody>
                       {sessionPage.items.map((row) => (
                         <tr key={num(row.station_id)} className="border-b border-slate-100 last:border-0">
-                          <td className="py-2.5 pr-3 tabular-nums">{num(row.station_id)}</td>
                           <td className="py-2.5 pr-3">
                             <Link
                               className="font-medium text-green-700 hover:text-green-800"
@@ -610,99 +664,6 @@ export default function StationAnalyticsPage() {
                   </button>
                 </div>
               </AppCard>
-            )}
-
-            {sectionTab === 'peakNetwork' && (
-              <div className="space-y-4">
-                <AppCard padding>
-                  <h2 className="text-sm font-semibold text-slate-900">Навантаження по мережі</h2>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Усі станції разом, за вікном{' '}
-                    <span className="font-mono text-[11px]">GetNetworkPeakHourBuckets</span> (узгоджено з повзунком
-                    періоду: <span className="font-mono text-[11px]">peakPeriod</span> = обраний період).
-                  </p>
-                  <p className="mt-2 text-xs text-slate-500">
-                    {snap.networkPeakHours.periodFrom.slice(0, 10)} — {snap.networkPeakHours.periodTo.slice(0, 10)}
-                  </p>
-                  {snap.networkPeakHours.buckets.length === 0 ? (
-                    <p className="mt-6 text-center text-sm text-slate-500">Немає сесій у цьому інтервалі.</p>
-                  ) : (
-                    <div className="mt-4 overflow-x-auto">
-                      <table className="border-collapse text-[10px] sm:text-xs">
-                        <thead>
-                          <tr>
-                            <th className="border border-slate-200 bg-slate-50 px-1 py-1 text-left font-medium text-slate-600">
-                              День \ Год
-                            </th>
-                            {Array.from({ length: 24 }, (_, h) => (
-                              <th
-                                key={h}
-                                className="border border-slate-200 bg-slate-50 px-0.5 py-1 text-center font-medium text-slate-500"
-                              >
-                                {h}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {networkPeakMatrix.grid.map((row, dow) => (
-                            <tr key={dow}>
-                              <td className="border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-medium text-slate-600">
-                                {isoDowUa(dow + 1)}
-                              </td>
-                              {row.map((cell, h) => {
-                                const level =
-                                  networkPeakMatrix.max > 0
-                                    ? Math.min(
-                                        PEAK_CELL_COLORS.length - 1,
-                                        Math.floor((cell / networkPeakMatrix.max) * (PEAK_CELL_COLORS.length - 1))
-                                      )
-                                    : 0;
-                                const bg = PEAK_CELL_COLORS[cell === 0 ? 0 : level];
-                                return (
-                                  <td
-                                    key={h}
-                                    title={`${isoDowUa(dow + 1)} ${h}:00 — ${cell} сес.`}
-                                    className="h-7 w-6 border border-slate-200 p-0 text-center align-middle tabular-nums text-slate-800"
-                                    style={{ backgroundColor: bg }}
-                                  >
-                                    {cell > 0 ? cell : ''}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </AppCard>
-                {snap.networkPeakHours.buckets.length > 0 ? (
-                  <AppCard padding>
-                    <h3 className="text-sm font-semibold text-slate-900">Корзини (рядки)</h3>
-                    <div className="mt-3 max-h-64 overflow-y-auto overflow-x-auto">
-                      <table className="min-w-[280px] text-left text-sm">
-                        <thead>
-                          <tr className="border-b border-slate-200 text-xs font-semibold uppercase text-slate-500">
-                            <th className="py-2 pr-3">День</th>
-                            <th className="py-2 pr-3">Година</th>
-                            <th className="py-2 text-right">Сесії</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {snap.networkPeakHours.buckets.map((b, i) => (
-                            <tr key={i} className="border-b border-slate-100 last:border-0">
-                              <td className="py-1.5 pr-3">{isoDowUa(num(b.iso_dow))}</td>
-                              <td className="py-1.5 pr-3 tabular-nums">{num(b.hour_of_day)}</td>
-                              <td className="py-1.5 text-right tabular-nums">{num(b.session_count)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </AppCard>
-                ) : null}
-              </div>
             )}
           </div>
         </>

@@ -167,10 +167,7 @@ export default function UserStationDetailPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-sm font-semibold text-gray-900">Аналітика станції</h2>
-            <p className="mt-1 text-xs text-gray-500">
-              Сесії з таблиці <span className="font-medium">session</span>, енергія та суми з{' '}
-              <span className="font-medium">bill</span> за обраний період.
-            </p>
+           
             {analyticsLoading ? (
               <p className="mt-2 text-xs text-gray-400">Завантаження…</p>
             ) : analyticsError ? (
@@ -204,7 +201,7 @@ export default function UserStationDetailPage() {
           >
             {(
               [
-                { id: '1d' as const, label: '24 год' },
+                { id: '1d' as const, label: 'Сьогодні' },
                 { id: '7d' as const, label: '7 днів' },
                 { id: '30d' as const, label: '30 днів' },
               ] as const
@@ -228,7 +225,7 @@ export default function UserStationDetailPage() {
         {analyticsLoading ? (
           <p className="text-sm text-gray-500">Формування діаграм…</p>
         ) : analyticsError ? null : chartRows.length === 0 ? (
-          <p className="text-sm text-gray-500">Немає сесій за цей період — графіки з’являться після зарядок.</p>
+          <p className="text-sm text-gray-500">Немає сесій за цей період — графіки з’являться після зарядок</p>
         ) : (
           <div className="space-y-6">
             <div>

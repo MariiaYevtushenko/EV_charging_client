@@ -20,16 +20,33 @@ import { isOnOrAfterNetworkPeriodCutoff } from '../../utils/networkListPeriod';
 
 const PAYMENTS_PAGE_SIZE = 10;
 
-function shortPaymentDate(dt: string) {
+/** Дата для списку / періоду: момент зарядки (кінець або початок сесії), інакше оплата / створення рахунку. */
+function paymentAnchorIso(p: UserPaymentRow): string {
+  const raw = p.sessionEndedAt ?? p.sessionStartedAt ?? p.paidAt ?? p.createdAt;
+  const t = raw != null ? new Date(raw).getTime() : NaN;
+  return Number.isFinite(t) ? new Date(t).toISOString() : p.createdAt;
+}
+
+/** Лише календарна дата (дд.мм.рррр), без часу. */
+function formatPaymentListDateOnly(iso: string) {
   try {
-    return new Date(dt).toLocaleDateString('uk-UA', {
+    return new Date(iso).toLocaleDateString('uk-UA', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
     });
   } catch {
-    return dt;
+    return iso;
   }
+}
+
+/** Дата в картці: для успішної оплати — день оплати (`paidAt`); інакше — день події сесії / рахунку. */
+function paymentDisplayDateIso(p: UserPaymentRow): string {
+  if (p.status === 'success' && p.paidAt) {
+    const t = new Date(p.paidAt).getTime();
+    if (Number.isFinite(t)) return new Date(t).toISOString();
+  }
+  return paymentAnchorIso(p);
 }
 
 function BanknoteIcon({ className }: { className?: string }) {
@@ -92,8 +109,10 @@ export default function UserPaymentsPage() {
   }, [period, statusFilter]);
 
   const pool = useMemo(() => {
-    const sorted = [...payments].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return sorted.filter((p) => isOnOrAfterNetworkPeriodCutoff(p.createdAt, period));
+    const sorted = [...payments].sort(
+      (a, b) => new Date(paymentAnchorIso(b)).getTime() - new Date(paymentAnchorIso(a)).getTime()
+    );
+    return sorted.filter((p) => isOnOrAfterNetworkPeriodCutoff(paymentAnchorIso(p), period));
   }, [payments, period]);
 
   const rows = useMemo(() => {
@@ -165,7 +184,7 @@ export default function UserPaymentsPage() {
           <UserPortalEmptyState
             icon={<BanknoteIcon className="h-8 w-8" />}
             title="Немає записів з обраним статусом"
-            description="Натисніть активну картку статусу ще раз, щоб зняти фільтр."
+            description="Натисніть активну картку статусу ще раз, щоб зняти фільтр"
           />
         )
       ) : (
@@ -177,7 +196,9 @@ export default function UserPaymentsPage() {
               (p.description?.trim() ? p.description.trim().slice(0, 88) : '') ||
               carLine ||
               'Платіж';
-            const subtitle = carLine && title !== carLine ? carLine : undefined;
+            const sessionHint = p.sessionId?.trim() ? `Сесія №${p.sessionId.trim()}` : '';
+            const subtitleParts = [carLine && title !== carLine ? carLine : '', sessionHint].filter(Boolean);
+            const subtitle = subtitleParts.length > 0 ? subtitleParts.join(' · ') : undefined;
             const vis = paymentRowVisual(p);
             const sumLine = `${p.amount.toLocaleString('uk-UA', {
               minimumFractionDigits: 2,
@@ -191,7 +212,7 @@ export default function UserPaymentsPage() {
                   icon={vis.icon}
                   title={title}
                   subtitle={subtitle}
-                  dateLine={shortPaymentDate(p.createdAt)}
+                  dateLine={formatPaymentListDateOnly(paymentDisplayDateIso(p))}
                   metaLine={sumLine}
                   statusLabel={vis.statusLabel}
                   statusTextClassName={vis.statusTextClassName}

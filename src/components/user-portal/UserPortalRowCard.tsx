@@ -16,25 +16,20 @@ type Props = {
   accent: UserPortalRowAccent;
   icon: ReactNode;
   title: string;
-  /** Другий рядок (сірий), напр. слот або порт */
+
   subtitle?: string;
-  /** Додатковий рядок дрібнішим шрифтом (час, коментар) */
   metaLine?: string;
-  /** Дата у форматі списку (напр. 02.11.2025) */
   dateLine: string;
   statusLabel: string;
-  /** Клас кольору для статусу (напр. text-amber-600) */
+  
   statusTextClassName: string;
-  /** `inline` — статус у правому верхньому рядку поруч із назвою; `bottom` — окремим рядком знизу */
+
   statusPlacement?: 'bottom' | 'inline';
-  /** `bottom-right` — `metaLine` (напр. сума) у нижньому правому куті картки */
   metaPlacement?: 'default' | 'bottom-right';
   className?: string;
 } & Omit<LinkProps, 'to' | 'className' | 'children'>;
 
-/**
- * Горизонтальна картка списку: зліва смуга з іконкою в білому колі, справа — назва, дата, статус.
- */
+
 export function UserPortalRowCard({
   to,
   accent,

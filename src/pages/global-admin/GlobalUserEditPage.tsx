@@ -102,7 +102,7 @@ export default function GlobalUserEditPage() {
         </Link>
         <AppCard className="border-red-100 bg-red-50/80 !p-5">
           <p className="font-medium text-red-900">Не вдалося відкрити редагування</p>
-          <p className="mt-1 text-sm text-red-800/90">{loadError ?? 'Користувача не знайдено.'}</p>
+          <p className="mt-1 text-sm text-red-800/90">{loadError ?? 'Користувача не знайдено'}</p>
         </AppCard>
       </div>
     );

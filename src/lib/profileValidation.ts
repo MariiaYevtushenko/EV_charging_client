@@ -1,9 +1,4 @@
-const NAME_MAX = 50;
-const NAME_PART_PATTERN = /^[\p{L}\p{M}''’\-\s]+$/u;
-/** Має бути хоча б одна літера (не лише дефіси, пробіли тощо). */
-const HAS_LETTER = /\p{L}/u;
-const EMAIL_PATTERN =
-  /^[a-zA-Z0-9](?:[a-zA-Z0-9._+-]*[a-zA-Z0-9])?@[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+$/;
+import { EMAIL_PATTERN, HAS_LETTER, NAME_MAX, NAME_PART_PATTERN } from '../constants/profileValidationConstants';
 
 export type ProfileFieldKey = 'firstName' | 'surname' | 'email' | 'phone';
 

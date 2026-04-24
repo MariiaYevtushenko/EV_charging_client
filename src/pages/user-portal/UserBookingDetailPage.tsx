@@ -112,7 +112,7 @@ export default function UserBookingDetailPage() {
         <Link to="/dashboard/bookings" className={backLinkClass}>
           ← До бронювань
         </Link>
-        <AppCard className="py-12 text-center text-sm text-gray-500">Бронювання не знайдено.</AppCard>
+        <AppCard className="py-12 text-center text-sm text-gray-500">Бронювання не знайдено</AppCard>
       </div>
     );
   }

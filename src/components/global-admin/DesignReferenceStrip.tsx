@@ -1,15 +1,10 @@
 import { useState } from 'react';
-
-/**
- * Показує приклади UI: локальні PNG з /design-mockups/ або fallback-зображення.
- */
-const LOCAL_DASH = '/design-mockups/dashboard-ref.png';
-const LOCAL_LIST = '/design-mockups/list-ref.png';
-
-const FALLBACK_DASH =
-  'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&w=900&q=75';
-const FALLBACK_LIST =
-  'https://images.unsplash.com/photo-1558346490-a72e3ae2f4a7?auto=format&fit=crop&w=900&q=75';
+import {
+  FALLBACK_DASH,
+  FALLBACK_LIST,
+  LOCAL_DASH,
+  LOCAL_LIST,
+} from '../../constants/designReferenceMockups';
 
 function RefCard({
   title,
@@ -38,5 +33,25 @@ function RefCard({
         <p className="mt-0.5 text-xs text-gray-500">{caption}</p>
       </figcaption>
     </figure>
+  );
+}
+
+/** Показує приклади UI: локальні PNG з /design-mockups/ або fallback-зображення. */
+export default function DesignReferenceStrip() {
+  return (
+    <section className="grid gap-4 md:grid-cols-2" aria-label="Приклади UI">
+      <RefCard
+        title="Дашборд (референс)"
+        caption="Локальний макет або зображення з Unsplash, якщо файлу немає."
+        localSrc={LOCAL_DASH}
+        fallbackSrc={FALLBACK_DASH}
+      />
+      <RefCard
+        title="Список (референс)"
+        caption="Локальний макет або зображення з Unsplash, якщо файлу немає."
+        localSrc={LOCAL_LIST}
+        fallbackSrc={FALLBACK_LIST}
+      />
+    </section>
   );
 }

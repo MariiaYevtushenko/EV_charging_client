@@ -11,7 +11,6 @@ export function UserCarImagePreview({
 }: {
   src: string;
   alt?: string;
-  /** `banner` — горизонтальне прев’ю з фіксованим співвідношенням сторін; `side` — заливка колонки (форма справа від фото). */
   variant?: 'banner' | 'side';
   className?: string;
 }) {

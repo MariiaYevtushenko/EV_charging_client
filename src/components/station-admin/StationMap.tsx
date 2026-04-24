@@ -26,10 +26,16 @@ export type MapViewportBounds = {
 const DEFAULT_CENTER: L.LatLngTuple = [49.5, 31.5];
 const DEFAULT_ZOOM_VIEWPORT = 6;
 
-const STATUS_UI: Record<
-  StationStatus,
-  { fill: string; stroke: string; dot: string; badgeBg: string; badgeText: string; short: string }
-> = {
+type StatusUiRow = {
+  fill: string;
+  stroke: string;
+  dot: string;
+  badgeBg: string;
+  badgeText: string;
+  short: string;
+};
+
+const STATUS_UI: Record<StationStatus, StatusUiRow> = {
   working: {
     fill: '#16a34a',
     stroke: '#14532d',
@@ -64,17 +70,36 @@ const STATUS_UI: Record<
   },
 };
 
-function stationDivIcon(status: StationStatus, selected: boolean, emphasizeSelected: boolean) {
-  const u = STATUS_UI[status];
+/** На карті користувача «Актив» плутають з сесією — показуємо «Працює». */
+const STATUS_UI_USER_PORTAL: Record<StationStatus, StatusUiRow> = {
+  ...STATUS_UI,
+  working: { ...STATUS_UI.working, short: 'Працює' },
+};
+
+function stationDivIcon(
+  status: StationStatus,
+  selected: boolean,
+  emphasizeSelected: boolean,
+  userChargingSessionHere: boolean,
+  pinContext: 'default' | 'userPortal'
+) {
+  const u = pinContext === 'userPortal' ? STATUS_UI_USER_PORTAL[status] : STATUS_UI[status];
   const scale = selected ? (emphasizeSelected ? 1.12 : 1.08) : 1;
   const ring = selected
     ? emphasizeSelected
       ? 'filter:drop-shadow(0 0 0 3px #fff) drop-shadow(0 0 0 6px #22c55e) drop-shadow(0 0 12px rgb(34 197 94 / .45)) drop-shadow(0 4px 14px rgb(0 0 0 / .28));'
       : 'filter:drop-shadow(0 0 0 2px #fff) drop-shadow(0 0 0 4px #16a34a) drop-shadow(0 4px 12px rgb(0 0 0 / .25));'
+    : userChargingSessionHere
+      ? 'filter:drop-shadow(0 0 0 2px #fff) drop-shadow(0 0 0 5px #f59e0b) drop-shadow(0 4px 12px rgb(0 0 0 / .22));'
     : 'filter:drop-shadow(0 3px 10px rgb(0 0 0 / .22));';
+
+  const sessionBadge = userChargingSessionHere
+    ? `<div style="margin-bottom:3px;padding:2px 4px;border-radius:9999px;font-size:5.5px;font-weight:800;line-height:1;letter-spacing:0.02em;background:#fef3c7;color:#92400e;border:1px solid rgba(0,0,0,.08);white-space:nowrap;max-width:56px;overflow:hidden;text-overflow:ellipsis;">Моя зарядка</div>`
+    : '';
 
   const html = `
 <div style="width:56px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;transform:scale(${scale});transform-origin:50% 100%;${ring}">
+  ${sessionBadge}
   <div style="margin-bottom:4px;padding:2px 4px;border-radius:9999px;font-size:6px;font-weight:800;line-height:1;letter-spacing:0.02em;background:${u.badgeBg};color:${u.badgeText};border:1px solid rgba(0,0,0,.06);white-space:nowrap;max-width:56px;overflow:hidden;text-overflow:ellipsis;">
     ${u.short}
   </div>
@@ -96,11 +121,17 @@ function stationDivIcon(status: StationStatus, selected: boolean, emphasizeSelec
 }
 
 const iconCache = new Map<string, L.DivIcon>();
-function getIcon(status: StationStatus, selected: boolean, emphasizeSelected: boolean) {
-  const key = `${status}:${selected}:${emphasizeSelected}`;
+function getIcon(
+  status: StationStatus,
+  selected: boolean,
+  emphasizeSelected: boolean,
+  userChargingSessionHere: boolean,
+  pinContext: 'default' | 'userPortal'
+) {
+  const key = `${status}:${selected}:${emphasizeSelected}:${userChargingSessionHere}:${pinContext}`;
   let icon = iconCache.get(key);
   if (!icon) {
-    icon = stationDivIcon(status, selected, emphasizeSelected);
+    icon = stationDivIcon(status, selected, emphasizeSelected, userChargingSessionHere, pinContext);
     iconCache.set(key, icon);
   }
   return icon;
@@ -181,15 +212,7 @@ function FitStationsBounds({ stations }: { stations: Station[] }) {
   return null;
 }
 
-export default function StationMap({
-  stations,
-  selectedId,
-  onSelect,
-  onViewportChange,
-  stationDetailPath,
-  emphasizeSelected = false,
-  flyToStationId = null,
-}: {
+export type StationMapProps = {
   stations: Station[];
   selectedId: string;
   onSelect: (id: string) => void;
@@ -201,7 +224,26 @@ export default function StationMap({
   emphasizeSelected?: boolean;
   /** Під час першого показу списку — наблизити карту до цієї станції (лише один раз за монтування). */
   flyToStationId?: string | null;
-}) {
+  /**
+   * Лише ваша активна сесія (stationId з GET /user/:id/sessions).
+   * Чужі сесії на карті не відображаються — лише підказка «Моя зарядка» на вашій точці.
+   */
+  userActiveChargingStationId?: string | null;
+  /** Підписи маркерів для кабінету користувача («Працює» замість «Актив» на робочій станції). */
+  mapPinContext?: 'default' | 'userPortal';
+};
+
+export default function StationMap({
+  stations,
+  selectedId,
+  onSelect,
+  onViewportChange,
+  stationDetailPath,
+  emphasizeSelected = false,
+  flyToStationId = null,
+  userActiveChargingStationId = null,
+  mapPinContext = 'default',
+}: StationMapProps) {
   const viewportMode = Boolean(onViewportChange);
 
   const initialBounds = useMemo(() => {
@@ -220,12 +262,20 @@ export default function StationMap({
         <TileLayer attribution={TILE.attribution} url={TILE.url} subdomains="abcd" maxZoom={20} />
         <ViewportReporter onViewportChange={onViewportChange!} />
         <FlyToStationOnce targetId={flyToStationId} stations={stations} />
-        {stations.map((s) => (
+        {stations.map((s) => {
+          const sessionHere = Boolean(userActiveChargingStationId && s.id === userActiveChargingStationId);
+          return (
           <Marker
             key={s.id}
             position={[s.lat, s.lng]}
-            icon={getIcon(s.status, s.id === selectedId, emphasizeSelected && s.id === selectedId)}
-            zIndexOffset={s.id === selectedId ? 800 : 0}
+            icon={getIcon(
+              s.status,
+              s.id === selectedId,
+              emphasizeSelected && s.id === selectedId,
+              sessionHere,
+              mapPinContext
+            )}
+            zIndexOffset={s.id === selectedId ? 800 : sessionHere ? 700 : 0}
             eventHandlers={{ click: () => onSelect(s.id) }}
           >
             <Popup>
@@ -234,6 +284,11 @@ export default function StationMap({
                 <p className="mt-0.5 text-xs text-gray-600">
                   {[s.city, formatCountryLabel(s.country)].filter(Boolean).join(' · ') || '—'}
                 </p>
+                {sessionHere ? (
+                  <p className="mt-2 rounded-lg bg-amber-50 px-2 py-1.5 text-xs font-medium text-amber-950 ring-1 ring-amber-200/80">
+                    Тут у вас зараз активна зарядка (інші користувачі на карті не показуються).
+                  </p>
+                ) : null}
                 {stationDetailPath ? (
                   <Link
                     to={stationDetailPath(s.id)}
@@ -246,7 +301,8 @@ export default function StationMap({
               </div>
             </Popup>
           </Marker>
-        ))}
+        );
+        })}
       </MapContainer>
     );
   }
@@ -261,12 +317,20 @@ export default function StationMap({
       <TileLayer attribution={TILE.attribution} url={TILE.url} subdomains="abcd" maxZoom={20} />
       <FitStationsBounds stations={stations} />
       <FlyToStationOnce targetId={flyToStationId} stations={stations} />
-      {stations.map((s) => (
+      {stations.map((s) => {
+        const sessionHere = Boolean(userActiveChargingStationId && s.id === userActiveChargingStationId);
+        return (
         <Marker
           key={s.id}
           position={[s.lat, s.lng]}
-          icon={getIcon(s.status, s.id === selectedId, emphasizeSelected && s.id === selectedId)}
-          zIndexOffset={s.id === selectedId ? 800 : 0}
+          icon={getIcon(
+            s.status,
+            s.id === selectedId,
+            emphasizeSelected && s.id === selectedId,
+            sessionHere,
+            mapPinContext
+          )}
+          zIndexOffset={s.id === selectedId ? 800 : sessionHere ? 700 : 0}
           eventHandlers={{ click: () => onSelect(s.id) }}
         >
           <Popup>
@@ -275,6 +339,11 @@ export default function StationMap({
               <p className="mt-0.5 text-xs text-gray-600">
                 {[s.city, formatCountryLabel(s.country)].filter(Boolean).join(' · ') || '—'}
               </p>
+              {sessionHere ? (
+                <p className="mt-2 rounded-lg bg-amber-50 px-2 py-1.5 text-xs font-medium text-amber-950 ring-1 ring-amber-200/80">
+                  Тут у вас зараз активна зарядка (інші користувачі на карті не показуються).
+                </p>
+              ) : null}
               {stationDetailPath ? (
                 <Link
                   to={stationDetailPath(s.id)}
@@ -287,7 +356,8 @@ export default function StationMap({
             </div>
           </Popup>
         </Marker>
-      ))}
+      );
+      })}
     </MapContainer>
   );
 }

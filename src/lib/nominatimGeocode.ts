@@ -1,11 +1,10 @@
 /** Геокодування через публічний API Nominatim (OpenStreetMap). Для продакшену краще проксі на бекенді. */
 
+import { NOMINATIM_REVERSE_URL, NOMINATIM_SEARCH_URL } from '../constants/nominatim';
+
 export type GeocodeResult =
   | { ok: true; lat: number; lng: number; displayName?: string }
   | { ok: false; message: string };
-
-const NOMINATIM_SEARCH = 'https://nominatim.openstreetmap.org/search';
-const NOMINATIM_REVERSE = 'https://nominatim.openstreetmap.org/reverse';
 
 export type ReverseGeocodeResult =
   | {
@@ -50,7 +49,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
   });
 
   try {
-    const res = await fetch(`${NOMINATIM_REVERSE}?${params.toString()}`, {
+    const res = await fetch(`${NOMINATIM_REVERSE_URL}?${params.toString()}`, {
       headers: {
         Accept: 'application/json',
       },
@@ -103,7 +102,7 @@ export async function geocodeAddressParts(address: string, city: string): Promis
   });
 
   try {
-    const res = await fetch(`${NOMINATIM_SEARCH}?${params.toString()}`, {
+    const res = await fetch(`${NOMINATIM_SEARCH_URL}?${params.toString()}`, {
       headers: {
         Accept: 'application/json',
         'Accept-Language': 'uk,en',

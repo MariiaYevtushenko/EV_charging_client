@@ -12,7 +12,7 @@ export class ApiError extends Error {
   }
 }
 
-/** Текст з кирилицею ймовірно вже призначений для користувача (наприклад з HttpError). */
+
 function hasCyrillic(text: string): boolean {
   return /[\u0400-\u04FF]/.test(text);
 }
@@ -20,14 +20,16 @@ function hasCyrillic(text: string): boolean {
 const DEFAULT_SERVER_ERROR_UK =
   'На сервері сталася несподівана помилка. Спробуйте ще раз пізніше або зверніться до адміністратора.';
 
+const NETWORK_ERROR_UK =
+  'Немає зв’язку з сервером. Перевірте інтернет або спробуйте пізніше.';
+
+const REQUEST_FAILED_UK = 'Не вдалося виконати запит. Спробуйте пізніше.';
+
 export type UserFacingApiErrorOptions = {
-  /** Для 5xx без кирилиці в повідомленні (технічний текст з бекенду) — замість загального речення. */
   serverError?: string;
 };
 
-/**
- * Перетворює ApiError на зрозумілий для адміністратора текст: приховує сирі технічні деталі 5xx.
- */
+
 export function userFacingApiErrorMessage(
   e: unknown,
   fallback: string,
@@ -35,6 +37,11 @@ export function userFacingApiErrorMessage(
 ): string {
   if (!(e instanceof ApiError)) return fallback;
   const { status, message } = e;
+
+  /** Мережа / обрив з’єднання (див. fetchJson). */
+  if (status === 0 && message.trim() !== '') {
+    return message;
+  }
 
   if (status >= 500) {
     if (!hasCyrillic(message)) {
@@ -69,13 +76,25 @@ function throwIfFailed(res: Response, body: unknown): void {
     typeof o?.message === "string" && o.message.trim() !== ""
       ? o.message.trim()
       : null;
-  /** Бекенд шле `{ error: "Request error", message: "…" }` — для UI достатньо лише `message`. */
+      
   const msg = detail ?? errPart;
   throw new ApiError(msg || "Request failed", res.status, body);
 }
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(buildUrl(path), init);
+  let res: Response;
+  try {
+    res = await fetch(buildUrl(path), init);
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      console.warn('[fetchJson] network error', path, e);
+    }
+    if (typeof DOMException !== 'undefined' && e instanceof DOMException && e.name === 'AbortError') {
+      throw new ApiError('Запит скасовано.', 0, e);
+    }
+    const isNetwork = e instanceof TypeError;
+    throw new ApiError(isNetwork ? NETWORK_ERROR_UK : REQUEST_FAILED_UK, 0, e);
+  }
   const text = await res.text();
   let body: unknown = null;
   try {
@@ -116,7 +135,19 @@ export function patchJson<T>(path: string, payload: unknown): Promise<T> {
 }
 
 export async function deleteJson(path: string): Promise<void> {
-  const res = await fetch(buildUrl(path), { method: "DELETE" });
+  let res: Response;
+  try {
+    res = await fetch(buildUrl(path), { method: "DELETE" });
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      console.warn('[deleteJson] network error', path, e);
+    }
+    if (typeof DOMException !== 'undefined' && e instanceof DOMException && e.name === 'AbortError') {
+      throw new ApiError('Запит скасовано.', 0, e);
+    }
+    const isNetwork = e instanceof TypeError;
+    throw new ApiError(isNetwork ? NETWORK_ERROR_UK : REQUEST_FAILED_UK, 0, e);
+  }
   const text = await res.text();
   let body: unknown = null;
   if (text) {

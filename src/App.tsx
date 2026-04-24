@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import { StationsProvider } from './context/StationsContext';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { AppErrorBoundary } from './components/layout/AppErrorBoundary';
 
 // Імпорт сторінок
 import Login from "./pages/auth/Login"
@@ -55,6 +56,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
+        <AppErrorBoundary>
         <Routes>
           {/* Публічні маршрути */}
           <Route path="/login" element={<Login />} />
@@ -157,6 +159,7 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<div className="p-10 text-center">404 - Сторінку не знайдено</div>} />
         </Routes>
+        </AppErrorBoundary>
       </Router>
     </AuthProvider>
   );

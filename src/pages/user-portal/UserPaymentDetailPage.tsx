@@ -58,6 +58,19 @@ function fmtCreated(dt: string) {
   }
 }
 
+/** Дата оплати в картці — лише число (дд.мм.рррр). */
+function fmtPaidDateOnly(dt: string) {
+  try {
+    return new Date(dt).toLocaleDateString('uk-UA', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  } catch {
+    return dt;
+  }
+}
+
 function formatPaymentMethod(raw: string): string {
   switch (raw) {
     case 'CARD':
@@ -89,7 +102,7 @@ export default function UserPaymentDetailPage() {
         <Link to="/dashboard/payments" className={backLinkClass}>
           ← До платежів
         </Link>
-        <AppCard className="py-12 text-center text-sm text-gray-500">Платіж не знайдено.</AppCard>
+        <AppCard className="py-12 text-center text-sm text-gray-500">Платіж не знайдено</AppCard>
       </div>
     );
   }
@@ -152,7 +165,27 @@ export default function UserPaymentDetailPage() {
         {payment.paidAt ? (
           <div className="border-b border-slate-100 px-5 py-4">
             <p className={sectionLabel}>Дата оплати</p>
-            <p className="mt-1.5 text-sm font-medium text-slate-900">{fmtCreated(payment.paidAt)}</p>
+            <p className="mt-1.5 text-sm font-medium text-slate-900">{fmtPaidDateOnly(payment.paidAt)}</p>
+          </div>
+        ) : null}
+
+        {payment.sessionStartedAt || payment.sessionEndedAt ? (
+          <div className="border-b border-slate-100 px-5 py-4">
+            <p className={sectionLabel}>Час зарядки (сесія)</p>
+            {payment.sessionStartedAt ? (
+              <p className="mt-1.5 text-sm font-medium text-slate-900">
+                Початок: {fmtCreated(payment.sessionStartedAt)}
+              </p>
+            ) : null}
+            {payment.sessionEndedAt ? (
+              <p
+                className={`text-sm font-medium text-slate-900 ${payment.sessionStartedAt ? 'mt-1' : 'mt-1.5'}`}
+              >
+                Завершення: {fmtCreated(payment.sessionEndedAt)}
+              </p>
+            ) : payment.sessionStartedAt ? (
+              <p className="mt-1 text-xs text-slate-500">Кінець сесії ще не зафіксовано в системі</p>
+            ) : null}
           </div>
         ) : null}
 

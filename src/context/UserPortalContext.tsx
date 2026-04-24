@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useAuth } from './AuthContext';
+import { ApiError } from '../api/http';
 import { deleteUserBooking, fetchUserBookings, fetchUserPayments, fetchUserSessions } from '../api/userReads';
 import { createUserSession } from '../api/userSessions';
 import {
@@ -15,6 +16,10 @@ import {
   mapUserSessionApiToRecord,
 } from '../api/userPortalMappers';
 import type { UserBooking, UserCar, UserPaymentRow, UserSessionRecord } from '../types/userPortal';
+
+/** Клієнтська перевірка до POST /sessions — не створюємо сесію, якщо на сервері вже є ACTIVE. */
+export const ACTIVE_SESSION_START_BLOCK_UK =
+  'Неможливо почати нову сесію зарядки: у вас уже триває зарядка. Спочатку завершіть поточну сесію (блок «Поточна зарядка» або «Завершити сесію»)';
 
 type UserPortalContextValue = {
   cars: UserCar[];
@@ -27,7 +32,7 @@ type UserPortalContextValue = {
   bookings: UserBooking[];
   replaceBookings: (rows: UserBooking[]) => void;
   cancelBooking: (id: string) => Promise<void>;
-  reloadSessionsAndPayments: () => Promise<void>;
+  reloadSessionsAndPayments: () => Promise<UserSessionRecord[]>;
   startSessionAtPort: (params: {
     stationId: string;
     portNumber: number;
@@ -64,10 +69,12 @@ export function UserPortalProvider({ children }: { children: ReactNode }) {
 
   const reloadSessionsAndPayments = useCallback(async () => {
     const uid = Number(user?.id);
-    if (!Number.isFinite(uid)) return;
+    if (!Number.isFinite(uid)) return [];
     const [sessRows, payRows] = await Promise.all([fetchUserSessions(uid), fetchUserPayments(uid)]);
-    setSessions(sessRows.map((r) => mapUserSessionApiToRecord(r)));
+    const mappedSessions = sessRows.map((r) => mapUserSessionApiToRecord(r));
+    setSessions(mappedSessions);
     setPayments(payRows.map((r) => mapBillApiToPaymentRow(r)));
+    return mappedSessions;
   }, [user?.id]);
 
   const addCar = useCallback((car: Omit<UserCar, 'id'>) => {
@@ -110,6 +117,14 @@ export function UserPortalProvider({ children }: { children: ReactNode }) {
       if (!Number.isFinite(uid)) return false;
       const vid = Number(params.vehicleId);
       if (!Number.isFinite(vid) || vid <= 0) return false;
+
+      const sessRows = await fetchUserSessions(uid);
+      const mapped = sessRows.map((r) => mapUserSessionApiToRecord(r));
+      setSessions(mapped);
+      if (mapped.some((s) => s.status === 'active')) {
+        throw new ApiError(ACTIVE_SESSION_START_BLOCK_UK, 409, null);
+      }
+
       const body: Record<string, unknown> = {
         stationId: Number(params.stationId),
         portNumber: params.portNumber,

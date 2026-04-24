@@ -138,25 +138,33 @@ export default function UserPortalLayout() {
     if (!Number.isFinite(uid)) return;
     let cancelled = false;
     void (async () => {
-      try {
-        const [vehRows, sessRows, payRows, bookRows] = await Promise.all([
-          fetchUserVehicles(uid),
-          fetchUserSessions(uid),
-          fetchUserPayments(uid),
-          fetchUserBookings(uid),
-        ]);
-        if (cancelled) return;
-        replaceCars(vehRows.map((r) => mapVehicleApiRowToUserCar(r)));
-        replaceSessions(sessRows.map((r) => mapUserSessionApiToRecord(r)));
-        replacePayments(payRows.map((r) => mapBillApiToPaymentRow(r)));
-        replaceBookings(bookRows.map((r) => mapBookingApiToUserBooking(r)));
-      } catch {
-        if (!cancelled) {
-          replaceCars([]);
-          replaceSessions([]);
-          replacePayments([]);
-          replaceBookings([]);
-        }
+      const settled = await Promise.allSettled([
+        fetchUserVehicles(uid),
+        fetchUserSessions(uid),
+        fetchUserPayments(uid),
+        fetchUserBookings(uid),
+      ]);
+      if (cancelled) return;
+      const [vR, sR, pR, bR] = settled;
+      if (vR.status === 'fulfilled') {
+        replaceCars(vR.value.map((r) => mapVehicleApiRowToUserCar(r)));
+      } else if (import.meta.env.DEV) {
+        console.warn('[UserPortalLayout] vehicles', vR.reason);
+      }
+      if (sR.status === 'fulfilled') {
+        replaceSessions(sR.value.map((r) => mapUserSessionApiToRecord(r)));
+      } else if (import.meta.env.DEV) {
+        console.warn('[UserPortalLayout] sessions', sR.reason);
+      }
+      if (pR.status === 'fulfilled') {
+        replacePayments(pR.value.map((r) => mapBillApiToPaymentRow(r)));
+      } else if (import.meta.env.DEV) {
+        console.warn('[UserPortalLayout] payments', pR.reason);
+      }
+      if (bR.status === 'fulfilled') {
+        replaceBookings(bR.value.map((r) => mapBookingApiToUserBooking(r)));
+      } else if (import.meta.env.DEV) {
+        console.warn('[UserPortalLayout] bookings', bR.reason);
       }
     })();
     return () => {

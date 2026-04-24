@@ -93,7 +93,7 @@ export default function StationMapLegend({
       {showSelectionNote ? (
         <p className="text-[11px] text-gray-500">
           <span className="font-medium text-emerald-800">Обрана станція</span> — яскравіша зелена обводка навколо
-          маркера.
+          маркера
         </p>
       ) : null}
     </div>

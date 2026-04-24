@@ -1,8 +1,6 @@
 export type PeriodSegmentOption = { value: string; label: string };
 
-/**
- * Сегментований вибір періоду: білий контейнер, активний сегмент — зелена заливка та білий текст.
- */
+
 export function PeriodSegmentedControl({
   value,
   onChange,

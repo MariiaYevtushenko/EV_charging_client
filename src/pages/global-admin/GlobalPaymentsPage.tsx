@@ -23,7 +23,7 @@ import {
 
 const PAYMENT_STATUS_TAB_ORDER: AdminNetworkPaymentRow['status'][] = ['success', 'pending', 'failed'];
 
-type PaymentSortKey = 'createdAt' | 'userName' | 'sessionId' | 'method' | 'amount' | 'status';
+type PaymentSortKey = 'paidAt' | 'userName' | 'sessionId' | 'method' | 'amount' | 'status';
 
 function paymentTone(s: string): 'success' | 'warn' | 'danger' | 'muted' {
   switch (s) {
@@ -80,7 +80,7 @@ function SearchIcon({ className }: { className?: string }) {
 
 export default function GlobalPaymentsPage() {
   const navigate = useNavigate();
-  const [sortKey, setSortKey] = useState<PaymentSortKey>('createdAt');
+  const [sortKey, setSortKey] = useState<PaymentSortKey>('paidAt');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(1);
   const [searchDraft, setSearchDraft] = useState('');
@@ -241,8 +241,8 @@ export default function GlobalPaymentsPage() {
           <thead className="border-b border-gray-100 bg-gray-50/80 text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr>
               <SortableTableTh
-                label="Дата"
-                columnKey="createdAt"
+                label="Дата оплати"
+                columnKey="paidAt"
                 activeKey={sortKey}
                 dir={sortDir}
                 onSort={onSort}
@@ -316,7 +316,9 @@ export default function GlobalPaymentsPage() {
                   }
                 }}
               >
-                <td className="whitespace-nowrap px-4 py-3 text-gray-600">{fmt(p.createdAt)}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                  {p.paidAt ? fmt(p.paidAt) : '—'}
+                </td>
                 <td className="px-4 py-3 font-medium text-slate-900">{p.userName}</td>
                 <td
                   className="max-w-[11rem] min-w-0 truncate px-4 py-3 text-gray-600 sm:max-w-[16rem] lg:max-w-[20rem]"

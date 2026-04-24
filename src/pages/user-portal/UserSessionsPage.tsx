@@ -145,7 +145,7 @@ export default function UserSessionsPage() {
           <UserPortalEmptyState
             icon={<SessionBoltIcon className="h-8 w-8" />}
             title="Немає записів з обраним статусом"
-            description="Натисніть активну картку статусу ще раз, щоб зняти фільтр."
+            description="Натисніть активну картку статусу ще раз, щоб зняти фільтр"
           />
         )
       ) : (

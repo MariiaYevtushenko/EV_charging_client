@@ -1,7 +1,7 @@
 import { getJson, postJson } from "./http";
 
-/** Період для списків глобальної адмінки (узгоджено з API `period`). */
-export type NetworkListPeriod = "7d" | "30d" | "all";
+// Період для списків глобальної адмінки
+export type NetworkListPeriod = "today" | "7d" | "30d" | "all";
 
 export type AdminNetworkBookingRow = {
   id: string;
@@ -11,18 +11,16 @@ export type AdminNetworkBookingRow = {
   stationName: string;
   stationCity: string;
   stationCountry: string;
-  /** Номер порта на станції (для таблиць; повний `slotLabel` лишається для інших екранів). */
   portNumber: number;
   slotLabel: string;
   bookingType: "CALC" | "DEPOSIT";
-  /** Сума передплати (грн); для CALC зазвичай 0. */
   prepaymentAmount: number;
   status: "pending" | "confirmed" | "cancelled" | "paid" | "missed";
   start: string;
   end: string;
 };
 
-/** Відповідь GET /api/admin/network/bookings (пагінований список). */
+// Відповідь GET /api/admin/network/bookings 
 export type AdminNetworkBookingsListResponse = {
   items: AdminNetworkBookingRow[];
   total: number;
@@ -32,19 +30,26 @@ export type AdminNetworkBookingsListResponse = {
 
 export type AdminNetworkBookingStatusCounts = Record<AdminNetworkBookingRow["status"], number>;
 
-/** Без аргументів — одна «велика» сторінка (до ліміту бекенду) для кешу в контексті. */
+// Без аргументів 
 export type FetchAdminNetworkBookingsParams = {
   page?: number;
   pageSize?: number;
   q?: string;
-  /** Фільтр за статусом (узгоджено з API). */
   status?: AdminNetworkBookingRow["status"];
   sort?: "start" | "userName" | "stationName" | "slot" | "status";
   order?: "asc" | "desc";
   period?: NetworkListPeriod;
 };
 
-const ADMIN_NETWORK_BOOKINGS_BULK_PAGE_SIZE = 2000;
+function readPositivePageSize(raw: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(String(raw ?? ""), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+const ADMIN_NETWORK_BOOKINGS_BULK_PAGE_SIZE = readPositivePageSize(
+  import.meta.env.VITE_ADMIN_NETWORK_BOOKINGS_BULK_PAGE_SIZE,
+  2000
+);
 
 export type AdminBookingSessionSnippet = {
   id: string;
@@ -103,7 +108,6 @@ export type AdminNetworkSessionsListResponse = {
 
 export type AdminNetworkSessionStatusCounts = Record<AdminNetworkSessionRow["status"], number>;
 
-/** Без аргументів — одна «велика» сторінка для кешу в контексті. */
 export type FetchAdminNetworkSessionsParams = {
   page?: number;
   pageSize?: number;
@@ -114,7 +118,10 @@ export type FetchAdminNetworkSessionsParams = {
   period?: NetworkListPeriod;
 };
 
-const ADMIN_NETWORK_SESSIONS_BULK_PAGE_SIZE = 5000;
+const ADMIN_NETWORK_SESSIONS_BULK_PAGE_SIZE = readPositivePageSize(
+  import.meta.env.VITE_ADMIN_NETWORK_SESSIONS_BULK_PAGE_SIZE,
+  5000
+);
 
 export function fetchAdminNetworkBookings(
   params?: FetchAdminNetworkBookingsParams
@@ -202,6 +209,7 @@ export type AdminNetworkPaymentRow = {
   method: string;
   status: "success" | "pending" | "failed";
   createdAt: string;
+  paidAt: string | null;
   description: string;
   userId: string | null;
   userName: string;
@@ -222,7 +230,7 @@ export type FetchAdminNetworkPaymentsParams = {
   pageSize?: number;
   q?: string;
   status?: AdminNetworkPaymentRow["status"];
-  sort?: "createdAt" | "userName" | "sessionId" | "method" | "amount" | "status";
+  sort?: "paidAt" | "userName" | "sessionId" | "method" | "amount" | "status";
   order?: "asc" | "desc";
   period?: NetworkListPeriod;
 };

@@ -56,7 +56,7 @@ function UserCarEditForm({ car, carId }: { car: UserCar; carId: string }) {
     const uid = user?.id != null ? Number(user.id) : NaN;
     const vid = Number(carId);
     if (!Number.isFinite(uid) || !Number.isFinite(vid)) {
-      setError('Некоректний профіль або авто.');
+      setError('Некоректний профіль або авто');
       return;
     }
     const brandT = brand.trim();
@@ -88,7 +88,7 @@ function UserCarEditForm({ car, carId }: { car: UserCar; carId: string }) {
   return (
     <UserCarFormShell
       title="Редагувати авто"
-      description="Оновіть дані автомобіля. Зображення на картці підбирається за повною назвою моделі."
+      description="Оновіть дані автомобіля. Зображення на картці підбирається за повною назвою моделі"
       previewSrc={previewSrc}
       rightColumnHeader={
         <div>
@@ -188,7 +188,7 @@ function UserCarEditForm({ car, carId }: { car: UserCar; carId: string }) {
               {fieldErrors.batteryCapacity}
             </p>
           ) : (
-            <p className="mt-1.5 text-xs text-gray-500">Типові значення: 40–100 кВт·год для легкових EV.</p>
+            <p className="mt-1.5 text-xs text-gray-500"></p>
           )}
         </div>
 
@@ -221,7 +221,7 @@ export default function UserCarEditPage() {
         </Link>
         <AppCard className="border-dashed border-slate-200 py-14 text-center">
           <p className="text-sm font-medium text-slate-700">Авто не знайдено</p>
-          <p className="mt-1 text-xs text-slate-500">Можливо, запис вже видалено з гаража.</p>
+          <p className="mt-1 text-xs text-slate-500">Можливо, запис вже видалено з гаража</p>
         </AppCard>
       </div>
     );

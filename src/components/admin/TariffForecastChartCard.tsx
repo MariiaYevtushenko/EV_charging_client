@@ -9,9 +9,12 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { TooltipProps } from 'recharts';
-import { AppCard, OutlineButton } from '../station-admin/Primitives';
-import { fetchForecastPredictions, type ForecastPredictionsDto } from '../../api/forecastBias';
+import { AppCard, OutlineButton, PrimaryButton } from '../station-admin/Primitives';
+import {
+  fetchForecastPredictions,
+  postForecastRunModel,
+  type ForecastPredictionsDto,
+} from '../../api/forecastBias';
 import { userFacingApiErrorMessage } from '../../api/http';
 
 const CHART_DAYS = 21;
@@ -28,14 +31,22 @@ function shortLabel(isoDate: string): string {
 
 type RowPayload = { label: string; date: string; dayUah: number | null; nightUah: number | null };
 
-function TariffForecastTooltip(props: TooltipProps<number, string>) {
-  const { active, payload, label } = props;
+function TariffForecastTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: ReadonlyArray<{ payload?: unknown }>;
+  label?: string | number;
+}) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload as RowPayload | undefined;
   if (!row) return null;
+  const labelText = label != null ? String(label) : '';
   return (
     <div className="rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs shadow-lg ring-1 ring-slate-900/5">
-      <p className="font-semibold text-slate-900">{label}</p>
+      <p className="font-semibold text-slate-900">{labelText}</p>
       <p className="mt-1 text-[11px] text-slate-500">{row.date}</p>
       <p className="mt-1.5 tabular-nums text-amber-800">
         День:{' '}
@@ -56,18 +67,41 @@ function TariffForecastTooltip(props: TooltipProps<number, string>) {
 export default function TariffForecastChartCard() {
   const [data, setData] = useState<ForecastPredictionsDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [modelRunning, setModelRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Примусове перемальовування Recharts після кожного успішного GET (інакше лінії інколи «залипають»). */
+  const [chartRenderKey, setChartRenderKey] = useState(0);
+
+  const busy = loading || modelRunning;
 
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
     void fetchForecastPredictions(CHART_DAYS)
-      .then(setData)
+      .then((d) => {
+        setData(d);
+        setChartRenderKey((k) => k + 1);
+      })
       .catch((e: unknown) => {
         setError(userFacingApiErrorMessage(e, 'Не вдалося завантажити прогноз'));
         setData(null);
       })
       .finally(() => setLoading(false));
+  }, []);
+
+  const runModelAndReload = useCallback(() => {
+    setModelRunning(true);
+    setError(null);
+    void postForecastRunModel()
+      .then(() => fetchForecastPredictions(CHART_DAYS))
+      .then((d) => {
+        setData(d);
+        setChartRenderKey((k) => k + 1);
+      })
+      .catch((e: unknown) => {
+        setError(userFacingApiErrorMessage(e, 'Не вдалося запустити модель або оновити графік'));
+      })
+      .finally(() => setModelRunning(false));
   }, []);
 
   useEffect(() => {
@@ -88,16 +122,21 @@ export default function TariffForecastChartCard() {
 
   return (
     <AppCard className="space-y-4 border border-indigo-100/90 bg-gradient-to-br from-indigo-50/60 via-white to-slate-50/30 shadow-sm">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-       
-        <OutlineButton type="button" disabled={loading} onClick={load} className="shrink-0">
-          {loading ? 'Оновлення…' : 'Оновити графік'}
-        </OutlineButton>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
+        <h2 className="text-sm font-semibold text-slate-900">Прогноз цін</h2>
+        <div className="flex flex-col gap-2 sm:flex-row sm:shrink-0">
+          <OutlineButton type="button" disabled={busy} onClick={() => load()}>
+            {loading ? 'Завантаження…' : 'Оновити з БД'}
+          </OutlineButton>
+          <PrimaryButton type="button" disabled={busy} onClick={() => void runModelAndReload()}>
+            {modelRunning ? 'Модель…' : 'Перерахувати прогноз'}
+          </PrimaryButton>
+        </div>
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      {loading && !data ? (
+      {loading && !data && !modelRunning ? (
         <p className="py-12 text-center text-sm text-slate-500">Завантаження прогнозу…</p>
       ) : !hasAny ? (
         <p className="rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
@@ -106,7 +145,11 @@ export default function TariffForecastChartCard() {
       ) : (
         <div className="h-[min(360px,55vh)] w-full min-h-[280px]">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartRows} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+            <LineChart
+              key={chartRenderKey}
+              data={chartRows}
+              margin={{ top: 8, right: 12, left: 0, bottom: 4 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis
                 dataKey="label"
@@ -131,7 +174,7 @@ export default function TariffForecastChartCard() {
                   style: { fontSize: 11, fill: '#64748b' },
                 }}
               />
-              <Tooltip content={<TariffForecastTooltip />} />
+              <Tooltip content={(p) => <TariffForecastTooltip {...p} />} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Line
                 type="monotone"

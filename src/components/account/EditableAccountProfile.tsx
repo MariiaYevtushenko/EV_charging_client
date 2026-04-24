@@ -75,7 +75,7 @@ export default function EditableAccountProfile({
         setPhone(row.phone);
         setBaseline(row);
       } catch {
-        if (!cancelled) setProfileError('Не вдалося завантажити профіль з сервера.');
+        if (!cancelled) setProfileError('Не вдалося завантажити профіль з сервера');
       } finally {
         if (!cancelled) setProfileLoading(false);
       }
