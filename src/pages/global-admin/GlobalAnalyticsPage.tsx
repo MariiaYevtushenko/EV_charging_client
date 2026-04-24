@@ -26,9 +26,11 @@ import {
 } from '../../styles/globalAdminTheme';
 import { userPortalPageHeaderRow } from '../../styles/userPortalTheme';
 import { PeriodSegmentedControl } from '../../components/analytics/PeriodSegmentedControl';
+import { FloatingToast, FloatingToastRegion } from '../../components/admin/FloatingToast';
 
 const PIE_COLORS = ['#059669', '#6366f1', '#d97706', '#64748b', '#0ea5e9', '#be123c'];
 const PERIOD_DEFAULT = 30;
+const PARTIAL_TOAST_MS = 5000;
 
 /** Преси періоду для API (7 / 30 / 365 днів). «Увесь час» — максимум, який приймає бекенд. */
 const GLOBAL_PERIOD_OPTIONS = [
@@ -204,6 +206,55 @@ function bookingKindLabel(kind: string): string {
   }
 }
 
+function numNullable(v: unknown): number | null {
+  if (v == null) return null;
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string') {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function sessionDeltaStatusUa(delta: number): string {
+  if (delta > 0) return 'більше';
+  if (delta < 0) return 'менше';
+  return 'без змін';
+}
+
+function pctDeltaStatusUa(pct: number): string {
+  if (pct > 0) return 'більше';
+  if (pct < 0) return 'менше';
+  return 'без змін';
+}
+
+function fmtAbsPctOne(p: number): string {
+  return Math.abs(p).toLocaleString('uk-UA', { maximumFractionDigits: 1, minimumFractionDigits: 0 });
+}
+
+/** Для витрат / kWh: менше — «краще» (зелене). Для прибутку використовуйте з протилежним знаком. */
+function deltaToneClass(delta: number): string {
+  if (delta < 0) return 'text-emerald-700';
+  if (delta > 0) return 'text-rose-700';
+  return 'text-slate-600';
+}
+
+function fmtMoneyUa(n: number) {
+  return n.toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function fmtKwhUa(n: number) {
+  return n.toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function pctOrCompute(rawPct: unknown, curr: number, prev: number): number | null {
+  const p = numNullable(rawPct);
+  if (p != null) return p;
+  if (!Number.isFinite(curr) || !Number.isFinite(prev)) return null;
+  if (prev === 0) return curr === 0 ? 0 : null;
+  return ((curr - prev) / prev) * 100;
+}
+
 export default function GlobalAnalyticsPage() {
   const [periodDays, setPeriodDays] = useState(PERIOD_DEFAULT);
   const [section, setSection] = useState<AnalyticsSectionId>('overview');
@@ -211,6 +262,7 @@ export default function GlobalAnalyticsPage() {
   const [data, setData] = useState<AdminAnalyticsViewsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [partialToastShow, setPartialToastShow] = useState(false);
 
   const load = useCallback(() => {
     let cancelled = false;
@@ -238,7 +290,43 @@ export default function GlobalAnalyticsPage() {
     return load();
   }, [load]);
 
+  useEffect(() => {
+    if (loading) {
+      setPartialToastShow(false);
+      return;
+    }
+    if (error || !data?.partial) {
+      setPartialToastShow(false);
+      return;
+    }
+    setPartialToastShow(true);
+    const id = window.setTimeout(() => setPartialToastShow(false), PARTIAL_TOAST_MS);
+    return () => window.clearTimeout(id);
+  }, [loading, error, data?.partial, periodDays]);
+
   const ga = data?.globalAdminSnapshot;
+
+  const rolling30 = useMemo(() => {
+    const d = data?.globalDashboard;
+    if (!d) return null;
+    const sessionsCur = num(d.sessions_30d);
+    const sessionsPrev = num(d.sessions_prev_30d);
+    const energyCur = num(d.energy_30d);
+    const energyPrev = num(d.energy_prev_30d);
+    const revCur = num(d.revenue_30d);
+    const revPrev = num(d.revenue_prev_30d);
+    return {
+      sessionsCur,
+      sessionsPrev,
+      sessionDelta: sessionsCur - sessionsPrev,
+      energyCur,
+      energyPrev,
+      energyPct: pctOrCompute(d.energy_growth_pct, energyCur, energyPrev),
+      revCur,
+      revPrev,
+      revPct: pctOrCompute(d.rev_growth_pct, revCur, revPrev),
+    };
+  }, [data?.globalDashboard]);
 
   const dailyBars = useMemo((): DailyBarRow[] => {
     const rows = ga?.networkRevenueTrendDaily ?? [];
@@ -299,10 +387,19 @@ export default function GlobalAnalyticsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 px-1 pb-8 sm:px-0 sm:pb-10">
+      <FloatingToastRegion live="polite">
+        <FloatingToast
+          show={partialToastShow}
+          tone="warning"
+          onDismiss={() => setPartialToastShow(false)}
+        >
+          Частина запитів повернула порожньо (перевірте VIEW та функції в БД).
+        </FloatingToast>
+      </FloatingToastRegion>
       <header className="border-b border-slate-200 pb-4">
         <div className={`${userPortalPageHeaderRow} sm:items-start`}>
           <div className="min-w-0">
-            <h1 className={`${globalAdminPageTitle} sm:text-3xl`}>Аналітика мережі</h1>
+            <h1 className={globalAdminPageTitle}>Аналітика</h1>
           </div>
           <div className="w-full min-w-0 sm:w-auto">
             <PeriodSegmentedControl
@@ -333,12 +430,6 @@ export default function GlobalAnalyticsPage() {
         </div>
       ) : null}
 
-      {!loading && !error && data?.partial ? (
-        <div className="rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-sm text-amber-950">
-          Частина запитів повернула порожньо (перевірте VIEW та функції в БД).
-        </div>
-      ) : null}
-
       {!loading && !error ? (
         <GlobalAnalyticsSectionTabs section={section} onSection={setSection} tabs={sectionTabs} />
       ) : null}
@@ -347,6 +438,90 @@ export default function GlobalAnalyticsPage() {
         <div className="space-y-6 pt-4">
           {section === 'overview' ? (
             <section className="mx-auto max-w-4xl space-y-3" aria-labelledby="global-analytics-summary-heading">
+              {rolling30 ? (
+                <Panel
+                  title="Порівняння 30 днів із попередніми 30 днями"
+                  subtitle=""
+                  className="overflow-hidden"
+                >
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/90 p-4">
+                      <p className="text-xs font-medium text-slate-500">Кількість сесій</p>
+                      <p
+                        className={`mt-3 text-2xl font-bold leading-tight tracking-tight sm:text-3xl ${deltaToneClass(rolling30.sessionDelta)}`}
+                      >
+                        {rolling30.sessionDelta === 0
+                          ? 'Без змін'
+                          : `На ${Math.abs(rolling30.sessionDelta)} ${sessionDeltaStatusUa(rolling30.sessionDelta)}`}
+                      </p>
+                     
+                      <p className="mt-3 text-[11px] leading-snug text-slate-500">
+                        Останні 30 днів:{' '}
+                        <span className="font-semibold tabular-nums text-slate-700">
+                          {rolling30.sessionsCur.toLocaleString('uk-UA')}
+                        </span>
+                        {' · '}
+                        Попередні 30:{' '}
+                        <span className="font-semibold tabular-nums text-slate-700">
+                          {rolling30.sessionsPrev.toLocaleString('uk-UA')}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-100 bg-white p-4">
+                      <p className="text-xs font-medium text-slate-500">Спожито енергії</p>
+                      {rolling30.energyPct != null && Number.isFinite(rolling30.energyPct) ? (
+                        <p
+                          className={`mt-3 text-2xl font-bold leading-tight tracking-tight sm:text-3xl ${deltaToneClass(rolling30.energyPct)}`}
+                        >
+                          {rolling30.energyPct === 0
+                            ? 'Без змін'
+                            : `На ${fmtAbsPctOne(rolling30.energyPct)}% ${pctDeltaStatusUa(rolling30.energyPct)}`}
+                        </p>
+                      ) : (
+                        <p className="mt-3 text-2xl font-semibold text-slate-400">—</p>
+                      )}
+                     
+                      <p className="mt-3 text-[11px] leading-snug text-slate-500">
+                        Останні 30 днів:{' '}
+                        <span className="font-semibold tabular-nums text-slate-700">
+                          {fmtKwhUa(rolling30.energyCur)} кВт·год
+                        </span>
+                        {' · '}
+                        Попередні 30:{' '}
+                        <span className="font-semibold tabular-nums text-slate-700">
+                          {fmtKwhUa(rolling30.energyPrev)} кВт·год
+                        </span>
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-emerald-100/80 bg-emerald-50/50 p-4">
+                      <p className="text-xs font-medium text-slate-600">Прибуток (суми bill)</p>
+                      {rolling30.revPct != null && Number.isFinite(rolling30.revPct) ? (
+                        <p
+                          className={`mt-3 text-2xl font-bold leading-tight tracking-tight sm:text-3xl ${deltaToneClass(-rolling30.revPct)}`}
+                        >
+                          {rolling30.revPct === 0
+                            ? 'Без змін'
+                            : `На ${fmtAbsPctOne(rolling30.revPct)}% ${pctDeltaStatusUa(rolling30.revPct)}`}
+                        </p>
+                      ) : (
+                        <p className="mt-3 text-2xl font-semibold text-slate-400">—</p>
+                      )}
+                    
+                      <p className="mt-3 text-[11px] leading-snug text-slate-600">
+                        Останні 30 днів:{' '}
+                        <span className="font-semibold tabular-nums text-slate-800">
+                          {fmtMoneyUa(rolling30.revCur)} ₴
+                        </span>
+                        {' · '}
+                        Попередні 30:{' '}
+                        <span className="font-semibold tabular-nums text-slate-800">
+                          {fmtMoneyUa(rolling30.revPrev)} ₴
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </Panel>
+              ) : null}
               <h2 id="global-analytics-summary-heading" className="text-sm font-semibold text-slate-900 sm:text-base">
                 Зведення за період
               </h2>
@@ -384,7 +559,7 @@ export default function GlobalAnalyticsPage() {
                       valueClassName="text-base sm:text-lg"
                     />
                     <SessionSummaryStatCard
-                      label="Сер. енергія (COMPLETED)"
+                      label="Сер. енергія"
                       value={
                         ga.networkSessionStats.avg_kwh == null
                           ? '—'

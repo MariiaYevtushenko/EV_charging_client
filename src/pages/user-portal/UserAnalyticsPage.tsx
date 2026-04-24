@@ -11,13 +11,11 @@ import {
 } from 'recharts';
 import { useAuth } from '../../context/AuthContext';
 import { ApiError, userFacingApiErrorMessage } from '../../api/http';
-import {
-  fetchUserAnalyticsViews,
-  type UserAnalyticsPeriod,
-  type UserAnalyticsViewsResponse,
-} from '../../api/userAnalytics';
+import type { NetworkListPeriod } from '../../api/adminNetwork';
+import { fetchUserAnalyticsViews, type UserAnalyticsViewsResponse } from '../../api/userAnalytics';
 import { AppCard } from '../../components/station-admin/Primitives';
-import { PeriodSegmentedControl } from '../../components/analytics/PeriodSegmentedControl';
+import { FloatingToast, FloatingToastRegion } from '../../components/admin/FloatingToast';
+import NetworkListPeriodControl from '../../components/admin/NetworkListPeriodControl';
 import {
   userPortalBookingStatus,
   userPortalIconTileMd,
@@ -26,12 +24,7 @@ import {
   userPortalPageTitle,
 } from '../../styles/userPortalTheme';
 
-const PERIOD_OPTIONS: { value: UserAnalyticsPeriod; label: string }[] = [
-  { value: 'today', label: 'Сьогодні' },
-  { value: '7d', label: '7 днів' },
-  { value: '30d', label: '30 днів' },
-  { value: 'all', label: 'Увесь час' },
-];
+const PARTIAL_TOAST_MS = 5000;
 
 type UserAnalyticsSectionTab = 'overview' | 'charts' | 'stations' | 'bookings' | 'cars';
 
@@ -106,11 +99,12 @@ function KpiCard({ title, value, hint }: { title: string; value: string; hint?: 
 export default function UserAnalyticsPage() {
   const { user } = useAuth();
   const userId = user?.id != null ? Number(user.id) : NaN;
-  const [period, setPeriod] = useState<UserAnalyticsPeriod>('30d');
+  const [period, setPeriod] = useState<NetworkListPeriod>('30d');
   const [sectionTab, setSectionTab] = useState<UserAnalyticsSectionTab>('overview');
   const [data, setData] = useState<UserAnalyticsViewsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [partialToastShow, setPartialToastShow] = useState(false);
 
   useEffect(() => {
     if (!Number.isFinite(userId) || userId <= 0) {
@@ -141,6 +135,24 @@ export default function UserAnalyticsPage() {
       cancelled = true;
     };
   }, [userId, period]);
+
+  useEffect(() => {
+    if (!Number.isFinite(userId) || userId <= 0) {
+      setPartialToastShow(false);
+      return;
+    }
+    if (loading) {
+      setPartialToastShow(false);
+      return;
+    }
+    if (error || !data?.partial) {
+      setPartialToastShow(false);
+      return;
+    }
+    setPartialToastShow(true);
+    const id = window.setTimeout(() => setPartialToastShow(false), PARTIAL_TOAST_MS);
+    return () => window.clearTimeout(id);
+  }, [userId, loading, error, data?.partial, period]);
 
   const trendChart = useMemo(() => {
     const rows = data?.trend ?? [];
@@ -174,7 +186,7 @@ export default function UserAnalyticsPage() {
     return { current, previous: prev };
   }, []);
 
-  const trendBucketPhrase = period === 'all' ? 'по місяцях' : 'по днях';
+  const trendBucketPhrase: 'по місяцях' | 'по днях' = period === 'all' ? 'по місяцях' : 'по днях';
   const chartTitleKwh = `Споживання ${trendBucketPhrase}`;
   const chartTitleSpend = `Витрати ${trendBucketPhrase}`;
 
@@ -209,27 +221,21 @@ export default function UserAnalyticsPage() {
 
   return (
     <div className={`space-y-8 pb-12 ${userPortalListPageShell}`}>
-      <header className={userPortalPageHeaderRow}>
-        <div className="min-w-0">
-          <h1 className={userPortalPageTitle}>Аналітика</h1>
-        </div>
-        <PeriodSegmentedControl
-          value={period}
-          onChange={(v) => setPeriod(v as UserAnalyticsPeriod)}
-          options={PERIOD_OPTIONS}
-          disabled={loading}
-          className="sm:justify-end"
-        />
-      </header>
-
-      {data?.partial ? (
-        <div
-          className="rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950"
-          role="status"
+      <FloatingToastRegion live="polite">
+        <FloatingToast
+          show={partialToastShow}
+          tone="warning"
+          onDismiss={() => setPartialToastShow(false)}
         >
           Частина даних могла не завантажитися. Оновіть сторінку або спробуйте пізніше.
+        </FloatingToast>
+      </FloatingToastRegion>
+      <header className={userPortalPageHeaderRow}>
+        <h1 className={`${userPortalPageTitle} shrink-0`}>Аналітика</h1>
+        <div className="min-w-0 sm:flex sm:shrink-0 sm:justify-end">
+          <NetworkListPeriodControl value={period} onChange={setPeriod} disabled={loading} />
         </div>
-      ) : null}
+      </header>
 
       {loading ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white py-20 shadow-sm">

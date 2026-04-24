@@ -199,7 +199,7 @@ export type UserBookingApiRow = {
 function mapDbStatusToUi(dbStatus: string, startMs: number, endMs: number): UserBookingStatus {
   const now = Date.now();
   if (dbStatus === 'CANCELLED') return 'cancelled';
-  if (dbStatus === 'MISSED' || dbStatus === 'NO_ACTION') return 'missed';
+  if (dbStatus === 'MISSED') return 'missed';
   if (dbStatus === 'COMPLETED') return 'completed';
   if (dbStatus === 'BOOKED') {
     if (endMs <= now) return 'completed';

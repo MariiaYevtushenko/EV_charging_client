@@ -10,15 +10,29 @@ export type StationOverviewCounts = {
   archived: number;
 };
 
+/** Колонки сортування для `view_stationsessionstatslast30days` (узгоджено з бекендом). */
+export type SessionStatsViewSortKey =
+  | "station_id"
+  | "station_name"
+  | "total_sessions"
+  | "avg_duration_minutes"
+  | "avg_kwh"
+  | "total_revenue"
+  | "avg_bill_amount";
+
+export type SessionStatsViewSortDir = "asc" | "desc";
+
 export type PaginatedViewBlock = {
   items: Record<string, unknown>[];
   total: number;
   page: number;
   pageSize: number;
+  sortBy?: SessionStatsViewSortKey;
+  sortDir?: SessionStatsViewSortDir;
 };
 
-export type StationAdminPeakBlock = {
-  stationId: number;
+/** Піки мережі — `GetNetworkPeakHourBuckets`. */
+export type StationAdminNetworkPeakBlock = {
   period: StationAdminAnalyticsPeriod;
   periodFrom: string;
   periodTo: string;
@@ -52,8 +66,7 @@ export type StationAdminSnapshot = {
   networkTopStations: Record<string, unknown>[];
   networkBottomStations: Record<string, unknown>[];
   sessionStatsViewPage: PaginatedViewBlock;
-  portStatsViewPage: PaginatedViewBlock;
-  peakForStation: StationAdminPeakBlock | null;
+  networkPeakHours: StationAdminNetworkPeakBlock;
   stationId: number | null;
   stationDetail: StationAdminStationDetail | null;
 };
@@ -71,16 +84,9 @@ export type GlobalAdminSnapshot = {
   networkTopCountries: Record<string, unknown>[];
 };
 
-/** Відповідь GET /api/admin/analytics/views — дані з SQL VIEW (View.sql) + зріз адміна станцій. */
+/** Відповідь GET /api/admin/analytics/views — дані з SQL VIEW + зрізи адмінів (у т. ч. View_AdminGlobalDashboard у Global_admin_analytics.sql). */
 export type AdminAnalyticsViewsResponse = {
   globalDashboard: Record<string, unknown> | null;
-  stationPerformance: Record<string, unknown>[];
-  userAnalyticsComparison: Record<string, unknown>[];
-  userStationLoyalty: Record<string, unknown>[];
-  cityPerformance: Record<string, unknown>[];
-  userSegments: Record<string, unknown>[];
-  activeSessions: Record<string, unknown>[];
-  upcomingBookings: Record<string, unknown>[];
   /** VIEW View_Admin_SessionStatisticByPortType_30 — сесії/kWh/грн по типу конектора, 30 днів, уся мережа. */
   sessionStatsByPortType30d: Record<string, unknown>[];
   stationAdminSnapshot: StationAdminSnapshot;
@@ -95,9 +101,8 @@ export type FetchAdminAnalyticsViewsOptions = {
   fewestPeriod?: StationAdminAnalyticsPeriod;
   sessionStatsPage?: number;
   sessionStatsPageSize?: number;
-  portStatsPage?: number;
-  portStatsPageSize?: number;
-  peakStationId?: number;
+  sessionStatsSortBy?: SessionStatsViewSortKey;
+  sessionStatsSortDir?: SessionStatsViewSortDir;
   peakPeriod?: StationAdminAnalyticsPeriod;
   /** Днів для зрізу global admin (Global_admin_analytics.sql), 1–365. */
   globalPeriodDays?: number;
@@ -122,14 +127,20 @@ export function fetchAdminAnalyticsViews(opts?: FetchAdminAnalyticsViewsOptions)
   if (opts?.sessionStatsPageSize != null && opts.sessionStatsPageSize > 0) {
     params.set("sessionStatsPageSize", String(Math.floor(opts.sessionStatsPageSize)));
   }
-  if (opts?.portStatsPage != null && opts.portStatsPage > 0) {
-    params.set("portStatsPage", String(Math.floor(opts.portStatsPage)));
+  const sortKeys: SessionStatsViewSortKey[] = [
+    "station_id",
+    "station_name",
+    "total_sessions",
+    "avg_duration_minutes",
+    "avg_kwh",
+    "total_revenue",
+    "avg_bill_amount",
+  ];
+  if (opts?.sessionStatsSortBy != null && sortKeys.includes(opts.sessionStatsSortBy)) {
+    params.set("sessionStatsSortBy", opts.sessionStatsSortBy);
   }
-  if (opts?.portStatsPageSize != null && opts.portStatsPageSize > 0) {
-    params.set("portStatsPageSize", String(Math.floor(opts.portStatsPageSize)));
-  }
-  if (opts?.peakStationId != null && Number.isFinite(opts.peakStationId) && opts.peakStationId > 0) {
-    params.set("peakStationId", String(Math.floor(opts.peakStationId)));
+  if (opts?.sessionStatsSortDir === "asc" || opts?.sessionStatsSortDir === "desc") {
+    params.set("sessionStatsSortDir", opts.sessionStatsSortDir);
   }
   if (opts?.globalPeriodDays != null && Number.isFinite(opts.globalPeriodDays) && opts.globalPeriodDays > 0) {
     params.set("globalPeriodDays", String(Math.min(365, Math.max(1, Math.floor(opts.globalPeriodDays)))));

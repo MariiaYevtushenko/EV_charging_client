@@ -246,7 +246,7 @@ export default function GlobalAdminHome() {
           <AdminAccentCard hover className="group">
             <AdminAccentRow icon={<IconChart className="h-6 w-6" />}>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Аналітика</p>
-              <p className="mt-1 text-sm leading-relaxed text-slate-600">Графіки та зведення з БД</p>
+             
               <Link to="/admin-dashboard/analytics" className={`${kpiLinkClass} mt-3`}>
                 Відкрити
                 <IconChevron className="h-4 w-4 transition group-hover:translate-x-0.5" />
@@ -282,9 +282,7 @@ export default function GlobalAdminHome() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.15em] text-white/80">Інтерактивна мапа</p>
               <p className="mt-1 text-xl font-bold sm:text-2xl">Карта мережі зарядки</p>
-              <p className="mt-1 max-w-xl text-sm text-white/90">
-                Фільтри, маркери станцій і картка обраної точки на одному екрані.
-              </p>
+             
             </div>
           </div>
           <span className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold ring-1 ring-white/25 transition group-hover:bg-white/25 sm:self-center">

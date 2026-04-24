@@ -214,7 +214,7 @@ export default function StationAdminLayout() {
           </NavLink>
           <NavLink to="/station-dashboard/analytics" className={navLinkClass}>
             <ChartIcon className="h-5 w-5 shrink-0 opacity-90" />
-            Показники мережі
+            Аналітика
           </NavLink>
           <NavLink to="/station-dashboard/profile" className={navLinkClass}>
             <UserIcon className="h-5 w-5 shrink-0 opacity-90" />

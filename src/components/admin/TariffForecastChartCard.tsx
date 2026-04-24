@@ -101,11 +101,7 @@ export default function TariffForecastChartCard() {
         <p className="py-12 text-center text-sm text-slate-500">Завантаження прогнозу…</p>
       ) : !hasAny ? (
         <p className="rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
-          Немає точок прогнозу. Переконайтесь, що у БД є історія в <span className="font-medium">tariff</span>, Python
-          доступний на сервері (<code className="rounded bg-white/80 px-1">PYTHON_PATH</code>), і зачекайте кілька секунд
-          після перезапуску API — модель стартує автоматично. Можна оновити вручну:{' '}
-          <code className="rounded bg-white/80 px-1">POST /api/admin/forecast/run-model</code> (з cron-секретом, якщо
-          налаштовано).
+          Прогноз тарифів відсутній
         </p>
       ) : (
         <div className="h-[min(360px,55vh)] w-full min-h-[280px]">
